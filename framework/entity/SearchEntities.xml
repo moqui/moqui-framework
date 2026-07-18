@@ -16,8 +16,15 @@ along with this software (see the LICENSE.md file). If not, see
     PostgreSQL-backed search and logging entities.
     These tables are created by PostgresElasticClient.initSchema() at startup when type=postgres is configured.
     Entity definitions here are provided for Moqui entity framework access (queries, etc) — they reference the
-    same underlying tables. The actual CREATE TABLE SQL includes JSONB columns and GIN/BRIN indexes that go
-    beyond what Moqui entities can express, so the DDL is managed by PostgresElasticClient directly.
+    same underlying tables. The actual CREATE TABLE SQL includes JSONB/TSVECTOR columns and GIN/BRIN indexes
+    that go beyond what Moqui entities can express, so the DDL is managed by PostgresElasticClient directly.
+
+    Schema ownership: PostgresElasticClient.initSchema() is the authoritative owner of these tables' DDL
+    (column types, indexes). Moqui's entity-sync (EntityDbMeta, driven by the entity defs below) runs at
+    startup BEFORE PostgresElasticClient is constructed, and may create missing tables/columns using the
+    generic Moqui type mapping (e.g. TEXT instead of JSONB/TSVECTOR) declared here. initSchema() detects and
+    heals any such type mismatches afterward (see ensureColumnType() in PostgresElasticClient.groovy), so the
+    entity defs below only need to be name/shape-compatible, not byte-for-byte type-accurate.
 -->
 <entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-3.xsd">
@@ -49,8 +56,12 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="docType" type="text-medium"/>
         <!-- document stored as JSON text; actual column is JSONB in PostgreSQL with GIN index -->
         <field name="documentJson" type="text-very-long" column-name="document"/>
-        <!-- content_text is the extracted text for full-text search; content_tsv is a GENERATED ALWAYS AS tsvector column — not mapped here since Moqui can't express it, but it exists in the DB -->
+        <!-- content_text is the extracted text for full-text search. content_tsv is the real PostgreSQL
+             TSVECTOR column; Moqui has no native tsvector field type, so it's declared here as
+             text-very-long purely so entity-sync is aware of the column (avoids "unknown columns"
+             warnings from EntityDbMeta) — initSchema() owns and heals the actual TSVECTOR type. -->
         <field name="contentText" type="text-very-long" column-name="content_text"/>
+        <field name="contentTsv" type="text-very-long" column-name="content_tsv"/>
         <field name="createdStamp" type="date-time" default="ec.user.nowTimestamp" column-name="created_stamp"/>
         <field name="updatedStamp" type="date-time" column-name="updated_stamp"/>
         <index name="SRCH_DOC_TYPE" unique="false"><index-field name="docType"/></index>

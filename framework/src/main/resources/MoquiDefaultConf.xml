@@ -497,10 +497,15 @@
             </inline-jdbc>
         </datasource>
 
-        <!-- The logging group uses elastic-facade.cluster to talk to Elastic/OpenSearch by default.
-             When using type=postgres cluster, override in MoquiConf.xml to use the standard transactional datasource:
+        <!-- The logging group uses elastic-facade.cluster (via ElasticDatasourceFactory) to write log/HTTP-log
+             documents. This works automatically no matter which ElasticFacade.ElasticClient implementation the
+             "default" cluster resolves to — including a type="postgres" cluster (PostgresElasticClient) — since
+             ElasticDatasourceFactory.getElasticClient() resolves purely through the ElasticClient interface
+             (see ElasticDatasourceFactory.groovy). No override is needed when the default cluster is postgres;
+             logging simply flows into the moqui_logs/moqui_http_log tables that backend manages. Override this
+             only if you want the logging group to use a *different* datasource/cluster than "default", e.g.:
              <datasource group-name="logging" runtime-add-missing="true" startup-add-missing="false"/>
-             OR keep ElasticDatasourceFactory and point it to the same cluster. -->
+             to write logs straight into the standard transactional database instead. -->
         <datasource group-name="logging" runtime-add-missing="true" startup-add-missing="false"
                 object-factory="org.moqui.impl.entity.elastic.ElasticDatasourceFactory">
             <inline-other index-prefix="logging-" cluster-name="default"/>

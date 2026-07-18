@@ -101,6 +101,53 @@ class PostgresSearchTranslatorTests {
     }
 
     // ============================================================
+    // Configurable text-search language (text-config, Issue #2)
+    // ============================================================
+
+    @Test
+    @DisplayName("query_string uses 'english' text config by default")
+    void queryString_defaultsToEnglishTextConfig() {
+        ElasticQueryTranslator.clearTextConfig()
+        try {
+            QueryResult qr = ElasticQueryTranslator.translateQuery([query_string: [query: "moqui framework"]])
+            Assertions.assertTrue(qr.clause.contains("websearch_to_tsquery('english', ?)"),
+                    "clause should default to the english text search configuration")
+            Assertions.assertTrue(qr.tsqueryExpr.contains("websearch_to_tsquery('english', ?)"),
+                    "tsqueryExpr should default to the english text search configuration")
+        } finally {
+            ElasticQueryTranslator.clearTextConfig()
+        }
+    }
+
+    @Test
+    @DisplayName("query_string honors a configured non-default text config (e.g. 'simple')")
+    void queryString_honorsConfiguredTextConfig() {
+        ElasticQueryTranslator.setTextConfig("simple")
+        try {
+            QueryResult qr = ElasticQueryTranslator.translateQuery([query_string: [query: "moqui framework"]])
+            Assertions.assertTrue(qr.clause.contains("websearch_to_tsquery('simple', ?)"),
+                    "clause should use the configured 'simple' text search configuration")
+            Assertions.assertTrue(qr.tsqueryExpr.contains("websearch_to_tsquery('simple', ?)"),
+                    "tsqueryExpr should use the configured 'simple' text search configuration")
+        } finally {
+            ElasticQueryTranslator.clearTextConfig()
+        }
+    }
+
+    @Test
+    @DisplayName("buildHighlightExpr honors a configured text config for ts_headline")
+    void buildHighlightExpr_honorsConfiguredTextConfig() {
+        ElasticQueryTranslator.setTextConfig("simple")
+        try {
+            String expr = ElasticQueryTranslator.buildHighlightExpr("document->>'description'", "some_tsquery_expr")
+            Assertions.assertTrue(expr.contains("ts_headline('simple',"),
+                    "ts_headline call should use the configured 'simple' text search configuration")
+        } finally {
+            ElasticQueryTranslator.clearTextConfig()
+        }
+    }
+
+    // ============================================================
     // term
     // ============================================================
 
@@ -443,6 +490,50 @@ class PostgresSearchTranslatorTests {
         Assertions.assertThrows(IllegalArgumentException) {
             ElasticQueryTranslator.translateQuery([range: ["x' OR '1'='1": [gte: "2024-01-01"]]])
         }
+    }
+
+    @Test
+    @DisplayName("guessCastType only ever returns a whitelisted cast suffix")
+    void guessCastType_onlyReturnsWhitelistedSuffixes() {
+        Set<String> allowed = ["", "::numeric", "::timestamptz"] as Set<String>
+        // Field-name heuristics
+        Assertions.assertTrue(allowed.contains(ElasticQueryTranslator.guessCastType("createdDate")))
+        Assertions.assertTrue(allowed.contains(ElasticQueryTranslator.guessCastType("orderAmount")))
+        Assertions.assertTrue(allowed.contains(ElasticQueryTranslator.guessCastType("someRandomField")))
+        // Value-based heuristics
+        Assertions.assertTrue(allowed.contains(ElasticQueryTranslator.guessCastType("ambiguousField", 12345678901L)))
+        Assertions.assertTrue(allowed.contains(ElasticQueryTranslator.guessCastType("ambiguousField", "3.14")))
+        Assertions.assertTrue(allowed.contains(ElasticQueryTranslator.guessCastType("ambiguousField", "2024-01-01")))
+        Assertions.assertTrue(allowed.contains(ElasticQueryTranslator.guessCastType("ambiguousField", "not a number")))
+        // Even with an attacker-influenced sample value (arbitrary text), the cast suffix returned must
+        // still be one of the three fixed literals — the value is only ever pattern-matched, never
+        // echoed back into the cast expression itself.
+        Assertions.assertTrue(allowed.contains(
+                ElasticQueryTranslator.guessCastType("ambiguousField", "'; DROP TABLE moqui_document;--")))
+    }
+
+    @Test
+    @DisplayName("guessCastType prefers the declared mapping type over its field-name heuristics (Issue #9)")
+    void guessCastType_prefersDeclaredMappingType() {
+        try {
+            // "widgetTally" has no date/amount/count-like name, so the heuristic alone would guess ""
+            // (text) for a non-numeric-looking sample. A declared mapping type should override that.
+            Assertions.assertEquals("", ElasticQueryTranslator.guessCastType("widgetTally", "not a number"))
+
+            ElasticQueryTranslator.setFieldTypeMap(["widgetTally": "long", "eventOccurred": "date", "label": "keyword"])
+
+            Assertions.assertEquals("::numeric", ElasticQueryTranslator.guessCastType("widgetTally", "not a number"))
+            Assertions.assertEquals("::timestamptz", ElasticQueryTranslator.guessCastType("eventOccurred", "not a number"))
+            // Mapped but unrecognized/non-castable ES type (e.g. "keyword") falls back to the heuristic
+            Assertions.assertEquals("", ElasticQueryTranslator.guessCastType("label", "not a number"))
+            // Fields absent from the map still fall back to the heuristic
+            Assertions.assertTrue(
+                    ["", "::numeric", "::timestamptz"].contains(ElasticQueryTranslator.guessCastType("unmappedField")))
+        } finally {
+            ElasticQueryTranslator.clearFieldTypeMap()
+        }
+        // After clearing, behavior reverts to heuristic-only
+        Assertions.assertEquals("", ElasticQueryTranslator.guessCastType("widgetTally", "not a number"))
     }
 
     @Test

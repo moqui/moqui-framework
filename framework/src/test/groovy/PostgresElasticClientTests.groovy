@@ -60,11 +60,14 @@ class PostgresElasticClientTests {
                  "pg_test_documents_delete_test", "pg_test_documents_put_mapping",
                  "pg_test_documents_crud", "pg_test_documents_get_source",
                  "pg_test_documents_multi_get", "pg_test_documents_get_null",
-                 "pg_test_documents_update", "pg_test_documents_doc_delete",
+                 "pg_test_documents_update", "pg_test_documents_update_deepmerge",
+                 "pg_test_documents_doc_delete",
                  "pg_test_documents_bulkindex", "pg_test_documents_bulk_actions",
                  "pg_test_documents_search_all", "pg_test_documents_search_term",
                  "pg_test_documents_search_terms", "pg_test_documents_search_fts",
                  "pg_test_documents_search_bool", "pg_test_documents_search_page",
+                 "pg_test_documents_search_page_overshoot",
+                 "pg_test_documents_search_keyset",
                  "pg_test_documents_searchhits", "pg_test_documents_count",
                  "pg_test_documents_countresp", "pg_test_documents_dbq",
                  "test_data_doc"
@@ -256,6 +259,29 @@ class PostgresElasticClientTests {
             Assertions.assertNotNull(source)
             // original name field should still be there (merge)
             Assertions.assertEquals("Carol", source.get("name"))
+        } finally {
+            if (pgClient.indexExists(idx)) pgClient.deleteIndex(idx)
+        }
+    }
+
+    @Test
+    @DisplayName("update deep-merges nested object fields instead of overwriting them")
+    void update_deepMergesNestedFields() {
+        String idx = TEST_INDEX + "_update_deepmerge"
+        try {
+            pgClient.createIndex(idx, null, null)
+            pgClient.index(idx, "dm001", [name: "Dave",
+                    address: [city: "Springfield", state: "IL", zip: "62701"]])
+            // Partial update of a nested object should only touch the given sub-fields
+            pgClient.update(idx, "dm001", [address: [city: "Chicago"]])
+            Map source = pgClient.getSource(idx, "dm001")
+            Assertions.assertNotNull(source)
+            Assertions.assertEquals("Dave", source.get("name"))
+            Map address = (Map) source.get("address")
+            Assertions.assertNotNull(address)
+            Assertions.assertEquals("Chicago", address.get("city"), "city should be updated")
+            Assertions.assertEquals("IL", address.get("state"), "sibling field state should survive the merge")
+            Assertions.assertEquals("62701", address.get("zip"), "sibling field zip should survive the merge")
         } finally {
             if (pgClient.indexExists(idx)) pgClient.deleteIndex(idx)
         }
@@ -478,6 +504,82 @@ class PostgresElasticClientTests {
             List<Map> hitList = (List<Map>) hits.get("hits")
             Assertions.assertEquals(10L, totalValue, "total should reflect all 10 docs")
             Assertions.assertEquals(5, hitList.size(), "page size should be 5")
+        } finally {
+            if (pgClient.indexExists(idx)) pgClient.deleteIndex(idx)
+        }
+    }
+
+    @Test
+    @DisplayName("search - total is still accurate when the requested page is past the end of the results (Issue #12)")
+    void search_totalAccurateWhenPageIsEmpty() {
+        String idx = TEST_INDEX + "_search_page_overshoot"
+        try {
+            pgClient.createIndex(idx, null, null)
+            (1..10).each { i ->
+                pgClient.index(idx, "o${i}", [name: "Doc ${i}", seq: i])
+            }
+
+            // from=20 is well past the 10 available docs, so this page comes back empty — the total
+            // (computed via the single-query count(*) OVER() optimization when the page has hits, and
+            // a standalone COUNT fallback when it doesn't) must still correctly report 10.
+            Map result = pgClient.search(idx, [
+                query: [match_all: [:]],
+                from: 20, size: 5,
+                track_total_hits: true
+            ])
+            Map hits = (Map) result.get("hits")
+            long totalValue = ((Number) ((Map) hits.get("total")).get("value")).longValue()
+            List<Map> hitList = (List<Map>) hits.get("hits")
+            Assertions.assertEquals(10L, totalValue, "total should still reflect all 10 docs even though this page is empty")
+            Assertions.assertEquals(0, hitList.size(), "page should have no hits past the end of the results")
+        } finally {
+            if (pgClient.indexExists(idx)) pgClient.deleteIndex(idx)
+        }
+    }
+
+    @Test
+    @DisplayName("search - keyset pagination with search_after covers all docs without gaps or duplicates")
+    void search_keysetPaginationWithSearchAfter() {
+        String idx = TEST_INDEX + "_search_keyset"
+        try {
+            pgClient.createIndex(idx, null, null)
+            (1..10).each { i ->
+                pgClient.index(idx, "k${String.format('%02d', i)}", [name: "Doc ${i}", seq: i])
+            }
+
+            // Default ordering (no custom sort, no full-text ranking) must emit a "sort" cursor on
+            // every hit so callers (e.g. ElasticEntityListIterator) can page via search_after.
+            Map firstPage = pgClient.search(idx, [query: [match_all: [:]], size: 4])
+            List<Map> firstHits = (List<Map>) ((Map) firstPage.get("hits")).get("hits")
+            Assertions.assertEquals(4, firstHits.size(), "first page should have 4 hits")
+            for (Map hit in firstHits) {
+                Assertions.assertNotNull(hit.get("sort"), "every hit should carry a keyset sort cursor")
+            }
+
+            Set<String> seenIds = new LinkedHashSet<>()
+            firstHits.each { seenIds.add((String) it.get("_id")) }
+
+            List<Object> searchAfter = (List<Object>) firstHits[-1].get("sort")
+            Map secondPage = pgClient.search(idx, [query: [match_all: [:]], size: 4, search_after: searchAfter])
+            List<Map> secondHits = (List<Map>) ((Map) secondPage.get("hits")).get("hits")
+            Assertions.assertEquals(4, secondHits.size(), "second page should have 4 hits")
+            secondHits.each { hit ->
+                String id = (String) hit.get("_id")
+                Assertions.assertFalse(seenIds.contains(id), "second page should not repeat an id from the first page: ${id}")
+                seenIds.add(id)
+            }
+
+            List<Object> searchAfter2 = (List<Object>) secondHits[-1].get("sort")
+            Map thirdPage = pgClient.search(idx, [query: [match_all: [:]], size: 4, search_after: searchAfter2])
+            List<Map> thirdHits = (List<Map>) ((Map) thirdPage.get("hits")).get("hits")
+            Assertions.assertEquals(2, thirdHits.size(), "third page should have the remaining 2 hits")
+            thirdHits.each { hit ->
+                String id = (String) hit.get("_id")
+                Assertions.assertFalse(seenIds.contains(id), "third page should not repeat an earlier id: ${id}")
+                seenIds.add(id)
+            }
+
+            Assertions.assertEquals(10, seenIds.size(), "all 10 docs should have been seen exactly once across pages")
         } finally {
             if (pgClient.indexExists(idx)) pgClient.deleteIndex(idx)
         }

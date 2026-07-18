@@ -203,7 +203,13 @@ test {
 
     dependsOn cleanTest
     include '**/*MoquiSuite.class'
-    include '**/*PostgresSearchSuite.class'
+    // PostgresSearchSuite requires a live PostgreSQL database and is NOT part of the default test
+    // run (matches its own opt-in docstring). Enable with -PincludePostgresSearch or by setting the
+    // MOQUI_PG_SEARCH=true environment variable, e.g.:
+    //   ./gradlew :framework:test -PincludePostgresSearch
+    if (project.hasProperty('includePostgresSearch') || System.getenv('MOQUI_PG_SEARCH') == 'true') {
+        include '**/*PostgresSearchSuite.class'
+    }
 
     systemProperty 'moqui.runtime', '../runtime'
     systemProperty 'moqui.conf', 'conf/MoquiDevConf.xml'

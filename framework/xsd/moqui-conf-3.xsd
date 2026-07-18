@@ -617,6 +617,19 @@ along with this software (see the LICENSE.md file). If not, see
                 </xs:documentation></xs:annotation></xs:attribute>
                 <xs:attribute name="pool-max" type="xs:positiveInteger"><xs:annotation><xs:documentation>For type=elastic only: HTTP connection pool max size.</xs:documentation></xs:annotation></xs:attribute>
                 <xs:attribute name="queue-size" type="xs:positiveInteger"><xs:annotation><xs:documentation>For type=elastic only: HTTP request queue size.</xs:documentation></xs:annotation></xs:attribute>
+                <xs:attribute name="text-config" type="xs:string"><xs:annotation><xs:documentation>
+                    For type=postgres only: the PostgreSQL text search configuration (regconfig) used for the
+                    to_tsvector/websearch_to_tsquery/ts_headline full-text search calls (e.g. 'english', 'simple',
+                    'pg_catalog.german'). Defaults to 'english'. Must be a simple, optionally schema-qualified
+                    identifier naming an installed text search configuration (it is interpolated into SQL, so it is
+                    validated against a safe-identifier pattern; it can never be a bind parameter).
+                </xs:documentation></xs:annotation></xs:attribute>
+                <xs:attribute name="enable-jsonb-path-index" type="boolean" default="true"><xs:annotation><xs:documentation>
+                    For type=postgres only: whether to create the GIN(jsonb_path_ops) index on the
+                    moqui_document.document JSONB column. Defaults to true so arbitrary JSON-path queries stay fast;
+                    set to false to opt out for log-like or very large/deeply-nested document indices where the extra
+                    write amplification and storage cost of indexing every JSON path isn't worth it.
+                </xs:documentation></xs:annotation></xs:attribute>
             </xs:complexType></xs:element>
         </xs:sequence>
     </xs:complexType></xs:element>
