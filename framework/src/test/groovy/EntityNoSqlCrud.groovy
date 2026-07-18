@@ -38,6 +38,16 @@ class EntityNoSqlCrud extends Specification {
     }
 
     def cleanupSpec() {
+        // remove the bulk-created records so this spec is repeatable against a persistent DB
+        ec.artifactExecution.disableAuthz()
+        ec.transaction.begin(null)
+        for (int i = 0; i < 200; i++) {
+            EntityValue ev = ec.entity.find("moqui.test.TestNoSqlEntity").condition([testId:"BULK" + i]).one()
+            if (ev != null) ev.delete()
+        }
+        ec.transaction.commit()
+        ec.artifactExecution.enableAuthz()
+
         ec.destroy()
     }
 
@@ -117,6 +127,10 @@ class EntityNoSqlCrud extends Specification {
 
         then:
         afterCount == beforeCount + recordCount
+
+        // NOTE: the BULK* records created above are intentionally NOT cleaned up here; the next test
+        // ('ELI find TestNoSqlEntity') depends on them still being present. They are removed in cleanupSpec()
+        // instead so this spec is repeatable against a persistent DB across separate test runs.
     }
 
     def "ELI find TestNoSqlEntity"() {

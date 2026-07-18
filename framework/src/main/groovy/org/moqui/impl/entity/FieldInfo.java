@@ -475,8 +475,23 @@ public class FieldInfo {
                                                  boolean useBinaryTypeForBlob, EntityFacadeImpl efi) throws EntityException {
         try {
             // allow setting, and searching for, String values for all types; JDBC driver should handle this okay
-            if (value instanceof CharSequence) {
+            // NOTE: for numeric field types convert the String to the actual number type instead of
+            // binding as a String; some JDBC drivers/DBs (H2, MySQL) will implicitly cast a varchar
+            // bind parameter to numeric for comparisons, but PostgreSQL does not and will fail with
+            // "operator does not exist: numeric = character varying" (or similar) errors
+            if (value instanceof CharSequence && localTypeValue != 5 && localTypeValue != 6 &&
+                    localTypeValue != 7 && localTypeValue != 8 && localTypeValue != 9) {
                 ps.setString(index, value.toString());
+            } else if (value instanceof CharSequence) {
+                String strValue = value.toString().trim();
+                switch (localTypeValue) {
+                    case 5: ps.setInt(index, Integer.parseInt(strValue)); break;
+                    case 6: ps.setLong(index, Long.parseLong(strValue)); break;
+                    case 7: ps.setFloat(index, Float.parseFloat(strValue)); break;
+                    case 8: ps.setDouble(index, Double.parseDouble(strValue)); break;
+                    case 9: ps.setBigDecimal(index, new BigDecimal(strValue)); break;
+                    default: ps.setString(index, strValue);
+                }
             } else {
                 switch (localTypeValue) {
                 case 1: if (value != null) { ps.setString(index, value.toString()); } else { ps.setNull(index, Types.VARCHAR); } break;
