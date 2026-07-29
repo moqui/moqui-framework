@@ -209,7 +209,7 @@ along with this software (see the LICENSE.md file). If not, see
                         <return message="Please enter current password" public="true" type="danger"/></if>
 
                     <script>
-                        def passwordSalt =  (userAccount.passwordSalt?:'') as String
+                        passwordSalt =  (userAccount.passwordSalt?:'') as String
                         def token = new org.apache.shiro.authc.UsernamePasswordToken((String) userAccount.username, (String) oldPassword)
                         def info = new org.apache.shiro.authc.SimpleAuthenticationInfo(userAccount.username, userAccount.currentPassword,
                                 new org.apache.shiro.lang.util.SimpleByteSource(passwordSalt), "moquiRealm")
@@ -218,7 +218,7 @@ along with this software (see the LICENSE.md file). If not, see
                         <if condition="userAccount.resetPassword"><then>
                             <!-- try the resetPassword -->
                             <script>
-                                def passwordSalt =  (userAccount.passwordSalt?:'') as String
+                                passwordSalt =  (userAccount.passwordSalt?:'') as String
                                 info = new org.apache.shiro.authc.SimpleAuthenticationInfo(userAccount.username, userAccount.resetPassword,
                                         new org.apache.shiro.lang.util.SimpleByteSource(passwordSalt) , "moquiRealm")
                             </script>
