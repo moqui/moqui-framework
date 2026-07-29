@@ -1293,10 +1293,10 @@ File downloadComponent(String targetDirPath, String type, Node component, Node a
     if (type in ['current', 'release', 'binary']) {
         if (privateRepo) {
             def compVersion = component.'@version'
-            // Regex: 3 or 4 dot-separated numeric parts (e.g. 1.0.0 or 1.2.3.4)
-            def versionPattern = ~/^\d+(\.\d+){2,3}$/
+            // Private repository release tags include a v prefix, including release candidates.
+            def releaseTagPattern = ~/^v?\d+\.\d+\.\d+(?:-RC\d+)?$/
 
-            if (compVersion ==~ versionPattern) {
+            if (compVersion ==~ releaseTagPattern && !compVersion.startsWith('v')) {
                 compVersion = "v$compVersion"
             }
             /*FIXME: Need to update the getComponent code to handle the */
