@@ -1,0 +1,67 @@
+diff --git a/framework/template/XmlActions.groovy.ftl b/framework/template/XmlActions.groovy.ftl
+index 3d2a1555b..0671c30ae 100644
+--- a/framework/template/XmlActions.groovy.ftl
++++ b/framework/template/XmlActions.groovy.ftl
+@@ -122,7 +122,7 @@ ${.node}
+ <#macro "entity-find-one">
+     <#assign autoFieldMap = .node["@auto-field-map"]?if_exists>
+     if (true) {
+-        org.moqui.entity.EntityValue find_one_result = ec.entity.find("${.node["@entity-name"]}")<#if .node["@cache"]?has_content>.useCache(${.node["@cache"]})</#if><#if .node["@for-update"]?has_content>.forUpdate(${.node["@for-update"]})</#if><#if .node["@use-clone"]?has_content>.useClone(${.node["@use-clone"]})</#if>
++        org.moqui.entity.EntityValue find_one_result = ec.entity.find("${.node["@entity-name"]}")<#if .node["@cache"]?has_content>.useCache(${.node["@cache"]})</#if><#if .node["@for-update"]?has_content>.forUpdate(${.node["@for-update"]})</#if><#if .node["@use-clone"]?has_content>.useClone(${.node["@use-clone"]})</#if><#if .node["@disable-authz"]?if_exists == "true">.disableAuthz()</#if>
+                 <#if autoFieldMap?has_content><#if autoFieldMap == "true">.condition(context)<#elseif autoFieldMap != "false">.condition(${autoFieldMap})</#if><#elseif !.node["field-map"]?has_content>.condition(context)</#if><#list .node["field-map"] as fieldMap>.condition("${fieldMap["@field-name"]}", <#if fieldMap["@from"]?has_content>${fieldMap["@from"]}<#elseif fieldMap["@value"]?has_content>"""${fieldMap["@value"]}"""<#else>${fieldMap["@field-name"]}</#if>)</#list><#list .node["select-field"] as sf>.selectField("${sf["@field-name"]}")</#list>.one()
+         if (${.node["@value-field"]} instanceof Map && !(${.node["@value-field"]} instanceof org.moqui.entity.EntityValue)) { if (find_one_result) ${.node["@value-field"]}.putAll(find_one_result) } else { ${.node["@value-field"]} = find_one_result }
+     }
+@@ -131,7 +131,7 @@ ${.node}
+     <#assign useCache = (.node["@cache"]?if_exists == "true")>
+     <#assign listName = .node["@list"]>
+     <#assign doPaginate = .node["search-form-inputs"]?has_content && !(.node["search-form-inputs"][0]["@paginate"]?if_exists == "false")>
+-    ${listName}_xafind = ec.entity.find("${.node["@entity-name"]}")<#if .node["@cache"]?has_content>.useCache(${.node["@cache"]})</#if><#if .node["@for-update"]?has_content>.forUpdate(${.node["@for-update"]})</#if><#if .node["@distinct"]?has_content>.distinct(${.node["@distinct"]})</#if><#if .node["@use-clone"]?has_content>.useClone(${.node["@use-clone"]})</#if><#if .node["@offset"]?has_content>.offset(${.node["@offset"]})</#if><#if .node["@limit"]?has_content>.limit(${.node["@limit"]})</#if><#list .node["select-field"] as sf>.selectField("${sf["@field-name"]}")</#list><#list .node["order-by"] as ob>.orderBy("${ob["@field-name"]}")</#list>
++    ${listName}_xafind = ec.entity.find("${.node["@entity-name"]}")<#if .node["@cache"]?has_content>.useCache(${.node["@cache"]})</#if><#if .node["@for-update"]?has_content>.forUpdate(${.node["@for-update"]})</#if><#if .node["@distinct"]?has_content>.distinct(${.node["@distinct"]})</#if><#if .node["@use-clone"]?has_content>.useClone(${.node["@use-clone"]})</#if><#if .node["@disable-authz"]?if_exists == "true">.disableAuthz()</#if><#if .node["@offset"]?has_content>.offset(${.node["@offset"]})</#if><#if .node["@limit"]?has_content>.limit(${.node["@limit"]})</#if><#list .node["select-field"] as sf>.selectField("${sf["@field-name"]}")</#list><#list .node["order-by"] as ob>.orderBy("${ob["@field-name"]}")</#list>
+             <#if !useCache><#list .node["date-filter"] as df>.condition(<#visit df/>)</#list></#if><#list .node["econdition"] as ecn>.condition(<#visit ecn/>)</#list><#list .node["econditions"] as ecs>.condition(<#visit ecs/>)</#list>
+     <#list .node["econdition-object"] as eco><#if eco["@field"]?has_content>
+         if (${eco["@field"]} != null) { ${listName}_xafind.condition(${eco["@field"]}) }
+@@ -205,6 +205,7 @@ ${.node}
+     ${.node["@count-field"]} = ec.entity.find("${.node["@entity-name"]}")
+         <#t><#if .node["@cache"]?has_content>.useCache(${.node["@cache"]})</#if>
+         <#t><#if .node["@distinct"]?has_content>.distinct(${.node["@distinct"]})</#if>
++        <#t><#if .node["@disable-authz"]?if_exists == "true">.disableAuthz()</#if>
+         <#t><#if .node["search-form-inputs"]?has_content>.searchFormMap(${"ec.context"}, efSfiDefParams, "${sfiNode["@skip-fields"]!("")}", null, false)</#if>
+         <#t><#list .node["select-field"] as sf>.selectField("${sf["@field-name"]}")</#list>
+         <#t><#list .node["date-filter"] as df>.condition(<#visit df/>)</#list>
+diff --git a/framework/xsd/xml-actions-3.xsd b/framework/xsd/xml-actions-3.xsd
+index 01587c0f6..ac173ffa2 100644
+--- a/framework/xsd/xml-actions-3.xsd
++++ b/framework/xsd/xml-actions-3.xsd
+@@ -349,6 +349,10 @@ along with this software (see the LICENSE.md file). If not, see
+             <xs:attribute name="use-clone" default="false" type="boolean">
+                 <xs:annotation><xs:documentation>Use a datasource clone, if one is configured</xs:documentation></xs:annotation>
+             </xs:attribute>
++            <xs:attribute name="disable-authz" type="boolean" default="false">
++                <xs:annotation><xs:documentation>Disable authorization checks (and row-level EntityFilters) for this
++                    find. Equivalent to ec.entity.find(...).disableAuthz() in script.</xs:documentation></xs:annotation>
++            </xs:attribute>
+         </xs:complexType>
+     </xs:element>
+     <xs:element name="entity-find" substitutionGroup="EntityFindOperations">
+@@ -410,6 +414,10 @@ along with this software (see the LICENSE.md file). If not, see
+             <xs:attribute name="limit" type="xs:string">
+                 <xs:annotation><xs:documentation>Get back only this many results.</xs:documentation></xs:annotation>
+             </xs:attribute>
++            <xs:attribute name="disable-authz" type="boolean" default="false">
++                <xs:annotation><xs:documentation>Disable authorization checks (and row-level EntityFilters) for this
++                    find. Equivalent to ec.entity.find(...).disableAuthz() in script.</xs:documentation></xs:annotation>
++            </xs:attribute>
+         </xs:complexType>
+     </xs:element>
+     <xs:element name="search-form-inputs">
+@@ -657,6 +665,10 @@ along with this software (see the LICENSE.md file). If not, see
+                 <xs:annotation><xs:documentation>Get only distinct results, based on the combination of all fields
+                     selected. Defaults to false.</xs:documentation></xs:annotation>
+             </xs:attribute>
++            <xs:attribute name="disable-authz" type="boolean" default="false">
++                <xs:annotation><xs:documentation>Disable authorization checks (and row-level EntityFilters) for this
++                    find. Equivalent to ec.entity.find(...).disableAuthz() in script.</xs:documentation></xs:annotation>
++            </xs:attribute>
+         </xs:complexType>
+     </xs:element>
+     <xs:element name="entity-find-related-one" substitutionGroup="EntityFindOperations">
