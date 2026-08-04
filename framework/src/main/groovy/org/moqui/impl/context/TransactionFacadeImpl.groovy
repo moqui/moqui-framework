@@ -538,10 +538,6 @@ class TransactionFacadeImpl implements TransactionFacade {
                 return false
             }
 
-            // close connections before suspend, let the pool reuse them
-            TxStackInfo txStackInfo = getTxStackInfo()
-            txStackInfo.closeTxConnections()
-
             Transaction tx = tm.suspend()
             // only do these after successful suspend
             pushTxStackInfo(tx, new Exception("Transaction Suspend Location"))
@@ -579,12 +575,24 @@ class TransactionFacadeImpl implements TransactionFacade {
     @Override
     Connection enlistConnection(XAConnection con) {
         if (con == null) return null
+        boolean enlisted = false
         try {
             XAResource resource = con.getXAResource()
             this.enlistResource(resource)
-            return con.getConnection()
+            // enlistResource succeeded: XA branch
+            Connection c = con.getConnection()
+            enlisted = true
+            return c
         } catch (SQLException e) {
             throw new TransactionException("Could not enlist connection in transaction", e)
+        } finally {
+            if (!enlisted) {
+                // Enlistment or connection retrieval failed. Close and destroy the XAConnection so
+                // Bitronix removes the physical connection from the pool. This prevents the cascade
+                // where a dirty XA branch (e.g. XAER_RMFAIL) is returned to the pool and triggers
+                // XAER_RMFAIL on every subsequent checkout of the same physical connection.
+                try { con.close() } catch (Throwable t) { logger.warn("Error closing XAConnection after enlist failure: " + t.getMessage()) }
+            }
         }
     }
 
