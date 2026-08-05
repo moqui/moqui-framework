@@ -1,5 +1,5 @@
 diff --git a/framework/src/main/groovy/org/moqui/impl/context/ContextJavaUtil.java b/framework/src/main/groovy/org/moqui/impl/context/ContextJavaUtil.java
-index f3054aec..64256cb5 100644
+index f3054aec..3a276763 100644
 --- a/framework/src/main/groovy/org/moqui/impl/context/ContextJavaUtil.java
 +++ b/framework/src/main/groovy/org/moqui/impl/context/ContextJavaUtil.java
 @@ -40,8 +40,11 @@ import org.slf4j.LoggerFactory;
@@ -14,7 +14,21 @@ index f3054aec..64256cb5 100644
  import java.math.BigDecimal;
  import java.math.RoundingMode;
  import java.sql.*;
-@@ -471,6 +474,9 @@ public class ContextJavaUtil {
+@@ -366,6 +369,13 @@ public class ContextJavaUtil {
+             }
+             txConByGroup.clear();
+         }
++
++        public void markConnectionsForDestroy(Throwable failure) {
++            if (!ConnectionWrapper.isXaRmFail(failure)) return;
++            for (ConnectionWrapper con: txConByGroup.values()) {
++                if (con != null) con.markDestroyOnClose();
++            }
++        }
+     }
+     public static class EntityRecordLock {
+         // TODO enum for operation? create, update, delete, find-for-update
+@@ -471,6 +481,9 @@ public class ContextJavaUtil {
          protected Connection con;
          TransactionFacadeImpl tfi;
          String groupName;
@@ -24,7 +38,7 @@ index f3054aec..64256cb5 100644
  
          public ConnectionWrapper(Connection con, TransactionFacadeImpl tfi, String groupName) {
              this.con = con;
-@@ -481,12 +487,62 @@ public class ContextJavaUtil {
+@@ -481,12 +494,83 @@ public class ContextJavaUtil {
          public String getGroupName() { return groupName; }
  
          public void closeInternal() throws SQLException {
@@ -60,42 +74,164 @@ index f3054aec..64256cb5 100644
 +            try { con.close(); } catch (Throwable t) { logger.warn("Error on fallback close for group " + groupName, t); }
 +        }
 +
-+        private static boolean isXaRmFail(Throwable e) {
-+            for (Throwable t = e; t != null; t = t.getCause()) {
-+                if (t instanceof XAException && ((XAException) t).errorCode == XAException.XAER_RMFAIL) return true;
++        static boolean isXaRmFail(Throwable failure) {
++            if (failure == null) return false;
++
++            Set<Throwable> visited = Collections.newSetFromMap(new IdentityHashMap<>());
++            Deque<Throwable> pending = new ArrayDeque<>();
++            pending.add(failure);
++            while (!pending.isEmpty()) {
++                Throwable current = pending.removeFirst();
++                if (!visited.add(current)) continue;
++                if (current instanceof XAException &&
++                        ((XAException) current).errorCode == XAException.XAER_RMFAIL) return true;
++
++                Throwable cause = current.getCause();
++                if (cause != null) pending.addLast(cause);
++                if (current instanceof SQLException) {
++                    SQLException next = ((SQLException) current).getNextException();
++                    if (next != null) pending.addLast(next);
++                }
 +            }
 +            return false;
++        }
++
++        public void markDestroyOnClose() { destroyOnClose = true; }
++
++        private void recordXaFailure(SQLException e) {
++            if (isXaRmFail(e)) markDestroyOnClose();
 +        }
 +
 +        @Override public Statement createStatement() throws SQLException {
 +            try { return con.createStatement(); }
 +            catch (SQLException e) {
-+                if (isXaRmFail(e)) destroyOnClose = true;
++                recordXaFailure(e);
 +                throw e;
 +            }
 +        }
 +        @Override public PreparedStatement prepareStatement(String sql) throws SQLException {
 +            try { return con.prepareStatement(sql); }
 +            catch (SQLException e) {
-+                if (isXaRmFail(e)) destroyOnClose = true;
++                recordXaFailure(e);
 +                throw e;
 +            }
 +        }
 +        @Override public CallableStatement prepareCall(String sql) throws SQLException {
 +            try { return con.prepareCall(sql); }
 +            catch (SQLException e) {
-+                if (isXaRmFail(e)) destroyOnClose = true;
++                recordXaFailure(e);
 +                throw e;
 +            }
 +        }
          @Override public String nativeSQL(String sql) throws SQLException { return con.nativeSQL(sql); }
          @Override public void setAutoCommit(boolean autoCommit) throws SQLException { con.setAutoCommit(autoCommit); }
          @Override public boolean getAutoCommit() throws SQLException { return con.getAutoCommit(); }
+@@ -510,11 +594,14 @@ public class ContextJavaUtil {
+         @Override public void clearWarnings() throws SQLException { con.clearWarnings(); }
+ 
+         @Override public Statement createStatement(int resultSetType, int resultSetConcurrency) throws SQLException {
+-            return con.createStatement(resultSetType, resultSetConcurrency); }
++            try { return con.createStatement(resultSetType, resultSetConcurrency); }
++            catch (SQLException e) { recordXaFailure(e); throw e; } }
+         @Override public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
+-            return con.prepareStatement(sql, resultSetType, resultSetConcurrency); }
++            try { return con.prepareStatement(sql, resultSetType, resultSetConcurrency); }
++            catch (SQLException e) { recordXaFailure(e); throw e; } }
+         @Override public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
+-            return con.prepareCall(sql, resultSetType, resultSetConcurrency); }
++            try { return con.prepareCall(sql, resultSetType, resultSetConcurrency); }
++            catch (SQLException e) { recordXaFailure(e); throw e; } }
+ 
+         @Override public Map<String, Class<?>> getTypeMap() throws SQLException { return con.getTypeMap(); }
+         @Override public void setTypeMap(Map<String, Class<?>> map) throws SQLException { con.setTypeMap(map); }
+@@ -526,17 +613,23 @@ public class ContextJavaUtil {
+         @Override public void releaseSavepoint(Savepoint savepoint) throws SQLException { con.releaseSavepoint(savepoint); }
+ 
+         @Override public Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
+-            return con.createStatement(resultSetType, resultSetConcurrency, resultSetHoldability); }
++            try { return con.createStatement(resultSetType, resultSetConcurrency, resultSetHoldability); }
++            catch (SQLException e) { recordXaFailure(e); throw e; } }
+         @Override public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
+-            return con.prepareStatement(sql, resultSetType, resultSetConcurrency, resultSetHoldability); }
++            try { return con.prepareStatement(sql, resultSetType, resultSetConcurrency, resultSetHoldability); }
++            catch (SQLException e) { recordXaFailure(e); throw e; } }
+         @Override public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
+-            return con.prepareCall(sql, resultSetType, resultSetConcurrency, resultSetHoldability); }
++            try { return con.prepareCall(sql, resultSetType, resultSetConcurrency, resultSetHoldability); }
++            catch (SQLException e) { recordXaFailure(e); throw e; } }
+         @Override public PreparedStatement prepareStatement(String sql, int autoGeneratedKeys) throws SQLException {
+-            return con.prepareStatement(sql, autoGeneratedKeys); }
++            try { return con.prepareStatement(sql, autoGeneratedKeys); }
++            catch (SQLException e) { recordXaFailure(e); throw e; } }
+         @Override public PreparedStatement prepareStatement(String sql, int[] columnIndexes) throws SQLException {
+-            return con.prepareStatement(sql, columnIndexes); }
++            try { return con.prepareStatement(sql, columnIndexes); }
++            catch (SQLException e) { recordXaFailure(e); throw e; } }
+         @Override public PreparedStatement prepareStatement(String sql, String[] columnNames) throws SQLException {
+-            return con.prepareStatement(sql, columnNames); }
++            try { return con.prepareStatement(sql, columnNames); }
++            catch (SQLException e) { recordXaFailure(e); throw e; } }
+ 
+         @Override public Clob createClob() throws SQLException { return con.createClob(); }
+         @Override public Blob createBlob() throws SQLException { return con.createBlob(); }
 diff --git a/framework/src/main/groovy/org/moqui/impl/context/TransactionFacadeImpl.groovy b/framework/src/main/groovy/org/moqui/impl/context/TransactionFacadeImpl.groovy
-index 2a8ed2e9..40bceb3f 100644
+index 75525163..2c015fd1 100644
 --- a/framework/src/main/groovy/org/moqui/impl/context/TransactionFacadeImpl.groovy
 +++ b/framework/src/main/groovy/org/moqui/impl/context/TransactionFacadeImpl.groovy
-@@ -529,10 +529,6 @@ class TransactionFacadeImpl implements TransactionFacade {
+@@ -395,7 +395,6 @@ class TransactionFacadeImpl implements TransactionFacade {
+             int status = ut.getStatus()
+             // logger.warn("================ commit TX, currentStatus=${status}")
+ 
+-            txStackInfo.closeTxConnections()
+             if (status == Status.STATUS_MARKED_ROLLBACK) {
+                 if (txStackInfo.rollbackOnlyInfo != null) {
+                     logger.warn("Tried to commit transaction but marked rollback only, doing rollback instead; rollback-only was set here:", txStackInfo.rollbackOnlyInfo.rollbackLocation)
+@@ -412,6 +411,7 @@ class TransactionFacadeImpl implements TransactionFacade {
+                     logger.warn((String) "Not committing transaction because status is " + getStatusString(), new Exception("Bad TX status location"))
+             }
+         } catch (RollbackException e) {
++            txStackInfo.markConnectionsForDestroy(e)
+             if (txStackInfo.rollbackOnlyInfo != null) {
+                 logger.warn("Could not commit transaction, was marked rollback-only. The rollback-only was set here: ", txStackInfo.rollbackOnlyInfo.rollbackLocation)
+                 throw new TransactionException("Could not commit transaction, was marked rollback-only. The rollback was originally caused by: " + txStackInfo.rollbackOnlyInfo.causeMessage, txStackInfo.rollbackOnlyInfo.causeThrowable)
+@@ -419,12 +419,16 @@ class TransactionFacadeImpl implements TransactionFacade {
+                 throw new TransactionException("Could not commit transaction, was rolled back instead (and we don't have a rollback-only cause)", e)
+             }
+         } catch (IllegalStateException e) {
++            txStackInfo.markConnectionsForDestroy(e)
+             throw new TransactionException("Could not commit transaction", e)
+         } catch (HeuristicMixedException e) {
++            txStackInfo.markConnectionsForDestroy(e)
+             throw new TransactionException("Could not commit transaction", e)
+         } catch (HeuristicRollbackException e) {
++            txStackInfo.markConnectionsForDestroy(e)
+             throw new TransactionException("Could not commit transaction", e)
+         } catch (SystemException e) {
++            txStackInfo.markConnectionsForDestroy(e)
+             throw new TransactionException("Could not commit transaction", e)
+         } finally {
+             // there shouldn't be a TX around now, but if there is the commit may have failed so rollback to clean things up
+@@ -455,8 +459,6 @@ class TransactionFacadeImpl implements TransactionFacade {
+         if (ut == null) throw new IllegalStateException("No transaction manager in place")
+         TxStackInfo txStackInfo = getTxStackInfo()
+         try {
+-            txStackInfo.closeTxConnections()
+-
+             // logger.warn("================ rollback TX, currentStatus=${getStatus()}")
+             if (getStatus() == Status.STATUS_NO_TRANSACTION) {
+                 logger.warn("Transaction not rolled back, status is STATUS_NO_TRANSACTION")
+@@ -477,8 +479,10 @@ class TransactionFacadeImpl implements TransactionFacade {
+ 
+             ut.rollback()
+         } catch (IllegalStateException e) {
++            txStackInfo.markConnectionsForDestroy(e)
+             throw new TransactionException("Could not rollback transaction", e)
+         } catch (SystemException e) {
++            txStackInfo.markConnectionsForDestroy(e)
+             throw new TransactionException("Could not rollback transaction", e)
+         } finally {
+             // NOTE: should this really be in finally? maybe we only want to do this if there is a successful rollback
+@@ -532,10 +536,6 @@ class TransactionFacadeImpl implements TransactionFacade {
                  return false
              }
  
@@ -106,7 +242,7 @@ index 2a8ed2e9..40bceb3f 100644
              Transaction tx = tm.suspend()
              // only do these after successful suspend
              pushTxStackInfo(tx, new Exception("Transaction Suspend Location"))
-@@ -570,12 +566,24 @@ class TransactionFacadeImpl implements TransactionFacade {
+@@ -573,12 +573,24 @@ class TransactionFacadeImpl implements TransactionFacade {
      @Override
      Connection enlistConnection(XAConnection con) {
          if (con == null) return null
@@ -132,3 +268,12 @@ index 2a8ed2e9..40bceb3f 100644
          }
      }
  
+@@ -684,7 +696,7 @@ class TransactionFacadeImpl implements TransactionFacade {
+             return null
+         }
+         if (!isTransactionActive()) {
+-            con.close()
++            con.closeInternal()
+             txStackInfo.txConByGroup.remove(conKey)
+             logger.info("Stashed connection found but transaction is not active (${getStatusString()}) for group ${groupName}: ${con.toString()}")
+             return null

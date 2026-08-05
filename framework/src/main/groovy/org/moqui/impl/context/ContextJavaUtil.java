@@ -369,6 +369,13 @@ public class ContextJavaUtil {
             }
             txConByGroup.clear();
         }
+
+        public void markConnectionsForDestroy(Throwable failure) {
+            if (!ConnectionWrapper.isXaRmFail(failure)) return;
+            for (ConnectionWrapper con: txConByGroup.values()) {
+                if (con != null) con.markDestroyOnClose();
+            }
+        }
     }
     public static class EntityRecordLock {
         // TODO enum for operation? create, update, delete, find-for-update
@@ -515,31 +522,52 @@ public class ContextJavaUtil {
             try { con.close(); } catch (Throwable t) { logger.warn("Error on fallback close for group " + groupName, t); }
         }
 
-        private static boolean isXaRmFail(Throwable e) {
-            for (Throwable t = e; t != null; t = t.getCause()) {
-                if (t instanceof XAException && ((XAException) t).errorCode == XAException.XAER_RMFAIL) return true;
+        static boolean isXaRmFail(Throwable failure) {
+            if (failure == null) return false;
+
+            Set<Throwable> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+            Deque<Throwable> pending = new ArrayDeque<>();
+            pending.add(failure);
+            while (!pending.isEmpty()) {
+                Throwable current = pending.removeFirst();
+                if (!visited.add(current)) continue;
+                if (current instanceof XAException &&
+                        ((XAException) current).errorCode == XAException.XAER_RMFAIL) return true;
+
+                Throwable cause = current.getCause();
+                if (cause != null) pending.addLast(cause);
+                if (current instanceof SQLException) {
+                    SQLException next = ((SQLException) current).getNextException();
+                    if (next != null) pending.addLast(next);
+                }
             }
             return false;
+        }
+
+        public void markDestroyOnClose() { destroyOnClose = true; }
+
+        private void recordXaFailure(SQLException e) {
+            if (isXaRmFail(e)) markDestroyOnClose();
         }
 
         @Override public Statement createStatement() throws SQLException {
             try { return con.createStatement(); }
             catch (SQLException e) {
-                if (isXaRmFail(e)) destroyOnClose = true;
+                recordXaFailure(e);
                 throw e;
             }
         }
         @Override public PreparedStatement prepareStatement(String sql) throws SQLException {
             try { return con.prepareStatement(sql); }
             catch (SQLException e) {
-                if (isXaRmFail(e)) destroyOnClose = true;
+                recordXaFailure(e);
                 throw e;
             }
         }
         @Override public CallableStatement prepareCall(String sql) throws SQLException {
             try { return con.prepareCall(sql); }
             catch (SQLException e) {
-                if (isXaRmFail(e)) destroyOnClose = true;
+                recordXaFailure(e);
                 throw e;
             }
         }
@@ -566,11 +594,14 @@ public class ContextJavaUtil {
         @Override public void clearWarnings() throws SQLException { con.clearWarnings(); }
 
         @Override public Statement createStatement(int resultSetType, int resultSetConcurrency) throws SQLException {
-            return con.createStatement(resultSetType, resultSetConcurrency); }
+            try { return con.createStatement(resultSetType, resultSetConcurrency); }
+            catch (SQLException e) { recordXaFailure(e); throw e; } }
         @Override public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
-            return con.prepareStatement(sql, resultSetType, resultSetConcurrency); }
+            try { return con.prepareStatement(sql, resultSetType, resultSetConcurrency); }
+            catch (SQLException e) { recordXaFailure(e); throw e; } }
         @Override public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
-            return con.prepareCall(sql, resultSetType, resultSetConcurrency); }
+            try { return con.prepareCall(sql, resultSetType, resultSetConcurrency); }
+            catch (SQLException e) { recordXaFailure(e); throw e; } }
 
         @Override public Map<String, Class<?>> getTypeMap() throws SQLException { return con.getTypeMap(); }
         @Override public void setTypeMap(Map<String, Class<?>> map) throws SQLException { con.setTypeMap(map); }
@@ -582,17 +613,23 @@ public class ContextJavaUtil {
         @Override public void releaseSavepoint(Savepoint savepoint) throws SQLException { con.releaseSavepoint(savepoint); }
 
         @Override public Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
-            return con.createStatement(resultSetType, resultSetConcurrency, resultSetHoldability); }
+            try { return con.createStatement(resultSetType, resultSetConcurrency, resultSetHoldability); }
+            catch (SQLException e) { recordXaFailure(e); throw e; } }
         @Override public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
-            return con.prepareStatement(sql, resultSetType, resultSetConcurrency, resultSetHoldability); }
+            try { return con.prepareStatement(sql, resultSetType, resultSetConcurrency, resultSetHoldability); }
+            catch (SQLException e) { recordXaFailure(e); throw e; } }
         @Override public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
-            return con.prepareCall(sql, resultSetType, resultSetConcurrency, resultSetHoldability); }
+            try { return con.prepareCall(sql, resultSetType, resultSetConcurrency, resultSetHoldability); }
+            catch (SQLException e) { recordXaFailure(e); throw e; } }
         @Override public PreparedStatement prepareStatement(String sql, int autoGeneratedKeys) throws SQLException {
-            return con.prepareStatement(sql, autoGeneratedKeys); }
+            try { return con.prepareStatement(sql, autoGeneratedKeys); }
+            catch (SQLException e) { recordXaFailure(e); throw e; } }
         @Override public PreparedStatement prepareStatement(String sql, int[] columnIndexes) throws SQLException {
-            return con.prepareStatement(sql, columnIndexes); }
+            try { return con.prepareStatement(sql, columnIndexes); }
+            catch (SQLException e) { recordXaFailure(e); throw e; } }
         @Override public PreparedStatement prepareStatement(String sql, String[] columnNames) throws SQLException {
-            return con.prepareStatement(sql, columnNames); }
+            try { return con.prepareStatement(sql, columnNames); }
+            catch (SQLException e) { recordXaFailure(e); throw e; } }
 
         @Override public Clob createClob() throws SQLException { return con.createClob(); }
         @Override public Blob createBlob() throws SQLException { return con.createBlob(); }

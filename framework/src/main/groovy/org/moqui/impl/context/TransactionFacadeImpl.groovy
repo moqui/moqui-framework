@@ -411,6 +411,7 @@ class TransactionFacadeImpl implements TransactionFacade {
                     logger.warn((String) "Not committing transaction because status is " + getStatusString(), new Exception("Bad TX status location"))
             }
         } catch (RollbackException e) {
+            txStackInfo.markConnectionsForDestroy(e)
             if (txStackInfo.rollbackOnlyInfo != null) {
                 logger.warn("Could not commit transaction, was marked rollback-only. The rollback-only was set here: ", txStackInfo.rollbackOnlyInfo.rollbackLocation)
                 throw new TransactionException("Could not commit transaction, was marked rollback-only. The rollback was originally caused by: " + txStackInfo.rollbackOnlyInfo.causeMessage, txStackInfo.rollbackOnlyInfo.causeThrowable)
@@ -418,12 +419,16 @@ class TransactionFacadeImpl implements TransactionFacade {
                 throw new TransactionException("Could not commit transaction, was rolled back instead (and we don't have a rollback-only cause)", e)
             }
         } catch (IllegalStateException e) {
+            txStackInfo.markConnectionsForDestroy(e)
             throw new TransactionException("Could not commit transaction", e)
         } catch (HeuristicMixedException e) {
+            txStackInfo.markConnectionsForDestroy(e)
             throw new TransactionException("Could not commit transaction", e)
         } catch (HeuristicRollbackException e) {
+            txStackInfo.markConnectionsForDestroy(e)
             throw new TransactionException("Could not commit transaction", e)
         } catch (SystemException e) {
+            txStackInfo.markConnectionsForDestroy(e)
             throw new TransactionException("Could not commit transaction", e)
         } finally {
             // there shouldn't be a TX around now, but if there is the commit may have failed so rollback to clean things up
@@ -474,8 +479,10 @@ class TransactionFacadeImpl implements TransactionFacade {
 
             ut.rollback()
         } catch (IllegalStateException e) {
+            txStackInfo.markConnectionsForDestroy(e)
             throw new TransactionException("Could not rollback transaction", e)
         } catch (SystemException e) {
+            txStackInfo.markConnectionsForDestroy(e)
             throw new TransactionException("Could not rollback transaction", e)
         } finally {
             // NOTE: should this really be in finally? maybe we only want to do this if there is a successful rollback
@@ -689,7 +696,7 @@ class TransactionFacadeImpl implements TransactionFacade {
             return null
         }
         if (!isTransactionActive()) {
-            con.close()
+            con.closeInternal()
             txStackInfo.txConByGroup.remove(conKey)
             logger.info("Stashed connection found but transaction is not active (${getStatusString()}) for group ${groupName}: ${con.toString()}")
             return null
