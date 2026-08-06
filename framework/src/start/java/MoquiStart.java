@@ -249,6 +249,9 @@ public class MoquiStart {
 
             Object server = serverClass.getConstructor().newInstance();
             Object httpConfig = httpConfigurationClass.getConstructor().newInstance();
+            httpConfigurationClass
+                    .getMethod("setSendServerVersion", boolean.class)
+                    .invoke(httpConfig, false);
 
             // add ForwardedRequestCustomizer to handle Forwarded and X-Forwarded-* HTTP Request Headers
             // see https://javadoc.jetty.org/jetty-12.1/org/eclipse/jetty/server/ForwardedRequestCustomizer.html
