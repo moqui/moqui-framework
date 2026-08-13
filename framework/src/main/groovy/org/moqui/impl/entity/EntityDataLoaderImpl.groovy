@@ -225,13 +225,34 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                     if (!entityRr.location.endsWith(".eecas.xml")) locationList.add(entityRr.location)
             }
 
+            // When dataTypes is specified, bucket data files by detected type so locationList is built
+            // in type-first order (all seed across components, then all seed-initial, etc.).
+            // Each entry is a map with keys location, filename, sequence; sorted by (sequence, filename) when appending.
+            // Files with no detectable type are added to locationList directly (load unconditionally).
+            LinkedHashMap<String, List<Map<String, String>>> typeLocationLists = dataTypes ?
+                    new LinkedHashMap<String, List<Map<String, String>>>() : (LinkedHashMap<String, List<Map<String, String>>>) null
+
             // loop through all of the entity-facade.load-data nodes
             if (!componentNameList) {
                 for (MNode loadData in efi.ecfi.getConfXmlRoot().first("entity-facade").children("load-data")) {
                     String loadDataLoc = (String) loadData.attribute("location")
                     if (dataTypes) {
-                        String fileType = detectFileMeta(loadDataLoc).get('type')
-                        if (fileType == null || dataTypes.contains(fileType)) locationList.add(loadDataLoc)
+                        Map<String, String> fileMeta = detectFileMeta(loadDataLoc)
+                        String fileType = fileMeta.get('type')
+                        if (fileType == null) {
+                            locationList.add(loadDataLoc)
+                        } else if (dataTypes.contains(fileType)) {
+                            List<Map<String, String>> typeList = typeLocationLists.get(fileType)
+                            if (typeList == null) {
+                                typeList = new LinkedList<Map<String, String>>()
+                                typeLocationLists.put(fileType, typeList)
+                            }
+                            Map<String, String> entry = new LinkedHashMap<>()
+                            entry.put('location', loadDataLoc)
+                            entry.put('filename', loadDataLoc.substring(loadDataLoc.lastIndexOf('/') + 1))
+                            entry.put('sequence', fileMeta.get('sequence'))
+                            typeList.add(entry)
+                        }
                     } else {
                         locationList.add(loadDataLoc)
                     }
@@ -246,13 +267,6 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             } else {
                 loadCompLocations = efi.ecfi.getComponentBaseLocations()
             }
-
-            // When dataTypes is specified, bucket data files by detected type so locationList is built
-            // in type-first order (all seed across components, then all seed-initial, etc.).
-            // Each entry is a map with keys location, filename, sequence; sorted by (sequence, filename) when appending.
-            // Files with no detectable type are added to locationList directly (load unconditionally).
-            LinkedHashMap<String, List<Map<String, String>>> typeLocationLists = dataTypes ?
-                    new LinkedHashMap<String, List<Map<String, String>>>() : (LinkedHashMap<String, List<Map<String, String>>>) null
 
             for (Map.Entry<String, String> compLocEntry in loadCompLocations) {
                 // if we're loading seed type data, add COMPONENT entity def files to the list of locations to load
