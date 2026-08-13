@@ -731,7 +731,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                     ec.getUser().loginAnonymousIfNoUser()
 
                     EntityDataLoader edl = ec.getEntity().makeDataLoader()
-                    if (emptyDbLoad != 'all') edl.dataTypes(new HashSet(emptyDbLoad.split(",") as List))
+                    if (emptyDbLoad != 'all') edl.dataTypes(new LinkedHashSet(emptyDbLoad.split(",") as List))
 
                     try {
                         long startTime = System.currentTimeMillis()
@@ -767,7 +767,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 ec.getUser().loginAnonymousIfNoUser()
 
                 EntityDataLoader edl = ec.getEntity().makeDataLoader()
-                if (onStartLoadTypes != 'all') edl.dataTypes(new HashSet(onStartLoadTypes.split(",") as List))
+                if (onStartLoadTypes != 'all') edl.dataTypes(new LinkedHashSet(onStartLoadTypes.split(",") as List))
                 if (onStartLoadComponents && onStartLoadComponents != 'all') edl.componentNameList(onStartLoadComponents.split(",") as List)
 
                 try {

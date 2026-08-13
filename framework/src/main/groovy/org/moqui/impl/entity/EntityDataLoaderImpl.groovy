@@ -59,7 +59,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
     String xmlText = null
     String csvText = null
     String jsonText = null
-    Set<String> dataTypes = new HashSet<String>()
+    LinkedHashSet<String> dataTypes = new LinkedHashSet<String>()
     List<String> componentNameList = new LinkedList<String>()
 
     int transactionTimeout = 600
@@ -228,7 +228,13 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             // loop through all of the entity-facade.load-data nodes
             if (!componentNameList) {
                 for (MNode loadData in efi.ecfi.getConfXmlRoot().first("entity-facade").children("load-data")) {
-                    locationList.add((String) loadData.attribute("location"))
+                    String loadDataLoc = (String) loadData.attribute("location")
+                    if (dataTypes) {
+                        String fileType = detectFileMeta(loadDataLoc).get('type')
+                        if (fileType == null || dataTypes.contains(fileType)) locationList.add(loadDataLoc)
+                    } else {
+                        locationList.add(loadDataLoc)
+                    }
                 }
             }
 
@@ -240,6 +246,13 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             } else {
                 loadCompLocations = efi.ecfi.getComponentBaseLocations()
             }
+
+            // When dataTypes is specified, bucket data files by detected type so locationList is built
+            // in type-first order (all seed across components, then all seed-initial, etc.).
+            // Each entry is a map with keys location, filename, sequence; sorted by (sequence, filename) when appending.
+            // Files with no detectable type are added to locationList directly (load unconditionally).
+            LinkedHashMap<String, List<Map<String, String>>> typeLocationLists = dataTypes ?
+                    new LinkedHashMap<String, List<Map<String, String>>>() : (LinkedHashMap<String, List<Map<String, String>>>) null
 
             for (Map.Entry<String, String> compLocEntry in loadCompLocations) {
                 // if we're loading seed type data, add COMPONENT entity def files to the list of locations to load
@@ -262,17 +275,60 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                         dataDirEntries.put(dataRr.getFileName(), dataRr)
                     }
                     for (Map.Entry<String, ResourceReference> dataDirEntry in dataDirEntries) {
-                        locationList.add(dataDirEntry.getValue().location)
+                        String fileLoc = dataDirEntry.getValue().location
+                        if (dataTypes) {
+                            Map<String, String> fileMeta = detectFileMeta(fileLoc)
+                            String fileType = fileMeta.get('type')
+                            if (fileType == null) {
+                                // no detectable type: include unconditionally
+                                locationList.add(fileLoc)
+                            } else if (dataTypes.contains(fileType)) {
+                                List<Map<String, String>> typeList = typeLocationLists.get(fileType)
+                                if (typeList == null) {
+                                    typeList = new LinkedList<Map<String, String>>()
+                                    typeLocationLists.put(fileType, typeList)
+                                }
+                                Map<String, String> entry = new LinkedHashMap<>()
+                                entry.put('location', fileLoc)
+                                entry.put('filename', dataDirEntry.key)
+                                entry.put('sequence', fileMeta.get('sequence'))
+                                typeList.add(entry)
+                            }
+                            // else: type not in requested dataTypes — skip silently
+                        } else {
+                            locationList.add(fileLoc)
+                        }
                     }
                 } else {
                     // just warn here, no exception because any non-file component location would blow everything up
                     logger.warn("Cannot load entity data file in component location [${location}] because protocol [${dataDirRr.uri.scheme}] is not yet supported.")
                 }
             }
+
+            // Append data files to locationList in type-first order. Within each type, sort by the
+            // sequence attribute from <entity-facade-xml sequence="N">; fall back to filename when absent.
+            if (typeLocationLists) {
+                for (String dataType in dataTypes) {
+                    List<Map<String, String>> typeList = typeLocationLists.get(dataType)
+                    if (typeList) {
+                        typeList.sort { Map<String, String> a, Map<String, String> b ->
+                            String seqStrA = a.get('sequence'), seqStrB = b.get('sequence')
+                            int seqA = seqStrA ? Integer.parseInt(seqStrA) : Integer.MAX_VALUE
+                            int seqB = seqStrB ? Integer.parseInt(seqStrB) : Integer.MAX_VALUE
+                            int cmp = Integer.compare(seqA, seqB)
+                            cmp != 0 ? cmp : a.get('filename').compareTo(b.get('filename'))
+                        }
+                        for (Map<String, String> entry in typeList) locationList.add(entry.get('location'))
+                    }
+                }
+            }
         }
         if (locationList && logger.isInfoEnabled()) {
             StringBuilder lm = new StringBuilder("Loading entity data from the following locations: ")
-            for (String loc in locationList) lm.append("\n - ").append(loc)
+            for (String loc in locationList) {
+                Map<String, String> meta = detectFileMeta(loc)
+                lm.append("\n - [").append(meta.get('type') ?: 'unknown').append("] ").append(loc)
+            }
             logger.info(lm.toString())
             logger.info("Loading data types: ${dataTypes ?: 'ALL'}")
         }
@@ -307,7 +363,6 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 }
             }
 
-            // load each file in its own transaction
             for (String location in this.locationList) {
                 try {
                     loadSingleFile(location, exh, ech, ejh)
@@ -325,6 +380,78 @@ class EntityDataLoaderImpl implements EntityDataLoader {
 
         // logger.warn("========== Done loading, waiting for a long time so process is still running for profiler")
         // Thread.sleep(60*1000*100)
+    }
+
+    /** Returns a map with keys 'type' and 'sequence' from the file header; either value may be null. */
+    private Map<String, String> detectFileMeta(String location) {
+        String type = null
+        String sequence = null
+        try {
+            try (InputStream is = efi.ecfi.resourceFacade.getLocationStream(location)) {
+                if (is != null) {
+                    if (location.endsWith(".xml")) {
+                        byte[] buf = new byte[2048]
+                        int read = is.read(buf)
+                        if (read > 0) {
+                            String content = new String(buf, 0, read, StandardCharsets.UTF_8)
+                            if (content.contains('<seed-data')) {
+                                type = 'seed'
+                            } else {
+                                int idx = content.indexOf('<entity-facade-xml')
+                                if (idx >= 0) {
+                                    String sub = content.substring(idx, Math.min(idx + 300, content.length()))
+                                    int typeIdx = sub.indexOf('type="')
+                                    if (typeIdx >= 0) {
+                                        int typeEnd = sub.indexOf('"', typeIdx + 6)
+                                        if (typeEnd >= 0) type = sub.substring(typeIdx + 6, typeEnd)
+                                    }
+                                    int seqIdx = sub.indexOf('sequence="')
+                                    if (seqIdx >= 0) {
+                                        int seqEnd = sub.indexOf('"', seqIdx + 10)
+                                        if (seqEnd >= 0) sequence = sub.substring(seqIdx + 10, seqEnd)
+                                    }
+                                }
+                            }
+                        }
+                    } else if (location.endsWith(".csv") && !csvEntityName) {
+                        BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))
+                        String firstLine = reader.readLine()
+                        if (firstLine) {
+                            int commaIdx = firstLine.indexOf((int) csvDelimiter)
+                            if (commaIdx >= 0) {
+                                String typePart = firstLine.substring(commaIdx + 1).trim()
+                                if (typePart.startsWith('"') && typePart.endsWith('"'))
+                                    typePart = typePart.substring(1, typePart.length() - 1)
+                                if (typePart) type = typePart
+                            }
+                        }
+                    } else if (location.endsWith(".json")) {
+                        byte[] buf = new byte[512]
+                        int read = is.read(buf)
+                        if (read > 0) {
+                            String content = new String(buf, 0, read, StandardCharsets.UTF_8)
+                            int idx = content.indexOf('"_dataType"')
+                            if (idx >= 0) {
+                                int colon = content.indexOf(':', idx)
+                                if (colon >= 0) {
+                                    int valStart = content.indexOf('"', colon)
+                                    if (valStart >= 0) {
+                                        int valEnd = content.indexOf('"', valStart + 1)
+                                        if (valEnd >= 0) type = content.substring(valStart + 1, valEnd)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Throwable t) {
+            logger.warn("Could not detect file meta for [${location}]: ${t.message}")
+        }
+        Map<String, String> meta = new LinkedHashMap<>()
+        meta.put('type', type)
+        meta.put('sequence', sequence)
+        return meta
     }
 
     void loadSingleFile(String location, EntityXmlHandler exh, EntityCsvHandler ech, EntityJsonHandler ejh) {
