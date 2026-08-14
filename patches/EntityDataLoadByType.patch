@@ -21,7 +21,7 @@ index ab8aa51b..9aab9457 100644
  
                  try {
 diff --git a/framework/src/main/groovy/org/moqui/impl/entity/EntityDataLoaderImpl.groovy b/framework/src/main/groovy/org/moqui/impl/entity/EntityDataLoaderImpl.groovy
-index 3ce81dcf..734e3cd3 100644
+index 3ce81dcf..fe4b3250 100644
 --- a/framework/src/main/groovy/org/moqui/impl/entity/EntityDataLoaderImpl.groovy
 +++ b/framework/src/main/groovy/org/moqui/impl/entity/EntityDataLoaderImpl.groovy
 @@ -59,7 +59,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
@@ -72,9 +72,12 @@ index 3ce81dcf..734e3cd3 100644
                  }
              }
  
-@@ -262,17 +289,60 @@ class EntityDataLoaderImpl implements EntityDataLoader {
+@@ -261,18 +288,73 @@ class EntityDataLoaderImpl implements EntityDataLoader {
+                                 && !dataRr.location.endsWith(".json"))) continue
                          dataDirEntries.put(dataRr.getFileName(), dataRr)
                      }
++                    LinkedHashMap<String, List<Map<String, String>>> compTypeFiles = dataTypes ?
++                            new LinkedHashMap<String, List<Map<String, String>>>() : null
                      for (Map.Entry<String, ResourceReference> dataDirEntry in dataDirEntries) {
 -                        locationList.add(dataDirEntry.getValue().location)
 +                        String fileLoc = dataDirEntry.getValue().location
@@ -85,20 +88,38 @@ index 3ce81dcf..734e3cd3 100644
 +                                // no detectable type: include unconditionally
 +                                locationList.add(fileLoc)
 +                            } else if (dataTypes.contains(fileType)) {
-+                                List<Map<String, String>> typeList = typeLocationLists.get(fileType)
-+                                if (typeList == null) {
-+                                    typeList = new LinkedList<Map<String, String>>()
-+                                    typeLocationLists.put(fileType, typeList)
++                                List<Map<String, String>> compList = compTypeFiles.get(fileType)
++                                if (compList == null) {
++                                    compList = new LinkedList<Map<String, String>>()
++                                    compTypeFiles.put(fileType, compList)
 +                                }
 +                                Map<String, String> entry = new LinkedHashMap<>()
 +                                entry.put('location', fileLoc)
 +                                entry.put('filename', dataDirEntry.key)
 +                                entry.put('sequence', fileMeta.get('sequence'))
-+                                typeList.add(entry)
++                                compList.add(entry)
 +                            }
 +                            // else: type not in requested dataTypes — skip silently
 +                        } else {
 +                            locationList.add(fileLoc)
++                        }
++                    }
++                    // Sort within this component's files per type, then flush to typeLocationLists in component order.
++                    if (compTypeFiles) {
++                        for (Map.Entry<String, List<Map<String, String>>> compTypeEntry in compTypeFiles) {
++                            compTypeEntry.value.sort { Map<String, String> a, Map<String, String> b ->
++                                String seqStrA = a.get('sequence'), seqStrB = b.get('sequence')
++                                int seqA = seqStrA ? Integer.parseInt(seqStrA) : Integer.MAX_VALUE
++                                int seqB = seqStrB ? Integer.parseInt(seqStrB) : Integer.MAX_VALUE
++                                int cmp = Integer.compare(seqA, seqB)
++                                cmp != 0 ? cmp : a.get('filename').compareTo(b.get('filename'))
++                            }
++                            List<Map<String, String>> typeList = typeLocationLists.get(compTypeEntry.key)
++                            if (typeList == null) {
++                                typeList = new LinkedList<Map<String, String>>()
++                                typeLocationLists.put(compTypeEntry.key, typeList)
++                            }
++                            typeList.addAll(compTypeEntry.value)
 +                        }
                      }
                  } else {
@@ -107,19 +128,11 @@ index 3ce81dcf..734e3cd3 100644
                  }
              }
 +
-+            // Append data files to locationList in type-first order. Within each type, sort by the
-+            // sequence attribute from <entity-facade-xml sequence="N">; fall back to filename when absent.
++            // Append data files to locationList in type-first order, preserving within-type component dependency order.
 +            if (typeLocationLists) {
 +                for (String dataType in dataTypes) {
 +                    List<Map<String, String>> typeList = typeLocationLists.get(dataType)
 +                    if (typeList) {
-+                        typeList.sort { Map<String, String> a, Map<String, String> b ->
-+                            String seqStrA = a.get('sequence'), seqStrB = b.get('sequence')
-+                            int seqA = seqStrA ? Integer.parseInt(seqStrA) : Integer.MAX_VALUE
-+                            int seqB = seqStrB ? Integer.parseInt(seqStrB) : Integer.MAX_VALUE
-+                            int cmp = Integer.compare(seqA, seqB)
-+                            cmp != 0 ? cmp : a.get('filename').compareTo(b.get('filename'))
-+                        }
 +                        for (Map<String, String> entry in typeList) locationList.add(entry.get('location'))
 +                    }
 +                }
@@ -135,7 +148,7 @@ index 3ce81dcf..734e3cd3 100644
              logger.info(lm.toString())
              logger.info("Loading data types: ${dataTypes ?: 'ALL'}")
          }
-@@ -307,7 +377,6 @@ class EntityDataLoaderImpl implements EntityDataLoader {
+@@ -307,7 +389,6 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                  }
              }
  
@@ -143,7 +156,7 @@ index 3ce81dcf..734e3cd3 100644
              for (String location in this.locationList) {
                  try {
                      loadSingleFile(location, exh, ech, ejh)
-@@ -327,6 +396,78 @@ class EntityDataLoaderImpl implements EntityDataLoader {
+@@ -327,6 +408,78 @@ class EntityDataLoaderImpl implements EntityDataLoader {
          // Thread.sleep(60*1000*100)
      }
  

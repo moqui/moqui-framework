@@ -288,6 +288,8 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                                 && !dataRr.location.endsWith(".json"))) continue
                         dataDirEntries.put(dataRr.getFileName(), dataRr)
                     }
+                    LinkedHashMap<String, List<Map<String, String>>> compTypeFiles = dataTypes ?
+                            new LinkedHashMap<String, List<Map<String, String>>>() : null
                     for (Map.Entry<String, ResourceReference> dataDirEntry in dataDirEntries) {
                         String fileLoc = dataDirEntry.getValue().location
                         if (dataTypes) {
@@ -297,20 +299,38 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                                 // no detectable type: include unconditionally
                                 locationList.add(fileLoc)
                             } else if (dataTypes.contains(fileType)) {
-                                List<Map<String, String>> typeList = typeLocationLists.get(fileType)
-                                if (typeList == null) {
-                                    typeList = new LinkedList<Map<String, String>>()
-                                    typeLocationLists.put(fileType, typeList)
+                                List<Map<String, String>> compList = compTypeFiles.get(fileType)
+                                if (compList == null) {
+                                    compList = new LinkedList<Map<String, String>>()
+                                    compTypeFiles.put(fileType, compList)
                                 }
                                 Map<String, String> entry = new LinkedHashMap<>()
                                 entry.put('location', fileLoc)
                                 entry.put('filename', dataDirEntry.key)
                                 entry.put('sequence', fileMeta.get('sequence'))
-                                typeList.add(entry)
+                                compList.add(entry)
                             }
                             // else: type not in requested dataTypes — skip silently
                         } else {
                             locationList.add(fileLoc)
+                        }
+                    }
+                    // Sort within this component's files per type, then flush to typeLocationLists in component order.
+                    if (compTypeFiles) {
+                        for (Map.Entry<String, List<Map<String, String>>> compTypeEntry in compTypeFiles) {
+                            compTypeEntry.value.sort { Map<String, String> a, Map<String, String> b ->
+                                String seqStrA = a.get('sequence'), seqStrB = b.get('sequence')
+                                int seqA = seqStrA ? Integer.parseInt(seqStrA) : Integer.MAX_VALUE
+                                int seqB = seqStrB ? Integer.parseInt(seqStrB) : Integer.MAX_VALUE
+                                int cmp = Integer.compare(seqA, seqB)
+                                cmp != 0 ? cmp : a.get('filename').compareTo(b.get('filename'))
+                            }
+                            List<Map<String, String>> typeList = typeLocationLists.get(compTypeEntry.key)
+                            if (typeList == null) {
+                                typeList = new LinkedList<Map<String, String>>()
+                                typeLocationLists.put(compTypeEntry.key, typeList)
+                            }
+                            typeList.addAll(compTypeEntry.value)
                         }
                     }
                 } else {
@@ -319,19 +339,11 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 }
             }
 
-            // Append data files to locationList in type-first order. Within each type, sort by the
-            // sequence attribute from <entity-facade-xml sequence="N">; fall back to filename when absent.
+            // Append data files to locationList in type-first order, preserving within-type component dependency order.
             if (typeLocationLists) {
                 for (String dataType in dataTypes) {
                     List<Map<String, String>> typeList = typeLocationLists.get(dataType)
                     if (typeList) {
-                        typeList.sort { Map<String, String> a, Map<String, String> b ->
-                            String seqStrA = a.get('sequence'), seqStrB = b.get('sequence')
-                            int seqA = seqStrA ? Integer.parseInt(seqStrA) : Integer.MAX_VALUE
-                            int seqB = seqStrB ? Integer.parseInt(seqStrB) : Integer.MAX_VALUE
-                            int cmp = Integer.compare(seqA, seqB)
-                            cmp != 0 ? cmp : a.get('filename').compareTo(b.get('filename'))
-                        }
                         for (Map<String, String> entry in typeList) locationList.add(entry.get('location'))
                     }
                 }
