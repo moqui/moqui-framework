@@ -1027,7 +1027,8 @@ class WebFacadeImpl implements WebFacade {
     void handleServiceRestCall(List<String> extraPathNameList) {
         ContextStack parmStack = (ContextStack) getParameters()
 
-        logger.info("Service REST for ${request.getMethod()} to ${request.getPathInfo()} headers ${request.headerNames.collect()} parameters ${getRequestParameters().keySet()}")
+        //logger.info("Service REST for ${request.getMethod()} to ${request.getPathInfo()} headers ${request.headerNames.collect()} parameters ${getRequestParameters().keySet()}")
+        logger.info("Service REST for ${request.getMethod()} to ${request.getPathInfo()} parameters ${getRequestParameters().keySet()}")
 
         // check for login, etc error messages
         if (eci.message.hasError()) {

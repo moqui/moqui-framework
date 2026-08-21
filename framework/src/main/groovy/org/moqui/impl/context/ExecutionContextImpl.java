@@ -192,6 +192,8 @@ public class ExecutionContextImpl implements ExecutionContext {
         if (userId != null && !userId.isEmpty()) MDC.put("moqui_userId", userId);
         String visitorId = userFacade.getVisitorId();
         if (visitorId != null && !visitorId.isEmpty()) MDC.put("moqui_visitorId", visitorId);
+        String appName = request.getHeader("X-Application-Name");
+        if (appName != null && !appName.isEmpty()) MDC.put("maarg_appName", appName);
 
         if (loggerDirect.isTraceEnabled()) loggerDirect.trace("ExecutionContextImpl WebFacade initialized");
     }
@@ -238,6 +240,7 @@ public class ExecutionContextImpl implements ExecutionContext {
 
         MDC.remove("moqui_userId");
         MDC.remove("moqui_visitorId");
+        MDC.remove("maarg_appName");
 
         if (loggerDirect.isTraceEnabled()) loggerDirect.trace("ExecutionContextImpl destroyed");
     }
