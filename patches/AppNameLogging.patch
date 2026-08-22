@@ -1,0 +1,39 @@
+diff --git framework/src/main/groovy/org/moqui/impl/context/ExecutionContextImpl.java framework/src/main/groovy/org/moqui/impl/context/ExecutionContextImpl.java
+index 60b8cd43..e2f7feb0 100644
+--- framework/src/main/groovy/org/moqui/impl/context/ExecutionContextImpl.java
++++ framework/src/main/groovy/org/moqui/impl/context/ExecutionContextImpl.java
+@@ -192,8 +192,9 @@ public class ExecutionContextImpl implements ExecutionContext {
+         if (userId != null && !userId.isEmpty()) MDC.put("moqui_userId", userId);
+         String visitorId = userFacade.getVisitorId();
+         if (visitorId != null && !visitorId.isEmpty()) MDC.put("moqui_visitorId", visitorId);
+-        String appName = request.getHeader("Origin");
+-        if (appName != null && !appName.isEmpty()) MDC.put("maarg_appName", "[app:" + appName + "]");
++        String appName = request.getHeader("X-Application-Name");
++        if (appName == null || appName.isEmpty()) appName = request.getHeader("Origin");
++        if (appName != null && !appName.isEmpty()) MDC.put("maarg_origin", "[origin:" + appName + "]");
+ 
+         if (loggerDirect.isTraceEnabled()) loggerDirect.trace("ExecutionContextImpl WebFacade initialized");
+     }
+@@ -240,7 +241,7 @@ public class ExecutionContextImpl implements ExecutionContext {
+ 
+         MDC.remove("moqui_userId");
+         MDC.remove("moqui_visitorId");
+-        MDC.remove("maarg_appName");
++        MDC.remove("maarg_origin");
+ 
+         if (loggerDirect.isTraceEnabled()) loggerDirect.trace("ExecutionContextImpl destroyed");
+     }
+diff --git framework/src/main/groovy/org/moqui/impl/context/WebFacadeImpl.groovy framework/src/main/groovy/org/moqui/impl/context/WebFacadeImpl.groovy
+index e38cf966..1fffa6c0 100644
+--- framework/src/main/groovy/org/moqui/impl/context/WebFacadeImpl.groovy
++++ framework/src/main/groovy/org/moqui/impl/context/WebFacadeImpl.groovy
+@@ -1027,7 +1027,8 @@ class WebFacadeImpl implements WebFacade {
+     void handleServiceRestCall(List<String> extraPathNameList) {
+         ContextStack parmStack = (ContextStack) getParameters()
+ 
+-        logger.info("Service REST for ${request.getMethod()} to ${request.getPathInfo()} headers ${request.headerNames.collect()} parameters ${getRequestParameters().keySet()}")
++        //logger.info("Service REST for ${request.getMethod()} to ${request.getPathInfo()} headers ${request.headerNames.collect()} parameters ${getRequestParameters().keySet()}")
++        logger.info("Service REST for ${request.getMethod()} to ${request.getPathInfo()} parameters ${getRequestParameters().keySet()}")
+ 
+         // check for login, etc error messages
+         if (eci.message.hasError()) {
