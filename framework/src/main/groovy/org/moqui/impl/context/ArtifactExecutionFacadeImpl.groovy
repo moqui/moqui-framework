@@ -506,7 +506,12 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                         ArrayList<Long> hitTimeListCopy = new ArrayList<Long>(hitTimeList)
                         for (int htlInd = 0; htlInd < hitTimeListCopy.size(); htlInd++) {
                             Long hitTime = (Long) hitTimeListCopy.get(htlInd)
-                            if (hitTime != null && ((hitTime - checkTime) < maxHitsDuration)) hitsInDuration++
+                            // NOTE: hitTime and checkTime are in milliseconds while maxHitsDuration is in
+                            // seconds (see the ArtifactTarpit entity description). The previous comparison
+                            // (hitTime - checkTime) was always negative for past hits and therefore always
+                            // below the limit, so every cached hit was counted regardless of its age and
+                            // maxHitsDuration had no effect: the tarpit triggered earlier than configured.
+                            if (hitTime != null && ((checkTime - hitTime) < (maxHitsDuration * 1000L))) hitsInDuration++
                         }
                     }
                     // logger.warn("TOREMOVE artifact [${tarpitKey}], now has ${hitsInDuration} hits in ${maxHitsDuration} seconds")
