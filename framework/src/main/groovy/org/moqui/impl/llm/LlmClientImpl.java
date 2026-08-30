@@ -25,9 +25,11 @@ import org.moqui.llm.LlmFinishReason;
 import org.moqui.llm.LlmMessage;
 import org.moqui.llm.LlmProtocol.ProtocolRequest;
 import org.moqui.llm.LlmProtocol.ProtocolResult;
+import org.moqui.llm.LlmProtocol.ProtocolStreamListener;
 import org.moqui.llm.LlmResponse;
 import org.moqui.llm.LlmStreamListener;
 import org.moqui.llm.LlmTool;
+import org.moqui.llm.LlmToolCall;
 import org.moqui.llm.LlmToolResult;
 import org.moqui.llm.WindowPolicy;
 import org.slf4j.Logger;
@@ -183,7 +185,6 @@ public class LlmClientImpl implements LlmClient {
         applyWindowPolicyToConversation();
         return this;
     }
-    @Override public LlmResponse stream(LlmStreamListener listener) { throw uoe("stream"); }
 
     @Override
     public LlmClient system(String content) {
@@ -229,6 +230,51 @@ public class LlmClientImpl implements LlmClient {
         if (body == null) this.extraBody = null;
         else this.extraBody = new LinkedHashMap<>(body);
         return this;
+    }
+
+    @Override
+    public LlmResponse stream(LlmStreamListener listener) {
+        if (listener == null) throw new IllegalArgumentException("LlmStreamListener is required");
+        failFastIfTransaction();
+
+        String model = requireModel();
+        List<LlmMessage> window = buildWindow();
+        ProtocolRequest req = buildRequest(model, window);
+        req.stream = true;
+        long start = System.currentTimeMillis();
+
+        ProtocolResult[] resultBox = new ProtocolResult[1];
+        Throwable[] failBox = new Throwable[1];
+        try {
+            profile.protocol.chatStream(req, new ProtocolStreamListener() {
+                @Override public void onDelta(String textDelta) {
+                    if (textDelta != null && !textDelta.isEmpty()) listener.onDelta(textDelta);
+                }
+                @Override public void onComplete(ProtocolResult result) { resultBox[0] = result; }
+                @Override public void onFailure(Throwable t) { failBox[0] = t; }
+            });
+        } catch (LlmException e) {
+            listener.onError(e);
+            throw e;
+        } catch (RuntimeException e) {
+            listener.onFailure(e);
+            throw new LlmException("LLM protocol stream failed: " + e.getMessage(), e,
+                    LlmFinishReason.ERROR, 0, profile.name);
+        }
+
+        if (failBox[0] != null) {
+            listener.onFailure(failBox[0]);
+            throw new LlmException("LLM stream failed: " + failBox[0].getMessage(), failBox[0],
+                    LlmFinishReason.ERROR, 0, profile.name);
+        }
+        ProtocolResult result = resultBox[0];
+        if (result == null) {
+            LlmException le = new LlmException("LLM protocol returned no stream result",
+                    LlmFinishReason.ERROR, 0, profile.name);
+            listener.onError(le);
+            throw le;
+        }
+        return finishStreamResult(listener, result, start);
     }
 
     @Override
@@ -386,10 +432,58 @@ public class LlmClientImpl implements LlmClient {
         });
     }
 
+    private LlmResponse finishStreamResult(LlmStreamListener listener, ProtocolResult result, long start) {
+        LlmFinishReason fr = result.finishReason != null ? result.finishReason : LlmFinishReason.ERROR;
+        if (fr == LlmFinishReason.STOP || fr == LlmFinishReason.LENGTH || fr == LlmFinishReason.TOOL_CALLS) {
+            LlmResponse r = toResponse(result, fr, start);
+            if (r.toolCalls != null) {
+                for (LlmToolCall tc : r.toolCalls) {
+                    if (tc != null) listener.onToolCall(tc, LlmTool.Execution.SERVER);
+                }
+            }
+            listener.onComplete(r);
+            return r;
+        }
+        LlmException le;
+        if (fr == LlmFinishReason.CONTENT_FILTER) {
+            le = new LlmException(nvl(result.errorMessage, "LLM content filter"),
+                    LlmFinishReason.CONTENT_FILTER, result.httpStatus, profile.name);
+        } else if (fr == LlmFinishReason.CONTEXT_OVERFLOW) {
+            le = new LlmException(nvl(result.errorMessage, "LLM context length exceeded"),
+                    LlmFinishReason.CONTEXT_OVERFLOW, result.httpStatus, profile.name);
+        } else if (fr == LlmFinishReason.EMPTY) {
+            le = new LlmException("LLM returned empty content", LlmFinishReason.EMPTY, result.httpStatus, profile.name);
+        } else {
+            le = new LlmException(nvl(result.errorMessage, "LLM call failed"),
+                    LlmFinishReason.ERROR, result.httpStatus, profile.name);
+        }
+        listener.onError(le);
+        throw le;
+    }
+
+    private void failFastIfTransaction() {
+        if (isTransactionInPlace() && !profile.allowTxOverHttp) {
+            throw new LlmException(
+                    "Cannot call LLM while a JTA transaction is active (default TX timeout 60s vs LLM timeout "
+                            + (timeoutSeconds != null ? timeoutSeconds : profile.timeoutSeconds)
+                            + "s). Commit first, or set allow-tx-over-http=true.",
+                    LlmFinishReason.ERROR, 0, profile.name);
+        }
+    }
+
     private boolean isTransactionInPlace() {
         if (transactionInPlace != null) return transactionInPlace.getAsBoolean();
         if (ec == null || ec.getTransaction() == null) return false;
         return ec.getTransaction().isTransactionInPlace();
+    }
+
+    private String requireModel() {
+        String model = resolveModel();
+        if (model == null || model.isBlank()) {
+            throw new LlmException("profile '" + profile.name + "' has no model",
+                    LlmFinishReason.ERROR, 0, profile.name);
+        }
+        return model;
     }
 
     String resolveModel() {

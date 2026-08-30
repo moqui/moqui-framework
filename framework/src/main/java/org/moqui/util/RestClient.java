@@ -87,6 +87,8 @@ public class RestClient {
 
     // NOTE: there is no constant on HttpServletResponse for 429; see RFC 6585 for details
     public static final int TOO_MANY = 429;
+    /** Cap for non-2xx RestStream bodies so checkError does not slurp an SSE tape. */
+    private static final int ERROR_BODY_MAX = 256 * 1024;
 
     // NOTE: DELETE doesn't normally support a body, but some APIs use it
     private static final EnumSet<Method> BODY_METHODS = EnumSet.of(Method.GET, Method.PATCH, Method.POST, Method.PUT, Method.DELETE);
@@ -683,10 +685,23 @@ public class RestClient {
         /** UTF-8 default */
         BufferedReader reader();
         RestClient getClient();
-        /** If status code is not in the 200 range throw an exception with details; same rule as RestResponse.checkError(). */
+        /** If status code is not in the 200 range, read the error body and throw {@link HttpErrorException}. */
         RestStream checkError();
         /** Idempotent. Stops the in-flight request and releases the response body. */
         @Override void close();
+    }
+
+    /** Non-2xx stream response; body is included so callers can classify JSON errors. */
+    public static class HttpErrorException extends HttpResponseException {
+        private final int statusCode;
+        private final String responseText;
+        public HttpErrorException(String message, Response response, String responseText) {
+            super(message, response);
+            this.statusCode = response != null ? response.getStatus() : 0;
+            this.responseText = responseText != null ? responseText : "";
+        }
+        public int getStatusCode() { return statusCode; }
+        public String getResponseText() { return responseText; }
     }
 
     public interface SseConsumer {
@@ -740,10 +755,31 @@ public class RestClient {
 
         @Override public RestStream checkError() {
             if (statusCode < 200 || statusCode >= 300) {
-                logger.info("Error " + statusCode + " (" + reasonPhrase + ") in response to " + rci.method + " to " + rci.uriString);
-                throw new HttpResponseException("Error " + statusCode + " (" + reasonPhrase + ") in response to " + rci.method + " to " + rci.uriString, response);
+                String body = readErrorBody();
+                logger.info("Error " + statusCode + " (" + reasonPhrase + ") in response to " + rci.method
+                        + " to " + rci.uriString + (body.isEmpty() ? "" : ", response text:\n" + body));
+                throw new HttpErrorException("Error " + statusCode + " (" + reasonPhrase + ") in response to "
+                        + rci.method + " to " + rci.uriString, response, body);
             }
             return this;
+        }
+
+        private String readErrorBody() {
+            try {
+                BufferedReader r = reader();
+                StringBuilder sb = new StringBuilder();
+                char[] buf = new char[2048];
+                int n;
+                while ((n = r.read(buf)) >= 0) {
+                    int room = ERROR_BODY_MAX - sb.length();
+                    if (room <= 0) break;
+                    sb.append(buf, 0, Math.min(n, room));
+                }
+                return sb.toString();
+            } catch (IOException e) {
+                logger.warn("Error reading REST error response body from " + rci.uriString, e);
+                return "";
+            }
         }
 
         @Override public RestClient getClient() { return rci; }

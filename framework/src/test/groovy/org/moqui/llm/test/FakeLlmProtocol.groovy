@@ -23,13 +23,16 @@ import org.moqui.llm.LlmToolCall
 class FakeLlmProtocol implements LlmProtocol {
     boolean failIfInvoked = false
     int chatCount = 0
+    int chatStreamCount = 0
     ProtocolRequest lastRequest
     List<ProtocolResult> results = []
     Closure<ProtocolResult> handler
+    List<String> streamDeltas
+    Throwable streamFailure
 
     @Override String getName() { return "fake" }
     @Override boolean supportsTools() { return true }
-    @Override boolean supportsStreaming() { return false }
+    @Override boolean supportsStreaming() { return true }
 
     @Override
     ProtocolResult chat(ProtocolRequest request) {
@@ -50,7 +53,32 @@ class FakeLlmProtocol implements LlmProtocol {
 
     @Override
     void chatStream(ProtocolRequest request, ProtocolStreamListener listener) {
-        throw new UnsupportedOperationException("FakeLlmProtocol.chatStream")
+        if (failIfInvoked) throw new AssertionError("FakeLlmProtocol.chatStream() should not be invoked")
+        if (listener == null) throw new IllegalArgumentException("ProtocolStreamListener is required")
+        chatStreamCount++
+        lastRequest = request
+        if (streamFailure != null) {
+            if (streamDeltas != null) {
+                for (String d : streamDeltas) if (d) listener.onDelta(d)
+            }
+            listener.onFailure(streamFailure)
+            return
+        }
+        ProtocolResult r
+        if (handler != null) r = handler.call(request)
+        else if (results.size() > 0) {
+            int i = Math.min(chatStreamCount - 1, results.size() - 1)
+            r = results.get(i)
+        } else {
+            r = stop("ok")
+            r.model = request != null ? request.model : null
+        }
+        if (streamDeltas != null) {
+            for (String d : streamDeltas) if (d) listener.onDelta(d)
+        } else if (r != null && r.content != null && !r.content.isEmpty()) {
+            listener.onDelta(r.content)
+        }
+        listener.onComplete(r)
     }
 
     static ProtocolResult stop(String content) {

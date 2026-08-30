@@ -13,6 +13,8 @@
  */
 package org.moqui.impl.llm;
 
+import org.eclipse.jetty.client.HttpResponseException;
+import org.eclipse.jetty.client.Response;
 import org.moqui.BaseException;
 import org.moqui.llm.LlmException;
 import org.moqui.llm.LlmFinishReason;
@@ -34,6 +36,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class OpenAiCompatProtocol implements LlmProtocol {
     private static final Logger logger = LoggerFactory.getLogger(OpenAiCompatProtocol.class);
@@ -43,11 +47,50 @@ public class OpenAiCompatProtocol implements LlmProtocol {
 
     @Override public String getName() { return "openai-compat"; }
     @Override public boolean supportsTools() { return true; }
-    @Override public boolean supportsStreaming() { return false; }
+    @Override public boolean supportsStreaming() { return true; }
 
     @Override
     public void chatStream(ProtocolRequest request, ProtocolStreamListener listener) {
-        throw new UnsupportedOperationException("OpenAiCompatProtocol.chatStream is not yet implemented");
+        if (listener == null) throw new IllegalArgumentException("ProtocolStreamListener is required");
+        if (request == null) throw new LlmException("ProtocolRequest is required");
+        if (request.endpointUrl == null || request.endpointUrl.isBlank())
+            throw new LlmException("LLM endpoint url is required", LlmFinishReason.ERROR, 0, request.profileName);
+
+        request.stream = true;
+        String json = LlmJson.toJson(buildRequestBody(request));
+
+        RestClient restClient = newChatRestClient(request, json);
+        restClient.acceptContentType("text/event-stream");
+        // streamInternal rethrows TimeoutException, so header-timeout retry is Layer A here.
+        if (request.timeoutRetry) restClient.timeoutRetry(true);
+
+        StreamAssembler assembler = new StreamAssembler(request);
+        AtomicBoolean finished = new AtomicBoolean(false);
+        restClient.streamSse(new RestClient.SseConsumer() {
+            @Override public boolean onEvent(String event, String data, String id) {
+                assembler.accept(data, listener);
+                return true;
+            }
+            @Override public void onComplete() {
+                if (!finished.compareAndSet(false, true)) return;
+                // Clean EOF or [DONE] with tokens but no finish_reason is a truncated stream, not STOP.
+                if (assembler.hasUnfinishedOutput()) {
+                    listener.onFailure(new java.io.IOException("LLM stream ended without finish_reason"));
+                } else {
+                    listener.onComplete(assembler.toResult(200, null));
+                }
+            }
+            @Override public void onFailure(Throwable t) {
+                if (!finished.compareAndSet(false, true)) return;
+                int status = httpStatusOf(t);
+                if (status >= 400) {
+                    // Finished HTTP error (not a mid-body drop). Classify body the same as chat().
+                    listener.onComplete(assembler.toResult(status, t));
+                } else {
+                    listener.onFailure(t);
+                }
+            }
+        });
     }
 
     @Override
@@ -56,20 +99,8 @@ public class OpenAiCompatProtocol implements LlmProtocol {
         if (request.endpointUrl == null || request.endpointUrl.isBlank())
             throw new LlmException("LLM endpoint url is required", LlmFinishReason.ERROR, 0, request.profileName);
 
-        Map<String, Object> body = buildRequestBody(request);
-        String json = LlmJson.toJson(body);
-
-        RestClient restClient = new RestClient()
-                .method(RestClient.POST)
-                .uri(request.endpointUrl)
-                .contentType("application/json")
-                .timeout(request.timeoutSeconds != null && request.timeoutSeconds > 0 ? request.timeoutSeconds : 120)
-                .retry(request.retryInitialSeconds > 0 ? request.retryInitialSeconds : 2.0f,
-                        request.retryMax >= 0 ? request.retryMax : 5)
-                .redactHeaders(redactHeaderNames(request))
-                .text(json);
-        if (request.requestFactory != null) restClient.withRequestFactory(request.requestFactory);
-        applyAuthAndHeaders(restClient, request);
+        String json = LlmJson.toJson(buildRequestBody(request));
+        RestClient restClient = newChatRestClient(request, json);
 
         RestClient.RestResponse response;
         try {
@@ -92,6 +123,21 @@ public class OpenAiCompatProtocol implements LlmProtocol {
         else result.rawJson = raw;
         if (result.model == null) result.model = request.model;
         return result;
+    }
+
+    static RestClient newChatRestClient(ProtocolRequest request, String json) {
+        RestClient restClient = new RestClient()
+                .method(RestClient.POST)
+                .uri(request.endpointUrl)
+                .contentType("application/json")
+                .timeout(request.timeoutSeconds != null && request.timeoutSeconds > 0 ? request.timeoutSeconds : 120)
+                .retry(request.retryInitialSeconds > 0 ? request.retryInitialSeconds : 2.0f,
+                        request.retryMax >= 0 ? request.retryMax : 5)
+                .redactHeaders(redactHeaderNames(request))
+                .text(json);
+        if (request.requestFactory != null) restClient.withRequestFactory(request.requestFactory);
+        applyAuthAndHeaders(restClient, request);
+        return restClient;
     }
 
     static void applyAuthAndHeaders(RestClient restClient, ProtocolRequest request) {
@@ -141,7 +187,21 @@ public class OpenAiCompatProtocol implements LlmProtocol {
                     ? request.maxTokensParameter : "max_tokens";
             body.put(param, request.maxTokens);
         }
-        body.put("stream", false);
+        boolean stream = request.stream;
+        body.put("stream", stream);
+        if (stream) {
+            Object existing = body.get("stream_options");
+            Map<String, Object> opts;
+            if (existing instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> existingMap = (Map<String, Object>) existing;
+                opts = new LinkedHashMap<>(existingMap);
+            } else {
+                opts = new LinkedHashMap<>();
+            }
+            if (!opts.containsKey("include_usage")) opts.put("include_usage", true);
+            body.put("stream_options", opts);
+        }
         if (request.tools != null && !request.tools.isEmpty()) {
             List<Map<String, Object>> toolList = new ArrayList<>();
             for (LlmTool tool : request.tools) {
@@ -156,10 +216,10 @@ public class OpenAiCompatProtocol implements LlmProtocol {
                     params.put("properties", new LinkedHashMap<>());
                 }
                 fn.put("parameters", params);
-                Map<String, Object> t = new LinkedHashMap<>();
-                t.put("type", "function");
-                t.put("function", fn);
-                toolList.add(t);
+                Map<String, Object> tm = new LinkedHashMap<>();
+                tm.put("type", "function");
+                tm.put("function", fn);
+                toolList.add(tm);
             }
             if (!toolList.isEmpty()) body.put("tools", toolList);
         }
@@ -309,5 +369,208 @@ public class OpenAiCompatProtocol implements LlmProtocol {
             t = t.getCause();
         }
         return false;
+    }
+
+    static int httpStatusOf(Throwable t) {
+        Throwable cur = t;
+        while (cur != null) {
+            if (cur instanceof RestClient.HttpErrorException) {
+                int status = ((RestClient.HttpErrorException) cur).getStatusCode();
+                if (status > 0) return status;
+            }
+            if (cur instanceof HttpResponseException) {
+                Response resp = ((HttpResponseException) cur).getResponse();
+                if (resp != null && resp.getStatus() > 0) return resp.getStatus();
+            }
+            cur = cur.getCause();
+        }
+        return 0;
+    }
+
+    static String errorBodyOf(Throwable t) {
+        Throwable cur = t;
+        while (cur != null) {
+            if (cur instanceof RestClient.HttpErrorException) {
+                return ((RestClient.HttpErrorException) cur).getResponseText();
+            }
+            cur = cur.getCause();
+        }
+        return null;
+    }
+
+    /** Concatenate content and tool_call arguments by index; usage may arrive after finish_reason. */
+    static final class StreamAssembler {
+        private final String requestModel;
+        private final boolean logContent;
+        private final StringBuilder content = new StringBuilder();
+        private final TreeMap<Integer, ToolCallAcc> toolCalls = new TreeMap<>();
+        private final Map<String, Integer> toolCallIdToIndex = new LinkedHashMap<>();
+        private String finishReason;
+        private String model;
+        private Map<String, Object> usageMap;
+        private Map<String, Object> error;
+        private final StringBuilder raw = new StringBuilder();
+
+        StreamAssembler(ProtocolRequest request) {
+            this.requestModel = request != null ? request.model : null;
+            this.logContent = request != null && request.logContent;
+        }
+
+        void accept(String data, ProtocolStreamListener listener) {
+            if (data == null || data.isBlank()) return;
+            if (logContent) {
+                if (raw.length() > 0) raw.append('\n');
+                raw.append(data);
+            }
+            Map<String, Object> chunk;
+            try {
+                chunk = LlmJson.toMap(data);
+            } catch (Throwable t) {
+                if (logger.isDebugEnabled()) logger.debug("Skipping non-JSON SSE chunk: " + t.getMessage());
+                return;
+            }
+            if (chunk == null) return;
+
+            String chunkModel = LlmRetryClassifier.str(chunk.get("model"));
+            if (chunkModel != null && !chunkModel.isBlank()) model = chunkModel;
+
+            Map<?, ?> err = LlmRetryClassifier.asMap(chunk.get("error"));
+            if (err != null) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> errMap = (Map<String, Object>) err;
+                error = errMap;
+            }
+
+            Map<?, ?> usage = LlmRetryClassifier.asMap(chunk.get("usage"));
+            if (usage != null) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> um = (Map<String, Object>) usage;
+                usageMap = um;
+            }
+
+            List<?> choices = chunk.get("choices") instanceof List ? (List<?>) chunk.get("choices") : null;
+            if (choices == null || choices.isEmpty()) return;
+            Map<?, ?> choice = LlmRetryClassifier.asMap(choices.get(0));
+            if (choice == null) return;
+
+            String fr = LlmRetryClassifier.str(choice.get("finish_reason"));
+            if (fr == null) fr = LlmRetryClassifier.str(choice.get("finishReason"));
+            if (fr != null && !fr.isBlank()) finishReason = fr;
+
+            Map<?, ?> delta = LlmRetryClassifier.asMap(choice.get("delta"));
+            if (delta == null) return;
+
+            Object contentDelta = delta.get("content");
+            if (contentDelta instanceof CharSequence) {
+                String s = contentDelta.toString();
+                if (!s.isEmpty()) {
+                    content.append(s);
+                    if (listener != null) listener.onDelta(s);
+                }
+            }
+
+            Object tcs = delta.get("tool_calls");
+            if (tcs instanceof List) {
+                for (Object item : (List<?>) tcs) {
+                    accumulateToolCall(LlmRetryClassifier.asMap(item));
+                }
+            }
+        }
+
+        boolean hasUnfinishedOutput() {
+            return finishReason == null && error == null && (content.length() > 0 || !toolCalls.isEmpty());
+        }
+
+        private void accumulateToolCall(Map<?, ?> tc) {
+            if (tc == null) return;
+            String id = LlmRetryClassifier.str(tc.get("id"));
+            boolean hasId = id != null && !id.isBlank();
+            Integer idx = null;
+            if (tc.get("index") != null) {
+                Integer parsed = LlmRetryClassifier.toInt(tc.get("index"));
+                if (parsed != null) idx = parsed;
+            }
+            if (idx == null && hasId && toolCallIdToIndex.containsKey(id)) {
+                idx = toolCallIdToIndex.get(id);
+            } else if (idx == null && hasId) {
+                idx = toolCalls.isEmpty() ? 0 : toolCalls.lastKey() + 1;
+            } else if (idx == null) {
+                idx = toolCalls.isEmpty() ? 0 : toolCalls.lastKey();
+            }
+
+            ToolCallAcc acc = toolCalls.get(idx);
+            if (acc == null) {
+                acc = new ToolCallAcc();
+                toolCalls.put(idx, acc);
+            }
+            if (id != null && !id.isBlank()) {
+                acc.id = id;
+                toolCallIdToIndex.put(id, idx);
+            }
+            Map<?, ?> fn = LlmRetryClassifier.asMap(tc.get("function"));
+            String name = fn != null ? LlmRetryClassifier.str(fn.get("name")) : LlmRetryClassifier.str(tc.get("name"));
+            if (name != null && !name.isBlank()) acc.name = name;
+            Object argsObj = fn != null ? fn.get("arguments") : tc.get("arguments");
+            if (argsObj instanceof CharSequence) {
+                acc.arguments.append(argsObj);
+            } else if (argsObj != null && acc.arguments.length() == 0) {
+                acc.arguments.append(LlmJson.toJson(argsObj));
+            }
+        }
+
+        ProtocolResult toResult(int httpStatus, Throwable t) {
+            String errorBody = errorBodyOf(t);
+            if (error == null && content.length() == 0 && toolCalls.isEmpty() && t != null) {
+                String raw = (errorBody != null && !errorBody.isBlank()) ? errorBody : t.getMessage();
+                ProtocolResult r = LlmRetryClassifier.classify(httpStatus, raw);
+                if (r.model == null) r.model = model != null ? model : requestModel;
+                if (r.errorMessage == null || r.errorMessage.isBlank()) r.errorMessage = t.getMessage();
+                if (!logContent) r.rawJson = null;
+                return r;
+            }
+
+            Map<String, Object> body = new LinkedHashMap<>();
+            if (model != null) body.put("model", model);
+            else if (requestModel != null) body.put("model", requestModel);
+            if (error != null) body.put("error", error);
+            if (usageMap != null) body.put("usage", usageMap);
+
+            List<Map<String, Object>> choices = new ArrayList<>();
+            Map<String, Object> choice = new LinkedHashMap<>();
+            if (finishReason != null) choice.put("finish_reason", finishReason);
+            Map<String, Object> message = new LinkedHashMap<>();
+            message.put("content", content.length() == 0 ? null : content.toString());
+            if (!toolCalls.isEmpty()) message.put("tool_calls", toolCallsAsOpenAi());
+            choice.put("message", message);
+            choices.add(choice);
+            body.put("choices", choices);
+
+            String rawJson = logContent && raw.length() > 0 ? raw.toString() : (t != null ? t.getMessage() : null);
+            ProtocolResult r = LlmRetryClassifier.classify(httpStatus, body, rawJson);
+            if (r.model == null) r.model = model != null ? model : requestModel;
+            if (!logContent) r.rawJson = null;
+            return r;
+        }
+
+        private List<Map<String, Object>> toolCallsAsOpenAi() {
+            List<Map<String, Object>> out = new ArrayList<>(toolCalls.size());
+            for (ToolCallAcc acc : toolCalls.values()) {
+                Map<String, Object> tc = new LinkedHashMap<>();
+                tc.put("id", acc.id);
+                tc.put("type", "function");
+                Map<String, Object> fn = new LinkedHashMap<>();
+                fn.put("name", acc.name);
+                fn.put("arguments", acc.arguments.toString());
+                tc.put("function", fn);
+                out.add(tc);
+            }
+            return out;
+        }
+    }
+
+    static final class ToolCallAcc {
+        String id;
+        String name;
+        final StringBuilder arguments = new StringBuilder();
     }
 }

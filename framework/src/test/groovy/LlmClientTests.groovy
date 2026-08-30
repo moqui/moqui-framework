@@ -28,6 +28,7 @@ import org.moqui.llm.LlmMessage
 import org.moqui.llm.LlmProtocol
 import org.moqui.llm.LlmProtocol.ProtocolRequest
 import org.moqui.llm.LlmResponse
+import org.moqui.llm.LlmStreamListener
 import org.moqui.llm.LlmTool
 import org.moqui.llm.LlmToolCall
 import org.moqui.llm.LlmToolResult
@@ -326,6 +327,19 @@ class LlmClientTests extends Specification {
         !body2.containsKey("max_tokens")
     }
 
+    def "stream=true body includes stream_options.include_usage"() {
+        when:
+        ProtocolRequest req = new ProtocolRequest()
+        req.model = "m"
+        req.window = [LlmMessage.user("x")]
+        req.stream = true
+        Map body = OpenAiCompatProtocol.buildRequestBody(req)
+        then:
+        body.stream == true
+        body.stream_options instanceof Map
+        body.stream_options.include_usage == true
+    }
+
     // ========== LlmClient.call with Fake protocol ==========
 
     def "call returns STOP content from FakeLlmProtocol"() {
@@ -440,11 +454,99 @@ class LlmClientTests extends Specification {
         proto.chatCount == 1
     }
 
-    def "stream still throws UnsupportedOperationException"() {
+    def "stream with null listener throws before protocol"() {
         given:
-        LlmClient c = client(new FakeLlmProtocol())
-        when: c.stream(null)
-        then: thrown(UnsupportedOperationException)
+        def proto = new FakeLlmProtocol(failIfInvoked: true)
+        when:
+        client(proto).user("hi").stream(null)
+        then:
+        thrown(IllegalArgumentException)
+        proto.chatStreamCount == 0
+    }
+
+    def "stream returns STOP content and forwards deltas from FakeLlmProtocol"() {
+        given:
+        def proto = new FakeLlmProtocol()
+        proto.results = [FakeLlmProtocol.stop("Hello")]
+        proto.streamDeltas = ["Hel", "lo"]
+        def listener = new CollectingListener()
+        when:
+        LlmResponse r = client(proto).system("sys").user("hi").stream(listener)
+        then:
+        r.content == "Hello"
+        r.finishReason == LlmFinishReason.STOP
+        listener.deltas == ["Hel", "lo"]
+        listener.complete?.content == "Hello"
+        listener.failure == null
+        proto.chatStreamCount == 1
+        proto.lastRequest.stream
+        proto.lastRequest.model == "test-model"
+    }
+
+    def "stream fail-fast on open TX before any protocol HTTP"() {
+        given:
+        def proto = new FakeLlmProtocol(failIfInvoked: true)
+        when:
+        client(proto, "test-model", false, { true }).user("hi").stream(new CollectingListener())
+        then:
+        LlmException e = thrown()
+        e.message.toLowerCase().contains("transaction")
+        proto.chatStreamCount == 0
+        proto.chatCount == 0
+    }
+
+    def "stream does not retry on drop"() {
+        given:
+        def proto = new FakeLlmProtocol()
+        proto.streamDeltas = ["Hel"]
+        proto.streamFailure = new IOException("connection reset")
+        proto.results = [FakeLlmProtocol.stop("Hello"), FakeLlmProtocol.stop("retry-would-be-wrong")]
+        def listener = new CollectingListener()
+        when:
+        client(proto).user("hi").stream(listener)
+        then:
+        LlmException e = thrown()
+        e.reason == LlmFinishReason.ERROR
+        listener.deltas == ["Hel"]
+        listener.failure instanceof IOException
+        listener.complete == null
+        proto.chatStreamCount == 1
+    }
+
+    def "stream assembles tool_calls onto the complete response and onToolCall"() {
+        given:
+        def proto = new FakeLlmProtocol()
+        def tcResult = new LlmProtocol.ProtocolResult(LlmFinishReason.TOOL_CALLS)
+        tcResult.httpStatus = 200
+        tcResult.toolCalls = [new LlmToolCall("call_1", "request", '{"method":"GET"}')]
+        proto.results = [tcResult]
+        def listener = new CollectingListener()
+        when:
+        LlmResponse r = client(proto).user("hi").stream(listener)
+        then:
+        r.finishReason == LlmFinishReason.TOOL_CALLS
+        r.toolCalls.size() == 1
+        r.toolCalls[0].id == "call_1"
+        r.toolCalls[0].arguments == '{"method":"GET"}'
+        listener.toolCalls.size() == 1
+        listener.toolCalls[0].name == "request"
+        listener.complete?.finishReason == LlmFinishReason.TOOL_CALLS
+        proto.chatStreamCount == 1
+    }
+
+    static class CollectingListener implements LlmStreamListener {
+        List<String> deltas = []
+        List<LlmToolCall> toolCalls = []
+        LlmResponse complete
+        Throwable failure
+        LlmException error
+        @Override void onDelta(String textDelta) { deltas.add(textDelta) }
+        @Override void onToolCall(LlmToolCall call, LlmTool.Execution execution) {
+            toolCalls.add(call)
+        }
+        @Override void onComplete(LlmResponse response) { complete = response }
+        @Override void onError(LlmException e) { error = e }
+        @Override void onFailure(Throwable t) { failure = t }
     }
 
     def "tool builder methods do not throw"() {
