@@ -28,6 +28,8 @@ import spock.lang.Specification
 
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -125,9 +127,9 @@ class RestClientStreamTests extends Specification {
                 data.append(value)
             }
         }
+        boolean handlerFinished = handler.slowDone.await(3, TimeUnit.SECONDS)
         boolean moreEvents = false
         try {
-            Thread.sleep(800)
             while ((line = stream.reader().readLine()) != null) {
                 if (line.contains("chunk-")) moreEvents = true
             }
@@ -138,7 +140,9 @@ class RestClientStreamTests extends Specification {
         stream.getContentType() == "text/event-stream"
         events == ["chunk-1"]
         !moreEvents
-        handler.slowAborted.get() || handler.slowChunks.get() < 5
+        handlerFinished
+        handler.slowAborted.get()
+        handler.slowChunks.get() >= 1 && handler.slowChunks.get() <= 2
 
         cleanup:
         if (stream != null) stream.close()
@@ -155,10 +159,14 @@ class RestClientStreamTests extends Specification {
             }
             @Override void onComplete() { completed = true }
         })
+        boolean handlerFinished = handler.slowDone.await(3, TimeUnit.SECONDS)
 
         then:
         events == ["chunk-1"]
         !completed
+        handlerFinished
+        handler.slowAborted.get()
+        handler.slowChunks.get() >= 1 && handler.slowChunks.get() <= 2
     }
 
     static class SseTestHandler extends Handler.Abstract {
@@ -166,12 +174,14 @@ class RestClientStreamTests extends Specification {
         final AtomicInteger slowChunks = new AtomicInteger()
         final AtomicBoolean slowAborted = new AtomicBoolean()
         final AtomicInteger generation = new AtomicInteger()
+        volatile CountDownLatch slowDone = new CountDownLatch(1)
 
         void reset() {
             generation.incrementAndGet()
             sse429Hits.set(0)
             slowChunks.set(0)
             slowAborted.set(false)
+            slowDone = new CountDownLatch(1)
         }
 
         @Override
@@ -199,21 +209,28 @@ class RestClientStreamTests extends Specification {
                         callback.succeeded()
                     }
                 } else if ("/sse-slow".equals(path)) {
-                    int gen = generation.get()
-                    writeSseHeaders(response)
-                    for (int i = 1; i <= 5; i++) {
-                        if (generation.get() != gen) break
-                        writeChunk(response, "data: chunk-" + i + "\n\n", i == 5)
-                        slowChunks.incrementAndGet()
-                        if (i < 5) Thread.sleep(250)
+                    CountDownLatch done = slowDone
+                    try {
+                        int gen = generation.get()
+                        writeSseHeaders(response)
+                        for (int i = 1; i <= 5; i++) {
+                            if (generation.get() != gen) break
+                            writeChunk(response, "data: chunk-" + i + "\n\n", i == 5)
+                            slowChunks.incrementAndGet()
+                            if (i < 5) Thread.sleep(250)
+                        }
+                        callback.succeeded()
+                    } catch (Exception e) {
+                        slowAborted.set(true)
+                        callback.failed(e)
+                    } finally {
+                        done.countDown()
                     }
-                    callback.succeeded()
                 } else {
                     Response.writeError(request, response, callback, 404)
                     return true
                 }
             } catch (IOException e) {
-                slowAborted.set(true)
                 callback.failed(e)
             }
             return true

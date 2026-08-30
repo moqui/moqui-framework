@@ -402,9 +402,7 @@ public class RestClient {
                     if (!dispatchSseEvent(consumer, event, data, id)) return;
                     event = null;
                     data.setLength(0);
-                } else if (line.charAt(0) == ':') {
-                    // SSE comment
-                } else {
+                } else if (line.charAt(0) != ':') {
                     int colon = line.indexOf(':');
                     String field;
                     String value;
@@ -685,14 +683,14 @@ public class RestClient {
         /** UTF-8 default */
         BufferedReader reader();
         RestClient getClient();
-        /** 4xx/5xx → HttpResponseException */
+        /** If status code is not in the 200 range throw an exception with details; same rule as RestResponse.checkError(). */
         RestStream checkError();
-        /** Close the InputStreamResponseListener and Request.abort(new CancellationException("RestStream closed")). */
+        /** Idempotent. Stops the in-flight request and releases the response body. */
         @Override void close();
     }
 
     public interface SseConsumer {
-        /** Return false to abort (must close the stream / abort the Jetty request).
+        /** Return false to stop reading.
          *  event may be null (SSE spec default). data is concatenated multi-line data. */
         boolean onEvent(String event, String data, String id);
         default void onComplete() {}
