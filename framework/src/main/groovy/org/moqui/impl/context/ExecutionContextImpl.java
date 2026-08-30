@@ -147,6 +147,7 @@ public class ExecutionContextImpl implements ExecutionContext {
     public @Nonnull EntityFacadeImpl getEntityFacade() { return activeEntityFacade; }
 
     @Override public @Nonnull ElasticFacade getElastic() { return ecfi.elasticFacade; }
+    @Override public @Nonnull LlmFacade getLlm() { return ecfi.llmFacade; }
     @Override public @Nonnull ServiceFacade getService() { return serviceFacade; }
     @Override public @Nonnull ScreenFacade getScreen() { return screenFacade; }
 

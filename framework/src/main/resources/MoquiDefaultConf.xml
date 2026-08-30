@@ -79,6 +79,13 @@
     <default-property name="elasticsearch_user" value=""/>
     <default-property name="elasticsearch_password" value="" is-secret="true"/>
     <default-property name="elasticsearch_index_prefix" value=""/>
+
+    <!-- LLM Client settings -->
+    <default-property name="llm_openai_url" value="https://api.openai.com"/>
+    <default-property name="llm_openai_api_key" value="" is-secret="true"/>
+    <default-property name="llm_openai_model" value=""/>
+    <default-property name="llm_log_content" value="false"/>
+
     <!-- Kibana Proxy Servlet settings -->
     <default-property name="kibana_host" value="127.0.0.1"/>
     <default-property name="kibana_port" value="5601"/>
@@ -423,6 +430,12 @@
         <cluster name="default" url="${elasticsearch_host1 ?: elasticsearch_url}" user="${elasticsearch_user}" password="${elasticsearch_password}"
                 index-prefix="${elasticsearch_index_prefix}" pool-max="64" queue-size="1024"/>
     </elastic-facade>
+
+    <llm-facade enabled="true" default-profile="default">
+        <profile name="default" url="${llm_openai_url}" api-key="${llm_openai_api_key}"
+                model="${llm_openai_model}" log-content="${llm_log_content}"/>
+        <!-- No allowed-path: servlet does not attach request. Add prefixes in runtime conf. -->
+    </llm-facade>
 
     <entity-facade default-group-name="transactional" entity-eca-enabled="true" sequenced-id-prefix=""
             distributed-cache-invalidate="false" dci-topic-factory="" query-stats="false"

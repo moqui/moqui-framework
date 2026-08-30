@@ -31,6 +31,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:element minOccurs="0" ref="screen-facade"/>
                 <xs:element minOccurs="0" ref="service-facade"/>
                 <xs:element minOccurs="0" ref="elastic-facade"/>
+                <xs:element minOccurs="0" ref="llm-facade"/>
                 <xs:element minOccurs="0" ref="entity-facade"/>
                 <xs:element minOccurs="0" ref="database-list"/>
                 <xs:element minOccurs="0" ref="repository-list"/>
@@ -606,6 +607,76 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:attribute name="queue-size" type="xs:positiveInteger"/>
             </xs:complexType></xs:element>
         </xs:sequence>
+    </xs:complexType></xs:element>
+
+    <!-- ===================== LLM Facade Conf Root ===================== -->
+
+    <xs:element name="llm-facade"><xs:complexType>
+        <xs:sequence>
+            <xs:element name="profile" minOccurs="0" maxOccurs="unbounded"><xs:complexType>
+                <xs:sequence>
+                    <xs:element name="header" minOccurs="0" maxOccurs="unbounded"><xs:complexType>
+                        <xs:attribute name="name" type="xs:string" use="required"/>
+                        <xs:attribute name="value" type="xs:string" use="required"/>
+                    </xs:complexType></xs:element>
+                    <xs:element name="query" minOccurs="0" maxOccurs="unbounded"><xs:complexType>
+                        <xs:attribute name="name" type="xs:string" use="required"/>
+                        <xs:attribute name="value" type="xs:string" use="required"/>
+                    </xs:complexType></xs:element>
+                    <xs:element name="allowed-path" minOccurs="0" maxOccurs="unbounded"><xs:complexType>
+                        <xs:attribute name="prefix" type="xs:string" use="required"/>
+                        <xs:attribute name="methods" type="xs:string" default="GET"/>
+                    </xs:complexType></xs:element>
+                    <xs:element name="allowed-service" minOccurs="0" maxOccurs="unbounded"><xs:complexType>
+                        <xs:annotation><xs:documentation>Optional typed LlmTool.service(); off by default on the servlet.</xs:documentation></xs:annotation>
+                        <xs:attribute name="name" type="xs:string" use="required"/>
+                        <xs:attribute name="function-name" type="xs:string"/>
+                        <xs:attribute name="description" type="xs:string"/>
+                    </xs:complexType></xs:element>
+                    <xs:element name="allowed-entity" minOccurs="0" maxOccurs="unbounded"><xs:complexType>
+                        <xs:attribute name="name" type="xs:string" use="required"/>
+                    </xs:complexType></xs:element>
+                </xs:sequence>
+                <xs:attribute name="name" type="xs:string" use="required"/>
+                <xs:attribute name="protocol" type="xs:string" default="org.moqui.impl.llm.OpenAiCompatProtocol"/>
+                <xs:attribute name="url" type="xs:string"/>
+                <xs:attribute name="path" type="xs:string" default="/v1/chat/completions"/>
+                <xs:attribute name="api-key" type="xs:string"/>
+                <xs:attribute name="auth-header-name" type="xs:string" default="Authorization"/>
+                <xs:attribute name="auth-header-pattern" type="xs:string" default="Bearer ${api-key}"/>
+                <xs:attribute name="model" type="xs:string"/>
+                <xs:attribute name="max-tokens-parameter" default="max_tokens">
+                    <xs:simpleType><xs:restriction base="xs:token">
+                        <xs:enumeration value="max_tokens"/>
+                        <xs:enumeration value="max_completion_tokens"/>
+                    </xs:restriction></xs:simpleType>
+                </xs:attribute>
+                <xs:attribute name="allow-write-ui" type="boolean" default="false"/>
+                <xs:attribute name="allow-tx-over-http" type="boolean" default="false"/>
+                <xs:attribute name="tool-result-max-chars" type="xs:positiveInteger" default="8000"/>
+                <xs:attribute name="sse-ping-seconds" type="xs:positiveInteger" default="15"/>
+                <xs:attribute name="timeout-seconds" type="xs:positiveInteger" default="120"/>
+                <xs:attribute name="retry-initial-seconds" type="xs:decimal" default="2"/>
+                <xs:attribute name="retry-max" type="xs:nonNegativeInteger" default="5"/>
+                <xs:attribute name="timeout-retry" type="boolean" default="true"/>
+                <xs:attribute name="empty-retries" type="xs:nonNegativeInteger" default="2"/>
+                <xs:attribute name="context-limit-policy" default="fail">
+                    <xs:simpleType><xs:restriction base="xs:token">
+                        <xs:enumeration value="fail"/>
+                        <xs:enumeration value="trim-once"/>
+                    </xs:restriction></xs:simpleType>
+                </xs:attribute>
+                <xs:attribute name="max-tokens" type="xs:positiveInteger"/>
+                <xs:attribute name="temperature" type="xs:decimal"/>
+                <xs:attribute name="max-iterations" type="xs:positiveInteger" default="8"/>
+                <xs:attribute name="pool-max" type="xs:positiveInteger" default="16"/>
+                <xs:attribute name="queue-size" type="xs:positiveInteger" default="64"/>
+                <xs:attribute name="log-content" type="boolean" default="false"/>
+                <xs:attribute name="disabled" type="boolean" default="false"/>
+            </xs:complexType></xs:element>
+        </xs:sequence>
+        <xs:attribute name="enabled" type="boolean" default="true"/>
+        <xs:attribute name="default-profile" type="xs:string" default="default"/>
     </xs:complexType></xs:element>
 
     <!-- ===================== Entity Facade Conf Root ===================== -->

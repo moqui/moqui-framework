@@ -87,6 +87,9 @@ public interface ExecutionContext {
     /** For interactions with ElasticSearch using the built in HTTP REST client. */
     @Nonnull ElasticFacade getElastic();
 
+    /** For LLM provider calls using named conf profiles. */
+    @Nonnull LlmFacade getLlm();
+
     /** For calling services (local or remote, sync or async or scheduled). */
     @Nonnull ServiceFacade getService();
 
