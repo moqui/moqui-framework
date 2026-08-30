@@ -18,6 +18,7 @@ import org.moqui.llm.LlmProtocol
 import org.moqui.llm.LlmProtocol.ProtocolRequest
 import org.moqui.llm.LlmProtocol.ProtocolResult
 import org.moqui.llm.LlmProtocol.ProtocolStreamListener
+import org.moqui.llm.LlmToolCall
 
 class FakeLlmProtocol implements LlmProtocol {
     boolean failIfInvoked = false
@@ -27,7 +28,7 @@ class FakeLlmProtocol implements LlmProtocol {
     Closure<ProtocolResult> handler
 
     @Override String getName() { return "fake" }
-    @Override boolean supportsTools() { return false }
+    @Override boolean supportsTools() { return true }
     @Override boolean supportsStreaming() { return false }
 
     @Override
@@ -61,6 +62,12 @@ class FakeLlmProtocol implements LlmProtocol {
     static ProtocolResult empty() {
         ProtocolResult r = new ProtocolResult(LlmFinishReason.EMPTY)
         r.httpStatus = 200
+        return r
+    }
+    static ProtocolResult toolCalls(LlmToolCall... calls) {
+        ProtocolResult r = new ProtocolResult(LlmFinishReason.TOOL_CALLS)
+        r.httpStatus = 200
+        r.toolCalls = calls != null ? calls.toList() : []
         return r
     }
 }

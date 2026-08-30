@@ -92,6 +92,8 @@ class WebFacadeStub implements WebFacade {
     Object getResponseJsonObj() { return responseJsonObj }
     HttpServletResponseStub getHttpServletResponseStub() { return httpServletResponse }
     String getRequestDetails() { return "Stub" }
+    void setSkipJsonSerialize(boolean skip) { this.skipJsonSerialize = skip }
+    boolean getSkipJsonSerialize() { return skipJsonSerialize }
 
     @Override String getRequestUrl() { return "TestRequestUrl" }
 
@@ -464,6 +466,10 @@ class WebFacadeStub implements WebFacade {
         Map<String, Object> headers = [:]
 
         HttpServletResponseStub(WebFacadeStub wfs) { this.wfs = wfs }
+
+        @Override int getStatus() { return status }
+        @Override void setStatus(int i) { status = i }
+        Map<String, Object> getHeaderMap() { return headers }
 
         @Override void addCookie(Cookie cookie) { }
 

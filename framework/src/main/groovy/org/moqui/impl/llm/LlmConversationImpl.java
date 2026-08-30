@@ -386,27 +386,37 @@ public class LlmConversationImpl implements LlmConversation {
 
     /**
      * Single-flight CAS inside the isolated TX: re-read (FOR UPDATE) and only Active|Complete|Failed|Cancelled
-     * may become Streaming. Yielded is 409 on a new turn (resume is a later PR).
+     * may become Streaming. Yielded is 409 on a new turn; resume (Yielded → Streaming) is allowed when
+     * {@code resumeFromYielded} is true.
      */
-    void beginTurnStreaming() {
+    void beginTurnStreaming() { beginTurnStreaming(false); }
+    void beginTurnStreaming(boolean resumeFromYielded) {
         if (hasEntity(ec) && conversationId != null) {
             EntityValue ev = ec.getEntity().find("moqui.llm.LlmConversation")
                     .condition("conversationId", conversationId).forUpdate(true).useCache(false).one();
             if (ev == null) throw new LlmException("Conversation not found: " + conversationId);
             String dbStatus = ev.getString("statusId");
-            if (STATUS_STREAMING.equals(dbStatus) || STATUS_YIELDED.equals(dbStatus)) {
+            if (STATUS_STREAMING.equals(dbStatus)
+                    || (STATUS_YIELDED.equals(dbStatus) && !resumeFromYielded)) {
                 throw new LlmException("Conversation is " + dbStatus + " (single-flight)",
                         null, LlmFinishReason.ERROR, 409, profileName, conversationId);
             }
             statusId = STATUS_STREAMING;
             writeHeader(ev, false);
         } else {
-            if (STATUS_STREAMING.equals(statusId) || STATUS_YIELDED.equals(statusId)) {
+            if (STATUS_STREAMING.equals(statusId)
+                    || (STATUS_YIELDED.equals(statusId) && !resumeFromYielded)) {
                 throw new LlmException("Conversation is " + statusId + " (single-flight)",
                         null, LlmFinishReason.ERROR, 409, profileName, conversationId);
             }
             statusId = STATUS_STREAMING;
         }
+    }
+
+    void setPendingToolCallsInternal(List<LlmToolCall> calls) {
+        pendingToolCalls.clear();
+        if (calls != null) pendingToolCalls.addAll(calls);
+        updateHeader();
     }
 
     /** Re-read DB (source of truth) and only then Failed/Cancelled if still Streaming. */
@@ -725,7 +735,14 @@ public class LlmConversationImpl implements LlmConversation {
                 Object args = map.get("arguments");
                 tc.id = id != null ? id.toString() : null;
                 tc.name = name != null ? name.toString() : null;
-                tc.arguments = args != null ? args.toString() : null;
+                if (args instanceof Map || args instanceof List) tc.arguments = LlmJson.toJson(args);
+                else tc.arguments = args != null ? args.toString() : null;
+                Object exec = map.get("execution");
+                if (exec != null) {
+                    try {
+                        tc.execution = org.moqui.llm.LlmTool.Execution.valueOf(exec.toString().toUpperCase());
+                    } catch (Exception ignored) { }
+                }
                 out.add(tc);
             }
         }

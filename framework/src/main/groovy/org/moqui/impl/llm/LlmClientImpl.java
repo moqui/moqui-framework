@@ -35,26 +35,39 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BooleanSupplier;
 
 public class LlmClientImpl implements LlmClient {
     private static final Logger logger = LoggerFactory.getLogger(LlmClientImpl.class);
-    private final ExecutionContext ec;
-    private final LlmFacadeImpl.ProfileState profile;
+    static final int DEFAULT_MAX_ITERATIONS = 8;
+    static final int DEFAULT_TOOL_RESULT_MAX_CHARS = 8000;
+
+    final ExecutionContext ec;
+    final LlmFacadeImpl.ProfileState profile;
     private final BooleanSupplier transactionInPlace;
 
-    private String systemContent = null;
-    private final List<LlmMessage> extraMessages = new ArrayList<>();
-    private final List<LlmMessage> userMessages = new ArrayList<>();
+    String systemContent = null;
+    final List<LlmMessage> extraMessages = new ArrayList<>();
+    final List<LlmMessage> userMessages = new ArrayList<>();
     private String modelOverride = null;
     private Double temperature = null;
     private Integer maxTokens = null;
     private Integer timeoutSeconds = null;
     private Map<String, Object> extraBody = null;
-    private LlmConversationImpl conversation = null;
+    LlmConversationImpl conversation = null;
     private WindowPolicy windowPolicy = null;
+    final List<LlmTool> tools = new ArrayList<>();
+    final List<LlmToolResult> resumeToolResults = new ArrayList<>();
+    boolean allowClientTools = false;
+    private final Set<String> allowedEntities = new LinkedHashSet<>();
+    private final List<LlmFacadeImpl.AllowedPath> allowedPaths = new ArrayList<>();
+    private Integer maxIterations = null;
+    private int toolResultMaxChars = DEFAULT_TOOL_RESULT_MAX_CHARS;
+    private boolean streamingWasPersisted = false;
 
     public LlmClientImpl(ExecutionContext ec, LlmFacadeImpl.ProfileState profile) {
         this(ec, profile, null);
@@ -68,6 +81,12 @@ public class LlmClientImpl implements LlmClient {
         this.temperature = profile.temperature;
         this.maxTokens = profile.maxTokens;
         this.timeoutSeconds = profile.timeoutSeconds;
+        if (profile.allowedEntities != null) this.allowedEntities.addAll(profile.allowedEntities);
+        if (profile.confNode != null) {
+            this.maxIterations = LlmFacadeImpl.parseInteger(profile.confNode.attribute("max-iterations"));
+            int tr = LlmFacadeImpl.parseInt(profile.confNode.attribute("tool-result-max-chars"), DEFAULT_TOOL_RESULT_MAX_CHARS);
+            if (tr > 0) this.toolResultMaxChars = tr;
+        }
     }
 
     @Override public String getProfileName() { return profile.name; }
@@ -106,13 +125,58 @@ public class LlmClientImpl implements LlmClient {
         else extraMessages.add(LlmMessage.context(source, content));
         return this;
     }
-    @Override public LlmClient tool(LlmTool tool) { throw uoe("tool"); }
-    @Override public LlmClient tools(List<LlmTool> tools) { throw uoe("tools"); }
-    @Override public LlmClient toolResults(List<LlmToolResult> results) { throw uoe("toolResults"); }
-    @Override public LlmClient allowClientTools(boolean allow) { throw uoe("allowClientTools"); }
-    @Override public LlmClient allowedEntity(String entityName) { throw uoe("allowedEntity"); }
-    @Override public LlmClient allowedPath(String prefix, String methodsCsv) { throw uoe("allowedPath"); }
-    @Override public LlmClient maxIterations(int n) { throw uoe("maxIterations"); }
+    @Override
+    public LlmClient tool(LlmTool tool) {
+        if (tool != null) {
+            applyAllowLists(tool);
+            tools.add(tool);
+        }
+        return this;
+    }
+    @Override
+    public LlmClient tools(List<LlmTool> more) {
+        if (more != null) for (LlmTool t : more) tool(t);
+        return this;
+    }
+    @Override
+    public LlmClient toolResults(List<LlmToolResult> results) {
+        if (results != null) {
+            for (LlmToolResult r : results) if (r != null) resumeToolResults.add(r);
+        }
+        return this;
+    }
+    @Override
+    public LlmClient allowClientTools(boolean allow) {
+        this.allowClientTools = allow;
+        return this;
+    }
+    @Override
+    public LlmClient allowedEntity(String entityName) {
+        if (entityName != null && !entityName.isBlank()) {
+            allowedEntities.add(entityName);
+            for (LlmTool t : tools) {
+                if (t instanceof WriteUiTool) ((WriteUiTool) t).addAllowedEntity(entityName);
+            }
+        }
+        return this;
+    }
+    @Override
+    public LlmClient allowedPath(String prefix, String methodsCsv) {
+        if (prefix != null && !prefix.isBlank()) {
+            LlmFacadeImpl.AllowedPath ap = new LlmFacadeImpl.AllowedPath(prefix, methodsCsv);
+            allowedPaths.add(ap);
+            for (LlmTool t : tools) {
+                if (t instanceof RequestTool) ((RequestTool) t).addAllowedPath(prefix, methodsCsv);
+            }
+        }
+        return this;
+    }
+    @Override
+    public LlmClient maxIterations(int n) {
+        if (n < 1) throw new LlmException("maxIterations must be >= 1");
+        this.maxIterations = n;
+        return this;
+    }
     @Override
     public LlmClient windowPolicy(WindowPolicy policy) {
         this.windowPolicy = policy != null ? policy : new WindowPolicy();
@@ -187,8 +251,7 @@ public class LlmClientImpl implements LlmClient {
 
         ArtifactExecutionFacade aefi = ec != null ? ec.getArtifactExecution() : null;
         ArtifactExecutionInfo aei = null;
-        // True only after Streaming is committed (or in-memory persistIsolated returned).
-        boolean streamingWasPersisted = false;
+        streamingWasPersisted = false;
         boolean cancelled = false;
         int emptyAttempts = 0;
         int errorAttempts = 0;
@@ -200,6 +263,9 @@ public class LlmClientImpl implements LlmClient {
             if (aefi != null) {
                 aei = aefi.push(profile.name, ArtifactExecutionInfo.AT_LLM,
                         ArtifactExecutionInfo.AUTHZA_VIEW, true);
+            }
+            if (!tools.isEmpty() || !resumeToolResults.isEmpty()) {
+                return new LlmAgentLoop(this).run(start);
             }
             if (conversation != null) {
                 conversation.persistIsolated(() -> {
@@ -324,7 +390,7 @@ public class LlmClientImpl implements LlmClient {
         return ec.getTransaction().isTransactionInPlace();
     }
 
-    private String resolveModel() {
+    String resolveModel() {
         if (modelOverride != null && !modelOverride.isBlank()) return modelOverride;
         if (profile.model != null && !profile.model.isBlank()) return profile.model;
         if (extraBody != null && extraBody.get("model") != null) {
@@ -334,7 +400,7 @@ public class LlmClientImpl implements LlmClient {
         return null;
     }
 
-    private List<LlmMessage> buildWindow() {
+    List<LlmMessage> buildWindow() {
         if (conversation != null) {
             WindowPolicy policy = windowPolicy != null ? windowPolicy : conversation.getWindowPolicy();
             List<LlmMessage> window = conversation.buildWindow(policy);
@@ -351,7 +417,7 @@ public class LlmClientImpl implements LlmClient {
         return window;
     }
 
-    private ProtocolRequest buildRequest(String model, List<LlmMessage> window) {
+    ProtocolRequest buildRequest(String model, List<LlmMessage> window) {
         ProtocolRequest req = new ProtocolRequest();
         req.profileName = profile.name;
         req.endpointUrl = profile.endpointUrl;
@@ -373,10 +439,11 @@ public class LlmClientImpl implements LlmClient {
         req.retryMax = profile.retryMax;
         req.timeoutRetry = profile.timeoutRetry;
         req.logContent = profile.logContent;
+        if (!tools.isEmpty()) req.tools = tools;
         return req;
     }
 
-    private LlmResponse toResponse(ProtocolResult result, LlmFinishReason fr, long start) {
+    LlmResponse toResponse(ProtocolResult result, LlmFinishReason fr, long start) {
         LlmResponse r = new LlmResponse();
         r.content = result.content;
         r.finishReason = fr;
@@ -398,9 +465,9 @@ public class LlmClientImpl implements LlmClient {
         if (conversation != null && windowPolicy != null) conversation.setWindowPolicy(windowPolicy);
     }
 
-    private String convId() { return conversation != null ? conversation.getConversationId() : null; }
+    String convId() { return conversation != null ? conversation.getConversationId() : null; }
 
-    private void sleepBackoff(float waitSeconds) {
+    void sleepBackoff(float waitSeconds) {
         if (waitSeconds <= 0) return;
         try {
             Thread.sleep(Math.round(waitSeconds * 1000.0f));
@@ -410,7 +477,7 @@ public class LlmClientImpl implements LlmClient {
         }
     }
 
-    private float nextWait(float waitSeconds) {
+    float nextWait(float waitSeconds) {
         float initial = profile.retryInitialSeconds > 0 ? profile.retryInitialSeconds : 2.0f;
         if (waitSeconds <= 0) return initial;
         return waitSeconds * initial;
@@ -420,5 +487,47 @@ public class LlmClientImpl implements LlmClient {
 
     private static UnsupportedOperationException uoe(String method) {
         return new UnsupportedOperationException("LlmClient." + method + " is not yet implemented");
+    }
+
+    void markStreamingPersisted() { this.streamingWasPersisted = true; }
+
+    boolean hasResumeResults() { return !resumeToolResults.isEmpty(); }
+
+    int maxIterationsEffective() {
+        if (maxIterations != null && maxIterations > 0) return maxIterations;
+        return DEFAULT_MAX_ITERATIONS;
+    }
+
+    LlmTool findTool(String name) {
+        if (name == null) return null;
+        for (LlmTool t : tools) {
+            if (t != null && name.equals(t.getName())) return t;
+        }
+        return null;
+    }
+
+    Object truncateResult(Object result) {
+        if (result == null) return null;
+        String json = result instanceof String ? (String) result : LlmJson.toJson(result);
+        if (json == null || json.length() <= toolResultMaxChars) return result;
+        Map<String, Object> truncated = new LinkedHashMap<>();
+        truncated.put("truncated", true);
+        truncated.put("preview", json.substring(0, toolResultMaxChars));
+        truncated.put("size", json.length());
+        if (result instanceof Map) {
+            Object status = ((Map<?, ?>) result).get("status");
+            if (status != null) truncated.put("status", status);
+        }
+        return truncated;
+    }
+
+    private void applyAllowLists(LlmTool tool) {
+        if (tool instanceof RequestTool) {
+            RequestTool rt = (RequestTool) tool;
+            for (LlmFacadeImpl.AllowedPath ap : allowedPaths) rt.addAllowedPath(ap.prefix, ap.methodsCsv);
+        } else if (tool instanceof WriteUiTool) {
+            WriteUiTool wt = (WriteUiTool) tool;
+            for (String ent : allowedEntities) wt.addAllowedEntity(ent);
+        }
     }
 }

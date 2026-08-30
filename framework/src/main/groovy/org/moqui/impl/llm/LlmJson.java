@@ -79,4 +79,15 @@ final class LlmJson {
         if (obj instanceof Map) return (Map<String, Object>) obj;
         throw new BaseException("JSON text root is not an Object");
     }
+
+    /** Parse object JSON; null/blank → empty map; malformed → null (does not throw). */
+    static Map<String, Object> tryToMap(String jsonString) {
+        if (jsonString == null || jsonString.isBlank()) return new java.util.LinkedHashMap<>();
+        try {
+            Map<String, Object> map = toMap(jsonString);
+            return map != null ? map : new java.util.LinkedHashMap<>();
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
 }

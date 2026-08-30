@@ -18,6 +18,8 @@ public final class LlmToolCall {
     public String name;
     /** Provider JSON arguments string (may be empty/invalid JSON). */
     public String arguments;
+    /** Set when yielding client tools; not sent by the provider. */
+    public LlmTool.Execution execution;
 
     public LlmToolCall() { }
     public LlmToolCall(String id, String name, String arguments) {
@@ -29,4 +31,11 @@ public final class LlmToolCall {
     public String getId() { return id; }
     public String getName() { return name; }
     public String getArguments() { return arguments; }
+    public LlmTool.Execution getExecution() { return execution; }
+
+    public LlmToolCall copy() {
+        LlmToolCall c = new LlmToolCall(id, name, arguments);
+        c.execution = execution;
+        return c;
+    }
 }

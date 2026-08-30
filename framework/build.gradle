@@ -206,6 +206,7 @@ test {
     include '**/RestClientStreamTests.class'
     include '**/LlmClientTests.class'
     include '**/LlmConversationTests.class'
+    include '**/LlmRequestToolTests.class'
 
     systemProperty 'moqui.runtime', '../runtime'
     systemProperty 'moqui.conf', 'conf/MoquiDevConf.xml'

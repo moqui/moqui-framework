@@ -34,6 +34,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class LlmFacadeImpl implements LlmFacade {
     private static final Logger logger = LoggerFactory.getLogger(LlmFacadeImpl.class);
@@ -41,6 +42,7 @@ public class LlmFacadeImpl implements LlmFacade {
 
     public final ExecutionContextFactoryImpl ecfi;
     private final Map<String, ProfileState> profileByName = new LinkedHashMap<>();
+    private final Map<String, LlmTool.Factory> clientToolTypes = new ConcurrentHashMap<>();
     private final boolean enabledFlag;
     private final String defaultProfileName;
     private boolean anyUrl = false;
@@ -50,6 +52,7 @@ public class LlmFacadeImpl implements LlmFacade {
         MNode facadeNode = ecfi.getConfXmlRoot().first("llm-facade");
         this.enabledFlag = facadeNode == null || !"false".equalsIgnoreCase(nvl(facadeNode.attribute("enabled"), "true"));
         this.defaultProfileName = facadeNode != null ? nvl(facadeNode.attribute("default-profile"), "default") : "default";
+        registerClientToolType(WriteUiTool.NAME, WriteUiTool::new);
         if (this.enabledFlag) init(facadeNode);
         else logger.info("LlmFacade disabled (llm-facade.@enabled=false)");
     }
@@ -142,7 +145,9 @@ public class LlmFacadeImpl implements LlmFacade {
     }
     @Override
     public void registerClientToolType(String name, LlmTool.Factory factory) {
-        throw new UnsupportedOperationException("LlmFacade.registerClientToolType is not yet implemented");
+        if (name == null || name.isBlank() || factory == null)
+            throw new LlmException("client tool type name and factory are required");
+        clientToolTypes.put(name, factory);
     }
 
     ProfileState getProfileState(String name) { return profileByName.get(name); }

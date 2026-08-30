@@ -199,9 +199,21 @@ public class ExecutionContextImpl implements ExecutionContext {
 
     /** Meant to be used to set a test stub that implements the WebFacade interface */
     public void setWebFacade(WebFacade wf) {
+        if (wf == null) {
+            clearWebFacade();
+            return;
+        }
         webFacade = wf;
-        if (wf instanceof WebFacadeImpl) webFacadeImpl = (WebFacadeImpl) wf;
-        contextStack.putAll(webFacade.getRequestParameters());
+        // Nested RequestTool uses WebFacadeStub; do not leave a previous WebFacadeImpl visible via getWebImpl().
+        webFacadeImpl = (wf instanceof WebFacadeImpl) ? (WebFacadeImpl) wf : null;
+        java.util.Map<String, Object> parms = wf.getRequestParameters();
+        if (parms != null) contextStack.putAll(parms);
+    }
+
+    /** Drop the current WebFacade (used by RequestTool when there was no previous facade). */
+    public void clearWebFacade() {
+        webFacade = null;
+        webFacadeImpl = null;
     }
 
     public boolean getSkipStats() {

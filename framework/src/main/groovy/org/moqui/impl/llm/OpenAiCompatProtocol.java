@@ -18,6 +18,7 @@ import org.moqui.llm.LlmException;
 import org.moqui.llm.LlmFinishReason;
 import org.moqui.llm.LlmMessage;
 import org.moqui.llm.LlmProtocol;
+import org.moqui.llm.LlmTool;
 import org.moqui.llm.LlmToolCall;
 import org.moqui.util.RestClient;
 import org.slf4j.Logger;
@@ -141,6 +142,27 @@ public class OpenAiCompatProtocol implements LlmProtocol {
             body.put(param, request.maxTokens);
         }
         body.put("stream", false);
+        if (request.tools != null && !request.tools.isEmpty()) {
+            List<Map<String, Object>> toolList = new ArrayList<>();
+            for (LlmTool tool : request.tools) {
+                if (tool == null || tool.getName() == null) continue;
+                Map<String, Object> fn = new LinkedHashMap<>();
+                fn.put("name", tool.getName());
+                if (tool.getDescription() != null) fn.put("description", tool.getDescription());
+                Map<String, Object> params = tool.getParametersSchema();
+                if (params == null) {
+                    params = new LinkedHashMap<>();
+                    params.put("type", "object");
+                    params.put("properties", new LinkedHashMap<>());
+                }
+                fn.put("parameters", params);
+                Map<String, Object> t = new LinkedHashMap<>();
+                t.put("type", "function");
+                t.put("function", fn);
+                toolList.add(t);
+            }
+            if (!toolList.isEmpty()) body.put("tools", toolList);
+        }
         return body;
     }
 

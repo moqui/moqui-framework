@@ -30,6 +30,8 @@ public final class LlmResponse {
     public long durationMs;
     public boolean yielded;
     public String rawJson;
+    public List<LlmToolCall> pendingToolCalls;
+    public List<LlmToolResult> toolResults;
 
     public LlmResponse() { }
 
@@ -46,4 +48,10 @@ public final class LlmResponse {
     public long getDurationMs() { return durationMs; }
     public boolean isYielded() { return yielded; }
     public String getRawJson() { return rawJson; }
+    public List<LlmToolCall> getPendingToolCalls() {
+        return pendingToolCalls != null ? pendingToolCalls : new ArrayList<>();
+    }
+    public List<LlmToolResult> getToolResults() {
+        return toolResults != null ? toolResults : new ArrayList<>();
+    }
 }

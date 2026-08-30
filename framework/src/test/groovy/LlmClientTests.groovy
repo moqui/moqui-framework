@@ -28,8 +28,13 @@ import org.moqui.llm.LlmMessage
 import org.moqui.llm.LlmProtocol
 import org.moqui.llm.LlmProtocol.ProtocolRequest
 import org.moqui.llm.LlmResponse
+import org.moqui.llm.LlmTool
 import org.moqui.llm.LlmToolCall
+import org.moqui.llm.LlmToolResult
 import org.moqui.llm.WindowPolicy
+import org.moqui.impl.llm.RequestTool
+import org.moqui.impl.llm.ServiceCallTool
+import org.moqui.impl.llm.WriteUiTool
 import org.moqui.llm.test.FakeLlmProtocol
 import org.moqui.util.MNode
 import org.moqui.util.RestClient
@@ -435,25 +440,26 @@ class LlmClientTests extends Specification {
         proto.chatCount == 1
     }
 
-    def "tool and stream methods still throw UnsupportedOperationException"() {
+    def "stream still throws UnsupportedOperationException"() {
         given:
         LlmClient c = client(new FakeLlmProtocol())
-        when: c.tool(null)
-        then: thrown(UnsupportedOperationException)
-        when: c.tools(null)
-        then: thrown(UnsupportedOperationException)
-        when: c.toolResults(null)
-        then: thrown(UnsupportedOperationException)
-        when: c.allowClientTools(true)
-        then: thrown(UnsupportedOperationException)
-        when: c.allowedEntity("x")
-        then: thrown(UnsupportedOperationException)
-        when: c.allowedPath("/rest/", "GET")
-        then: thrown(UnsupportedOperationException)
-        when: c.maxIterations(3)
-        then: thrown(UnsupportedOperationException)
         when: c.stream(null)
         then: thrown(UnsupportedOperationException)
+    }
+
+    def "tool builder methods do not throw"() {
+        given:
+        LlmClient c = client(new FakeLlmProtocol())
+        when:
+        c.tool(org.moqui.llm.LlmTool.request())
+                .tools(null)
+                .toolResults(null)
+                .allowClientTools(true)
+                .allowedEntity("moqui.basic.Geo")
+                .allowedPath("/rest/", "GET")
+                .maxIterations(3)
+        then:
+        notThrown(UnsupportedOperationException)
     }
 
     // ========== conversations, context, window, call sequence ==========
@@ -648,6 +654,173 @@ class LlmClientTests extends Specification {
         notThrown(UnsupportedOperationException)
     }
 
+    def "request path rejects http://, //, and .. before render"() {
+        given:
+        boolean rendered = false
+        RequestTool spy = new RequestTool() {
+            @Override
+            protected Map renderOnScreen(org.moqui.context.ExecutionContext ec, String method, List segments,
+                    Map query, Map body) {
+                rendered = true
+                throw new AssertionError("ScreenRender should not run")
+            }
+        }
+        expect:
+        RequestTool.validatePath("http://evil") != null
+        RequestTool.validatePath("//evil") != null
+        RequestTool.validatePath("/foo/../bar") != null
+        RequestTool.validatePath("/rest/s1/moqui") == null
+        when:
+        def http = spy.execute([method: "GET", path: "http://evil"], null)
+        def slash = spy.execute([method: "GET", path: "//evil.host/x"], null)
+        def dotdot = spy.execute([method: "GET", path: "/foo/../secret"], null)
+        then:
+        http.status == 400
+        slash.status == 400
+        dotdot.status == 400
+        !rendered
+    }
+
+    def "allow-list rejects path before render"() {
+        given:
+        boolean rendered = false
+        RequestTool spy = new RequestTool() {
+            @Override
+            protected Map renderOnScreen(org.moqui.context.ExecutionContext ec, String method, List segments,
+                    Map query, Map body) {
+                rendered = true
+                throw new AssertionError("ScreenRender should not run")
+            }
+        }
+        spy.addAllowedPath("/rest/s1/", "GET")
+        when:
+        def denied = spy.execute([method: "GET", path: "/qapps/mantle/Order"], null)
+        def methodDenied = spy.execute([method: "POST", path: "/rest/s1/moqui/basic/geos"], null)
+        then:
+        denied.status == 403
+        denied.text == RequestTool.PATH_NOT_ALLOWED
+        methodDenied.status == 403
+        !rendered
+    }
+
+    def "service function encoding distinguishes a.b#c vs a#b.c and long names need alias"() {
+        expect:
+        ServiceCallTool.encodeFunctionName("a.b#c") == "s_a_pb_nc"
+        ServiceCallTool.encodeFunctionName("a#b.c") == "s_a_nb_pc"
+        ServiceCallTool.encodeFunctionName("a.b#c") != ServiceCallTool.encodeFunctionName("a#b.c")
+        when:
+        String longName = "org.moqui.impl.ReallyQuiteLongServiceNameThatExceedsLimit.do#SomethingExtra"
+        LlmTool.service(longName)
+        then:
+        thrown(IllegalArgumentException)
+        when:
+        LlmTool aliased = LlmTool.service("org.moqui.impl.LlmServices.clean#LlmData", "clean_llm")
+        then:
+        aliased.name == "clean_llm"
+        aliased.execution == LlmTool.Execution.SERVER
+    }
+
+    def "malformed tool JSON and unknown name are tool errors not crashes"() {
+        given:
+        def proto = new FakeLlmProtocol()
+        proto.results = [
+                FakeLlmProtocol.toolCalls(new LlmToolCall("c1", "nope", "{not-json"),
+                        new LlmToolCall("c2", "request", "{")),
+                FakeLlmProtocol.stop("recovered")
+        ]
+        LlmTool server = new RecordingTool("request")
+        when:
+        LlmResponse r = client(proto).tool(server).user("hi").call()
+        then:
+        r.content == "recovered"
+        r.finishReason == LlmFinishReason.STOP
+        proto.chatCount == 2
+        proto.lastRequest.window.find { it.role == LlmMessage.Role.TOOL && it.toolCallId == "c1" } != null
+        proto.lastRequest.window.find { it.role == LlmMessage.Role.TOOL && it.content.contains("unknown") } != null
+        proto.lastRequest.window.find { it.role == LlmMessage.Role.TOOL && it.content.contains("malformed") } != null
+    }
+
+    def "mix request plus write_ui yields when allowClientTools"() {
+        given:
+        def proto = new FakeLlmProtocol()
+        proto.results = [
+                FakeLlmProtocol.toolCalls(
+                        new LlmToolCall("c1", "request", '{"method":"GET","path":"/rest/s1/x"}'),
+                        new LlmToolCall("c2", "write_ui", '{"title":"<b>Hi</b>","fields":[{"name":"n","widget":"text-line"}]}')),
+                FakeLlmProtocol.stop("after-resume")
+        ]
+        LlmTool server = new RecordingTool("request")
+        def conv = LlmConversationImpl.create(null, "default", null)
+        when:
+        LlmResponse r = client(proto).conversation(conv).tool(server).tool(LlmTool.writeUi())
+                .allowClientTools(true).user("form").call()
+        then:
+        r.yielded
+        r.pendingToolCalls.size() == 1
+        r.pendingToolCalls[0].name == "write_ui"
+        r.pendingToolCalls[0].execution == LlmTool.Execution.CLIENT
+        ((RecordingTool) server).calls.size() == 1
+        conv.status == LlmConversationImpl.STATUS_YIELDED
+        conv.pendingClientToolCalls.size() == 1
+        r.pendingToolCalls[0].arguments.contains("&lt;b&gt;") || r.pendingToolCalls[0].arguments.contains("Hi")
+        when:
+        LlmResponse r2 = client(proto).conversation(conv).tool(server).tool(LlmTool.writeUi())
+                .allowClientTools(true)
+                .toolResults([new LlmToolResult("c2", "write_ui", [submitted: true, values: [n: "x"]])])
+                .call()
+        then:
+        !r2.yielded
+        r2.content == "after-resume"
+        conv.status == LlmConversationImpl.STATUS_COMPLETE
+        conv.history.find { it.role == LlmMessage.Role.TOOL && it.toolCallId == "c2" } != null
+    }
+
+    def "allowClientTools false treats write_ui as tool error and does not yield"() {
+        given:
+        def proto = new FakeLlmProtocol()
+        proto.results = [
+                FakeLlmProtocol.toolCalls(
+                        new LlmToolCall("c1", "request", '{"method":"GET","path":"/rest/s1/x"}'),
+                        new LlmToolCall("c2", "write_ui", '{"fields":[{"name":"n","widget":"text-line"}]}')),
+                FakeLlmProtocol.stop("done")
+        ]
+        LlmTool server = new RecordingTool("request")
+        when:
+        LlmResponse r = client(proto).tool(server).tool(LlmTool.writeUi())
+                .allowClientTools(false).user("form").call()
+        then:
+        !r.yielded
+        r.content == "done"
+        ((RecordingTool) server).calls.size() == 1
+        proto.chatCount == 2
+        proto.lastRequest.window.find { it.role == LlmMessage.Role.TOOL && it.toolCallId == "c2" }
+                .content.contains("client tool not available")
+    }
+
+    def "write_ui enricher strips html widgets and password hidden fields"() {
+        given:
+        WriteUiTool tool = new WriteUiTool()
+        when:
+        def enriched = tool.enrichForClient([
+                title: "<script>x</script>Hi",
+                fields: [
+                        [name: "ok", widget: "text-line", label: "<b>Name</b>"],
+                        [name: "bad", widget: "html"],
+                        [name: "password", widget: "hidden"],
+                        [name: "when", widget: "date"]
+                ]
+        ], null)
+        then:
+        !enriched.title.contains("<script>")
+        enriched.fields.size() == 2
+        enriched.fields[0].name == "ok"
+        !enriched.fields[0].label.contains("<b>")
+        enriched.fields[1].name == "when"
+        enriched.fields[1].widget == "date-time"
+        enriched.fields[1].widgetType == "date"
+        enriched.schemaVersion == 1
+    }
+
     def "getClient-style builders are distinct instances"() {
         given:
         def proto = new FakeLlmProtocol()
@@ -690,5 +863,19 @@ class LlmClientTests extends Specification {
         result.content != null && !result.content.isBlank()
         cleanup:
         req.requestFactory.destroy()
+    }
+}
+
+class RecordingTool implements LlmTool {
+    final String name
+    final List<Map> calls = []
+    RecordingTool(String name) { this.name = name }
+    @Override String getName() { return name }
+    @Override String getDescription() { return name }
+    @Override Map<String, Object> getParametersSchema() { return [type: "object", properties: [:]] }
+    @Override LlmTool.Execution getExecution() { return LlmTool.Execution.SERVER }
+    @Override Object execute(Map<String, Object> arguments, org.moqui.context.ExecutionContext ec) {
+        calls.add(arguments)
+        return [status: 200, json: [ok: true]]
     }
 }
