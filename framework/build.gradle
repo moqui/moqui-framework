@@ -211,6 +211,7 @@ test {
     include '**/LlmServletTests.class'
     include '**/TransactionCacheDbTests.class'
     include '**/LlmSkillTests.class'
+    include '**/LlmSkillAgentTests.class'
 
     systemProperty 'moqui.runtime', '../runtime'
     systemProperty 'moqui.conf', 'conf/MoquiDevConf.xml'

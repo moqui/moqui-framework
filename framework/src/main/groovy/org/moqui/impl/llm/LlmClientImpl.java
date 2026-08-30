@@ -701,6 +701,15 @@ public class LlmClientImpl implements LlmClient {
         return DEFAULT_MAX_ITERATIONS;
     }
 
+    /** Nested sim agent: same profile/protocol, no write_ui / enter_sim / find_skill. */
+    LlmClientImpl nestForSim(int maxIter) {
+        LlmClientImpl nested = new LlmClientImpl(ec, profile, transactionInPlace);
+        nested.maxIterations(maxIter > 0 ? maxIter : 8);
+        nested.tool(LlmTool.browse());
+        nested.tool(LlmTool.runService());
+        return nested;
+    }
+
     LlmTool findTool(String name) {
         if (name == null) return null;
         for (LlmTool t : tools) {

@@ -14,7 +14,6 @@
 package org.moqui.impl.llm;
 
 import org.moqui.context.ExecutionContext;
-import org.moqui.entity.EntityValue;
 import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.llm.LlmClient;
 import org.moqui.llm.LlmResponse;
@@ -78,6 +77,13 @@ public class EnterSimTool implements LlmTool {
         if (maxObj instanceof Number) maxIter = Math.max(1, Math.min(16, ((Number) maxObj).intValue()));
 
         ExecutionContextImpl eci = (ExecutionContextImpl) ec;
+        if (eci.simSession) {
+            Map<String, Object> already = new LinkedHashMap<>();
+            already.put("error", "already in sim");
+            already.put("sim", Boolean.TRUE);
+            return already;
+        }
+        LlmClientImpl parent = LlmAgentLoop.currentClient();
         boolean startedOverlay = false;
         boolean prevSim = eci.simSession;
         if (!ec.getEntity().isTxCacheActive()) {
@@ -89,13 +95,19 @@ public class EnterSimTool implements LlmTool {
         result.put("sim", Boolean.TRUE);
         result.put("goal", goal);
         try {
-            LlmClient nested = ec.getLlm().getDefault();
+            LlmClientImpl nested;
+            if (parent != null) nested = parent.nestForSim(maxIter);
+            else {
+                LlmClient c = ec.getLlm().getDefault();
+                if (!(c instanceof LlmClientImpl)) throw new IllegalStateException("nested LLM client required");
+                nested = (LlmClientImpl) c;
+                nested.tool(LlmTool.browse());
+                nested.tool(LlmTool.runService());
+                nested.maxIterations(maxIter);
+            }
             nested.system(SIM_SYSTEM);
             nested.user("Goal: " + goal + (criteria.isEmpty() ? "" : "\nSuccess criteria: " + criteria));
-            nested.tool(LlmTool.browse());
-            nested.tool(LlmTool.runService());
-            nested.maxIterations(maxIter);
-            LlmResponse resp = nested.call();
+            LlmResponse resp = LlmGateway.withoutCallerTx(ec, nested::call);
             String content = resp != null ? resp.getContent() : null;
             result.put("content", content);
             if (resp != null && resp.finishReason != null) result.put("finishReason", resp.finishReason.name());
@@ -104,7 +116,7 @@ public class EnterSimTool implements LlmTool {
                 if (doc.name != null && !doc.name.isEmpty()) {
                     result.put("proposedSkillName", doc.name);
                     result.put("proposedSkillBody", content);
-                    persistProposed(ec, doc, content);
+                    persistProposedInTx(ec, doc, content);
                 }
             }
         } catch (Throwable t) {
@@ -120,32 +132,18 @@ public class EnterSimTool implements LlmTool {
         return result;
     }
 
-    private static void persistProposed(ExecutionContext ec, SkillIndex.SkillDoc doc, String content) {
+    private static void persistProposedInTx(ExecutionContext ec, SkillIndex.SkillDoc doc, String content) {
         try {
-            EntityValue existing = ec.getEntity().find("moqui.llm.LlmSkill")
-                    .condition("name", doc.name).useCache(false).one();
-            if (existing != null) return;
-            ec.getEntity().makeValue("moqui.llm.LlmSkill")
-                    .set("name", doc.name)
-                    .set("title", doc.title)
-                    .set("description", doc.description)
-                    .set("body", doc.body != null ? doc.body : content)
-                    .set("riskId", riskId(doc.risk))
-                    .set("statusId", "LsksProposed")
-                    .set("provenanceId", "LskpSim")
-                    .set("speaker", "sim")
-                    .set("version", 1)
-                    .set("worldSuccessCount", 0)
-                    .set("simSuccessCount", 0)
-                    .create();
+            boolean began = ec.getTransaction().begin(60);
+            try {
+                SkillIndex.persistProposed(ec, doc, content);
+                ec.getTransaction().commit(began);
+            } catch (Throwable t) {
+                ec.getTransaction().rollback(began, "persist proposed LlmSkill", t);
+                throw t;
+            }
         } catch (Throwable t) {
             logger.debug("Could not persist proposed skill: " + t.getMessage());
         }
-    }
-
-    private static String riskId(String risk) {
-        if ("reversible".equalsIgnoreCase(risk)) return "LskReversible";
-        if ("irreversible".equalsIgnoreCase(risk)) return "LskIrreversible";
-        return "LskConfirm";
     }
 }

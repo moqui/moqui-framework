@@ -1939,12 +1939,17 @@ class EntityFacadeImpl implements EntityFacade {
 
     private String overlayHoldSeq(String seqName) {
         EntityTxCache active = getActiveTxCache()
-        if (active instanceof TransactionCacheDb) {
-            TransactionCacheDb db = (TransactionCacheDb) active
-            if (db.isHold() && !db.isBypass() && !"moqui.entity.SequenceValueItem".equals(seqName))
-                return db.nextSeq(seqName)
-        }
-        return null
+        if (!(active instanceof TransactionCacheDb)) return null
+        TransactionCacheDb db = (TransactionCacheDb) active
+        if (!db.isHold() || db.isBypass()) return null
+        if ("moqui.entity.SequenceValueItem".equals(seqName)) return null
+        try {
+            if (isEntityDefined(seqName)) {
+                EntityDefinition seqEd = getEntityDefinition(seqName)
+                if (seqEd != null && !db.handles(seqEd)) return null
+            }
+        } catch (EntityException ignored) { }
+        return db.nextSeq(seqName)
     }
 
     protected final static long defaultBankSize = 50L

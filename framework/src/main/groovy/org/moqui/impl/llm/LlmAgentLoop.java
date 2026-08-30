@@ -40,9 +40,12 @@ final class LlmAgentLoop {
     static final String CLIENT_UNAVAILABLE = "client tool not available in this context";
     static final String UNKNOWN_TOOL = "unknown tool: ";
     static final String MALFORMED = "malformed arguments: ";
+    private static final ThreadLocal<LlmClientImpl> CURRENT_CLIENT = new ThreadLocal<>();
 
     private final LlmClientImpl client;
     private LlmStreamListener listener;
+
+    static LlmClientImpl currentClient() { return CURRENT_CLIENT.get(); }
 
     LlmAgentLoop(LlmClientImpl client) { this.client = client; }
 
@@ -286,10 +289,15 @@ final class LlmAgentLoop {
         if (tool == null) return errorMap(UNKNOWN_TOOL + call.name);
         Map<String, Object> args = LlmJson.tryToMap(call.arguments);
         if (args == null) return errorMap(MALFORMED + call.arguments);
+        LlmClientImpl prev = CURRENT_CLIENT.get();
+        CURRENT_CLIENT.set(client);
         try {
             return tool.execute(args, client.ec);
         } catch (Throwable t) {
             return errorMap(t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName());
+        } finally {
+            if (prev != null) CURRENT_CLIENT.set(prev);
+            else CURRENT_CLIENT.remove();
         }
     }
 

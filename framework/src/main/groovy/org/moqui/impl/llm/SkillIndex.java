@@ -197,6 +197,63 @@ public class SkillIndex {
         return d;
     }
 
+    public static EntityValue persistProposed(ExecutionContext ec, SkillDoc doc, String rawBody) {
+        if (ec == null || doc == null || doc.name == null || doc.name.isEmpty()) return null;
+        EntityValue existing = ec.getEntity().find("moqui.llm.LlmSkill")
+                .condition("name", doc.name).useCache(false).one();
+        if (existing != null) return existing;
+        EntityValue ev = ec.getEntity().makeValue("moqui.llm.LlmSkill")
+                .set("name", doc.name)
+                .set("title", doc.title)
+                .set("description", doc.description)
+                .set("body", doc.body != null && !doc.body.isEmpty() ? doc.body : rawBody)
+                .set("riskId", riskId(doc.risk))
+                .set("statusId", "LsksProposed")
+                .set("provenanceId", "LskpSim")
+                .set("speaker", "sim")
+                .set("version", 1)
+                .set("worldSuccessCount", 0)
+                .set("simSuccessCount", 0);
+        ev.setSequencedIdPrimary();
+        return ev.create();
+    }
+
+    /** Promote a sim-proposed skill after a successful world act. */
+    public static EntityValue admitWorldPass(ExecutionContext ec, String skillName) {
+        if (ec == null || skillName == null || skillName.isEmpty()) return null;
+        EntityValue sk = ec.getEntity().find("moqui.llm.LlmSkill")
+                .condition("name", skillName).useCache(false).one();
+        if (sk == null) return null;
+        Object worldObj = sk.get("worldSuccessCount");
+        long world = worldObj instanceof Number ? ((Number) worldObj).longValue() : 0L;
+        sk.set("worldSuccessCount", world + 1L);
+        if ("LsksProposed".equals(sk.getString("statusId"))) {
+            sk.set("statusId", "LsksActive");
+            if ("LskpSim".equals(sk.getString("provenanceId")) || "LskpInfer".equals(sk.getString("provenanceId")))
+                sk.set("provenanceId", "LskpMixed");
+        }
+        sk.set("lastUsedDate", ec.getUser().getNowTimestamp());
+        sk.update();
+        try {
+            EntityValue use = ec.getEntity().makeValue("moqui.llm.LlmSkillUse")
+                    .set("skillId", sk.get("skillId"))
+                    .set("contact", "world")
+                    .set("outcome", "pass")
+                    .set("usedDate", ec.getUser().getNowTimestamp());
+            use.setSequencedIdPrimary();
+            use.create();
+        } catch (Throwable t) {
+            logger.debug("LlmSkillUse write: " + t.getMessage());
+        }
+        return sk;
+    }
+
+    static String riskId(String risk) {
+        if ("reversible".equalsIgnoreCase(risk)) return "LskReversible";
+        if ("irreversible".equalsIgnoreCase(risk)) return "LskIrreversible";
+        return "LskConfirm";
+    }
+
     private static String nz(String s) { return s == null ? "" : s; }
 
     private static final class Scored {
