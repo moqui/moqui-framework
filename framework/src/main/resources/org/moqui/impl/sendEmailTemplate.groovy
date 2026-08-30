@@ -35,6 +35,10 @@ Logger logger = LoggerFactory.getLogger("org.moqui.impl.sendEmailTemplate")
 ExecutionContextImpl ec = context.ec
 
 try {
+    if (ec.simSession) {
+        logger.info("Sim fence: skipping sendEmailTemplate ${emailTemplateId}")
+        return [emailMessageId: "SIM"]
+    }
     // logger.info("sendEmailTemplate with emailTemplateId [${emailTemplateId}], bodyParameters [${bodyParameters}]")
 
     // add the bodyParameters to the context so they are available throughout this script

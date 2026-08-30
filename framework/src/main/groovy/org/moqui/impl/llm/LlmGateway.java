@@ -154,15 +154,16 @@ public final class LlmGateway {
                 if (o != null && !o.toString().isBlank()) names.add(o.toString().trim());
             }
         } else {
-            throw new LlmException("tools must be a list of request/write_ui/browse/run_service",
+            throw new LlmException("tools must be a list of request/write_ui/browse/run_service/find_skill/enter_sim",
                     null, LlmFinishReason.ERROR, 400, null, null);
         }
         Set<String> seen = new LinkedHashSet<>();
         for (String raw : names) {
             String n = "write-ui".equals(raw) ? "write_ui" : raw;
             if ("run-service".equals(n)) n = "run_service";
-            if (!"request".equals(n) && !"write_ui".equals(n) && !"browse".equals(n) && !"run_service".equals(n))
-                throw new LlmException("tools may only subset {request, write_ui, browse, run_service}",
+            if (!"request".equals(n) && !"write_ui".equals(n) && !"browse".equals(n) && !"run_service".equals(n)
+                    && !"find_skill".equals(n) && !"enter_sim".equals(n))
+                throw new LlmException("tools may only subset {request, write_ui, browse, run_service, find_skill, enter_sim}",
                         null, LlmFinishReason.ERROR, 400, null, null);
             seen.add(n);
         }
@@ -194,6 +195,8 @@ public final class LlmGateway {
         boolean wantWriteUi = tools.contains("write_ui");
         boolean wantBrowse = tools.contains("browse");
         boolean wantRunService = tools.contains("run_service");
+        boolean wantFindSkill = tools.contains("find_skill") || wantBrowse || wantRunService;
+        boolean wantEnterSim = tools.contains("enter_sim") || wantBrowse || wantRunService;
         if (wantRequest) {
             boolean unprefixed = profile != null && profile.allowUnprefixedRequest;
             LlmTool rt = requestToolForServlet(profile != null ? profile.allowedPaths : null, unprefixed);
@@ -208,6 +211,8 @@ public final class LlmGateway {
         }
         if (wantBrowse && profile != null && profile.allowBrowse) client.tool(LlmTool.browse());
         if (wantRunService && profile != null && profile.allowRunService) client.tool(LlmTool.runService());
+        if (wantFindSkill) client.tool(LlmTool.findSkill());
+        if (wantEnterSim) client.tool(LlmTool.enterSim());
     }
 
     public static LlmClientImpl prepareClient(ExecutionContext ec, Map<String, Object> body, boolean resume) {
@@ -254,7 +259,10 @@ public final class LlmGateway {
 
         applySystem(impl, body);
         String user = str(body.get("user"));
-        if (user != null) impl.user(user);
+        if (user != null) {
+            impl.user(user);
+            injectSkills(impl, user);
+        }
 
         Object msgs = body.get("messages");
         if (msgs instanceof List) {
@@ -301,6 +309,16 @@ public final class LlmGateway {
         if (!allowClient) return;
         String system = str(body != null ? body.get("system") : null);
         if (system != null) impl.system(system);
+    }
+
+    static void injectSkills(LlmClientImpl impl, String userText) {
+        if (impl == null || userText == null || userText.isBlank()) return;
+        try {
+            List<SkillIndex.SkillDoc> docs = SkillIndex.retrieve(impl.ec, userText, 3);
+            impl.injectContext("skills", SkillIndex.formatInject(docs));
+        } catch (Throwable t) {
+            logger.warn("Skill inject failed: {}", t.getMessage());
+        }
     }
 
     static String loadSystemText(ExecutionContext ec, String location) {

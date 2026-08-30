@@ -18,7 +18,7 @@ import org.moqui.BaseArtifactException;
 import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.context.ElasticFacade;
 import org.moqui.entity.*;
-import org.moqui.impl.context.TransactionCache;
+import org.moqui.impl.context.EntityTxCache;
 import org.moqui.impl.entity.*;
 import org.moqui.impl.entity.condition.EntityConditionImplBase;
 import org.moqui.util.CollectionUtilities;
@@ -50,7 +50,7 @@ public class ElasticEntityListIterator implements EntityListIterator {
     private String esPitId = null, esKeepAlive;
     private List<Object> esSearchAfter = null;
 
-    private final TransactionCache txCache;
+    private final EntityTxCache txCache;
     private final EntityJavaUtil.FindAugmentInfo findAugmentInfo;
     private final int txcListSize;
     private int txcListIndex = -1;
@@ -64,7 +64,7 @@ public class ElasticEntityListIterator implements EntityListIterator {
 
     public ElasticEntityListIterator(Map<String, Object> searchMap, EntityDefinition entityDefinition,
             FieldInfo[] fieldInfoArray, EntityJavaUtil.FieldOrderOptions[] fieldOptionsArray,
-            ElasticDatasourceFactory edf, TransactionCache txCache, EntityConditionImplBase whereCondition,
+            ElasticDatasourceFactory edf, EntityTxCache txCache, EntityConditionImplBase whereCondition,
             ArrayList<String> obf) {
         this.edf = edf;
         this.efi = edf.efi;

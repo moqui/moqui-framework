@@ -177,4 +177,13 @@ public interface EntityFacade {
     EntityValue makeValue(Element element);
 
     Calendar getCalendarForTzLc();
+
+    /** Start an H2-backed entity overlay on this thread's ExecutionContext.
+     * If hold is true (sim), writes never go to production; stopTxCache() drops the mem DB.
+     * If hold is false (FLUSH), stopTxCache() writes dirty rows to production first. */
+    void startTxCacheDb(boolean hold);
+    /** Detach and close the active overlay for this thread. */
+    void stopTxCache();
+    /** True if {@link #startTxCacheDb} is in effect on this thread. */
+    boolean isTxCacheActive();
 }

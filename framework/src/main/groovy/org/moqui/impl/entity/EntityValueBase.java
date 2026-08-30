@@ -60,7 +60,7 @@ public abstract class EntityValueBase implements EntityValue {
     protected final LiteStringMap<Object> valueMapInternal;
 
     private transient EntityFacadeImpl efiTransient = null;
-    private transient TransactionCache txCacheInternal = null;
+    private transient EntityTxCache txCacheInternal = null;
     private transient EntityDefinition entityDefinitionTransient = null;
 
     protected transient LiteStringMap<Object> dbValueMap = null;
@@ -119,7 +119,12 @@ public abstract class EntityValueBase implements EntityValue {
         }
         return efiTransient;
     }
-    private TransactionCache getTxCache(ExecutionContextFactoryImpl ecfi) {
+    private EntityTxCache getTxCache(ExecutionContextFactoryImpl ecfi) {
+        EntityFacadeImpl localEfi = getEntityFacadeImpl();
+        EntityTxCache active = localEfi.getActiveTxCache();
+        if (active instanceof TransactionCacheDb && ((TransactionCacheDb) active).isBypass())
+            return ecfi.transactionFacade.getTransactionCache();
+        if (active != null) return active;
         if (txCacheInternal == null) txCacheInternal = ecfi.transactionFacade.getTransactionCache();
         return txCacheInternal;
     }
@@ -1392,6 +1397,9 @@ public abstract class EntityValueBase implements EntityValue {
     public abstract EntityValue cloneDbValue(boolean getOld);
 
     private boolean doDataFeed(ExecutionContextImpl ec) {
+        EntityTxCache active = getEntityFacadeImpl().getActiveTxCache();
+        if (active instanceof TransactionCacheDb && ((TransactionCacheDb) active).isHold()) return false;
+        if (ec.simSession) return false;
         if (ec.artifactExecutionFacade.entityDataFeedDisabled()) return false;
         // skip ArtifactHitBin, causes funny recursion
         return !"moqui.server.ArtifactHitBin".equals(entityName);
@@ -1525,7 +1533,7 @@ public abstract class EntityValueBase implements EntityValue {
             if (doDataFeed(ec)) efi.getEntityDataFeed().dataFeedCheckAndRegister(this, false, valueMapInternal, null);
 
             // if there is not a txCache or the txCache doesn't handle the create, call the abstract method to create the main record
-            TransactionCache curTxCache = getTxCache(ecfi);
+            EntityTxCache curTxCache = getTxCache(ecfi);
             if (curTxCache == null || !curTxCache.create(this)) {
                 // NOTE: calls basicCreate() instead of createExtended() directly so don't register lock here
 
@@ -1534,7 +1542,8 @@ public abstract class EntityValueBase implements EntityValue {
 
             // NOTE: cache clear is the same for create, update, delete; even on create need to clear one cache because it
             // might have a null value for a previous query attempt
-            efi.getEntityCache().clearCacheForValue(this, true);
+            if (curTxCache == null || curTxCache.shouldClearEntityCache())
+                efi.getEntityCache().clearCacheForValue(this, true);
             // save audit log(s) if applicable
             handleAuditLog(false, null, ed, ec);
             // run EECA after rules
@@ -1585,7 +1594,7 @@ public abstract class EntityValueBase implements EntityValue {
         final ExecutionContextFactoryImpl ecfi = efi.ecfi;
         final ExecutionContextImpl ec = ecfi.getEci();
         final ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade;
-        final TransactionCache curTxCache = getTxCache(ecfi);
+        final EntityTxCache curTxCache = getTxCache(ecfi);
         final boolean optimisticLock = entityInfo.optimisticLock;
         final boolean hasFieldDefaults = entityInfo.hasFieldDefaults;
         final boolean needsAuditLog = entityInfo.needsAuditLog;
@@ -1689,7 +1698,8 @@ public abstract class EntityValueBase implements EntityValue {
             }
 
             // clear the entity cache
-            efi.getEntityCache().clearCacheForValue(this, false);
+            if (curTxCache == null || curTxCache.shouldClearEntityCache())
+                efi.getEntityCache().clearCacheForValue(this, false);
             // save audit log(s) if applicable
             if (needsAuditLog) handleAuditLog(true, originalValues, ed, ec);
             // run EECA after rules
@@ -1764,7 +1774,7 @@ public abstract class EntityValueBase implements EntityValue {
             efi.getEntityDataFeed().dataFeedCheckDelete(this);
 
             // if there is not a txCache or the txCache doesn't handle the delete, call the abstract method to delete the main record
-            TransactionCache curTxCache = getTxCache(ecfi);
+            EntityTxCache curTxCache = getTxCache(ecfi);
             if (curTxCache == null || !curTxCache.delete(this)) {
                 // if enabled register locks before operation
                 registerMutateLock();
@@ -1773,7 +1783,8 @@ public abstract class EntityValueBase implements EntityValue {
             }
 
             // clear the entity cache
-            efi.getEntityCache().clearCacheForValue(this, false);
+            if (curTxCache == null || curTxCache.shouldClearEntityCache())
+                efi.getEntityCache().clearCacheForValue(this, false);
             // run EECA after rules
             efi.runEecaRules(entityName, this, "delete", false);
         } catch (SQLException e) {
@@ -1818,7 +1829,7 @@ public abstract class EntityValueBase implements EntityValue {
             // find EECA rules deprecated, not worth performance hit: efi.runEecaRules(fullEntityName, this, "find-one", true);
 
             // if there is not a txCache or the txCache doesn't handle the refresh, call the abstract method to refresh
-            TransactionCache curTxCache = getTxCache(ecfi);
+            EntityTxCache curTxCache = getTxCache(ecfi);
             if (curTxCache != null) retVal = curTxCache.refresh(this);
             // call the abstract method
             if (!retVal) {

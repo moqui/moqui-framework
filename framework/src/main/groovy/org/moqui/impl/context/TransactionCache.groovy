@@ -40,7 +40,7 @@ import javax.transaction.xa.XAException
  *
  */
 @CompileStatic
-class TransactionCache implements Synchronization {
+class TransactionCache implements Synchronization, EntityTxCache {
     protected final static Logger logger = LoggerFactory.getLogger(TransactionCache.class)
 
     protected ExecutionContextFactoryImpl ecfi
@@ -494,6 +494,9 @@ class TransactionCache implements Synchronization {
             for (Connection con in connectionByGroup.values()) con.close()
         }
     }
+
+    @Override boolean shouldClearEntityCache() { return true }
+    @Override void close() { }
 
     @Override void beforeCompletion() { flushCache(true) }
     @Override void afterCompletion(int i) { }

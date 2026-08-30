@@ -18,7 +18,7 @@ import org.moqui.entity.EntityCondition;
 import org.moqui.entity.EntityList;
 import org.moqui.entity.EntityListIterator;
 import org.moqui.entity.EntityValue;
-import org.moqui.impl.context.TransactionCache;
+import org.moqui.impl.context.EntityTxCache;
 import org.moqui.util.CollectionUtilities;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,7 +42,8 @@ class EntityListIteratorWrapper implements EntityListIterator {
         valueList = new ArrayList<>(valList);
         this.efi = efi;
         this.entityDefinition = entityDefinition;
-        TransactionCache txCache = efi.ecfi.transactionFacade.getTransactionCache();
+        EntityTxCache txCache = efi.getActiveTxCache();
+        if (txCache == null) txCache = efi.ecfi.transactionFacade.getTransactionCache();
         if (txCache != null && queryCondition != null) {
             // add all created values (updated and deleted values will be handled by the next() method
             EntityJavaUtil.FindAugmentInfo tempFai = txCache.getFindAugmentInfo(entityDefinition.getFullEntityName(), queryCondition);

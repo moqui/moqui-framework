@@ -27,4 +27,23 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- 30 AT_LLM hits per profile name per 60s, then 5 minutes blocked. ALL_USERS membership is automatic. -->
     <moqui.security.ArtifactTarpit userGroupId="ALL_USERS" artifactGroupId="LlmProfiles"
             maxHitsCount="30" maxHitsDuration="60" tarpitDuration="300"/>
+
+    <moqui.basic.EnumerationType description="LLM Skill Status" enumTypeId="LlmSkillStatus"/>
+    <moqui.basic.Enumeration enumId="LsksActive" enumTypeId="LlmSkillStatus" description="Active"/>
+    <moqui.basic.Enumeration enumId="LsksProposed" enumTypeId="LlmSkillStatus" description="Proposed"/>
+    <moqui.basic.Enumeration enumId="LsksSuperseded" enumTypeId="LlmSkillStatus" description="Superseded"/>
+    <moqui.basic.Enumeration enumId="LsksDeprecated" enumTypeId="LlmSkillStatus" description="Deprecated"/>
+    <moqui.basic.Enumeration enumId="LsksRejected" enumTypeId="LlmSkillStatus" description="Rejected"/>
+
+    <moqui.basic.EnumerationType description="LLM Skill Risk" enumTypeId="LlmSkillRisk"/>
+    <moqui.basic.Enumeration enumId="LskReversible" enumTypeId="LlmSkillRisk" description="Reversible"/>
+    <moqui.basic.Enumeration enumId="LskConfirm" enumTypeId="LlmSkillRisk" description="Confirm"/>
+    <moqui.basic.Enumeration enumId="LskIrreversible" enumTypeId="LlmSkillRisk" description="Irreversible"/>
+
+    <moqui.basic.EnumerationType description="LLM Skill Provenance" enumTypeId="LlmSkillProvenance"/>
+    <moqui.basic.Enumeration enumId="LskpWorld" enumTypeId="LlmSkillProvenance" description="World"/>
+    <moqui.basic.Enumeration enumId="LskpMixed" enumTypeId="LlmSkillProvenance" description="Mixed"/>
+    <moqui.basic.Enumeration enumId="LskpHuman" enumTypeId="LlmSkillProvenance" description="Human"/>
+    <moqui.basic.Enumeration enumId="LskpSim" enumTypeId="LlmSkillProvenance" description="Sim"/>
+    <moqui.basic.Enumeration enumId="LskpInfer" enumTypeId="LlmSkillProvenance" description="Infer"/>
 </entity-facade-xml>

@@ -209,10 +209,15 @@ test {
     include '**/LlmRequestToolTests.class'
     include '**/LlmClientStreamTests.class'
     include '**/LlmServletTests.class'
+    include '**/TransactionCacheDbTests.class'
+    include '**/LlmSkillTests.class'
 
     systemProperty 'moqui.runtime', '../runtime'
     systemProperty 'moqui.conf', 'conf/MoquiDevConf.xml'
     systemProperty 'moqui.init.static', 'true'
+    // Allow a sidecar H2 when runtime/db/h2/moqui.mv.db is locked by a running instance
+    if (System.getProperty('entity_ds_url')) systemProperty 'entity_ds_url', System.getProperty('entity_ds_url')
+    if (project.hasProperty('entityDsUrl')) systemProperty 'entity_ds_url', project.property('entityDsUrl')
 
     classpath += files(sourceSets.main.output.classesDirs); classpath += files(projectDir.absolutePath)
     // filter out classpath entries that don't exist (gradle adds a bunch of these), or ElasticSearch JarHell will blow up

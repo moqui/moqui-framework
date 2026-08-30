@@ -24,7 +24,8 @@ import org.moqui.impl.context.ArtifactExecutionFacadeImpl
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ContextJavaUtil
 import org.moqui.impl.context.ExecutionContextImpl
-import org.moqui.impl.context.TransactionCache
+import org.moqui.impl.context.EntityTxCache
+import org.moqui.impl.context.TransactionCacheDb
 import org.moqui.impl.context.TransactionFacadeImpl
 import org.moqui.impl.entity.condition.*
 import org.moqui.impl.entity.EntityJavaUtil.FieldOrderOptions
@@ -52,7 +53,7 @@ abstract class EntityFindBase implements EntityFind {
     final static int defaultResultSetType = ResultSet.TYPE_FORWARD_ONLY
 
     public final EntityFacadeImpl efi
-    public final TransactionCache txCache
+    public final EntityTxCache txCache
 
     protected String entityName
     protected EntityDefinition entityDef = (EntityDefinition) null
@@ -92,16 +93,21 @@ abstract class EntityFindBase implements EntityFind {
     EntityFindBase(EntityFacadeImpl efi, String entityName) {
         this.efi = efi
         this.entityName = entityName
-        TransactionFacadeImpl tfi = efi.ecfi.transactionFacade
-        txCache = tfi.getTransactionCache()
+        txCache = resolveTxCache(efi)
         // if (!tfi.isTransactionInPlace()) logger.warn("No transaction in place, creating find for entity ${entityName}")
     }
     EntityFindBase(EntityFacadeImpl efi, EntityDefinition ed) {
         this.efi = efi
         entityName = ed.fullEntityName
         entityDef = ed
-        TransactionFacadeImpl tfi = efi.ecfi.transactionFacade
-        txCache = tfi.getTransactionCache()
+        txCache = resolveTxCache(efi)
+    }
+    private static EntityTxCache resolveTxCache(EntityFacadeImpl efi) {
+        EntityTxCache active = efi.getActiveTxCache()
+        if (active instanceof TransactionCacheDb && ((TransactionCacheDb) active).isBypass())
+            return efi.ecfi.transactionFacade.getTransactionCache()
+        if (active != null) return active
+        return efi.ecfi.transactionFacade.getTransactionCache()
     }
 
     @Override EntityFind entity(String name) { entityName = name; return this }
@@ -659,6 +665,8 @@ abstract class EntityFindBase implements EntityFind {
         if (havingEntityCondition != null) return false
         if (limit != null || offset != null) return false
         if (forUpdate) return false
+        if (txCache instanceof TransactionCacheDb && ((TransactionCacheDb) txCache).isHold()
+                && !((TransactionCacheDb) txCache).isBypass()) return false
         if (useCache != null) {
             boolean useCacheLocal = useCache.booleanValue()
             if (!useCacheLocal) return false

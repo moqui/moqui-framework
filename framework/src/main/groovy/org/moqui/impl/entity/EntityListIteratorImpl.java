@@ -16,7 +16,7 @@ package org.moqui.impl.entity;
 import org.moqui.BaseArtifactException;
 import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.entity.*;
-import org.moqui.impl.context.TransactionCache;
+import org.moqui.impl.context.EntityTxCache;
 import org.moqui.impl.entity.EntityJavaUtil.FindAugmentInfo;
 import org.moqui.impl.entity.condition.EntityConditionImplBase;
 import org.moqui.util.CollectionUtilities;
@@ -33,7 +33,7 @@ import java.util.ArrayList;
 public class EntityListIteratorImpl implements EntityListIterator {
     protected static final Logger logger = LoggerFactory.getLogger(EntityListIteratorImpl.class);
     protected final EntityFacadeImpl efi;
-    private final TransactionCache txCache;
+    private final EntityTxCache txCache;
     protected final Connection con;
     private final ResultSet rs;
     private final FindAugmentInfo findAugmentInfo;
@@ -51,7 +51,7 @@ public class EntityListIteratorImpl implements EntityListIterator {
     private final ArrayList<ArtifactExecutionInfo> artifactStack;
 
     public EntityListIteratorImpl(Connection con, ResultSet rs, EntityDefinition entityDefinition, FieldInfo[] fieldInfoArray,
-            EntityFacadeImpl efi, TransactionCache txCache, EntityConditionImplBase queryCondition, ArrayList<String> obf) {
+            EntityFacadeImpl efi, EntityTxCache txCache, EntityConditionImplBase queryCondition, ArrayList<String> obf) {
         this.efi = efi;
         this.con = con;
         this.rs = rs;

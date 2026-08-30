@@ -150,6 +150,8 @@ class LlmServletTests extends Specification {
         proto.lastRequest.tools.find { it.name == "write_ui" } != null
         proto.lastRequest.tools.find { it.name == "browse" } != null
         proto.lastRequest.tools.find { it.name == "run_service" } != null
+        proto.lastRequest.tools.find { it.name == "find_skill" } != null
+        proto.lastRequest.tools.find { it.name == "enter_sim" } != null
     }
 
     def "applySystem ignores client system when allow-client-system is false"() {

@@ -96,4 +96,61 @@ along with this software (see the LICENSE.md file). If not, see
         <index name="LLMCALL_USER_DATE"><index-field name="userId"/><index-field name="startDate"/></index>
         <index name="LLMCALL_PROF_DATE"><index-field name="profileName"/><index-field name="startDate"/></index>
     </entity>
+
+    <entity entity-name="LlmSkill" package="moqui.llm" use="transactional">
+        <field name="skillId" type="id" is-pk="true"/>
+        <field name="name" type="text-medium"/>
+        <field name="title" type="text-medium"/>
+        <field name="description" type="text-medium"/>
+        <field name="body" type="text-very-long"/>
+        <field name="riskId" type="id"/>
+        <field name="statusId" type="id"/>
+        <field name="provenanceId" type="id"/>
+        <field name="speaker" type="text-short"/>
+        <field name="warrant" type="text-long"/>
+        <field name="sourceLocation" type="text-medium"/>
+        <field name="version" type="number-integer"/>
+        <field name="supersededSkillId" type="id"/>
+        <field name="worldSuccessCount" type="number-integer"/>
+        <field name="simSuccessCount" type="number-integer"/>
+        <field name="lastUsedDate" type="date-time"/>
+        <relationship type="one" title="Risk" related="moqui.basic.Enumeration">
+            <key-map field-name="riskId"/></relationship>
+        <relationship type="one" title="Status" related="moqui.basic.Enumeration">
+            <key-map field-name="statusId"/></relationship>
+        <relationship type="one" title="Provenance" related="moqui.basic.Enumeration">
+            <key-map field-name="provenanceId"/></relationship>
+        <relationship type="one" related="moqui.llm.LlmSkill" title="Superseded">
+            <key-map field-name="supersededSkillId"/></relationship>
+        <index name="LLMSKILL_NAME" unique="true"><index-field name="name"/></index>
+        <index name="LLMSKILL_STATUS"><index-field name="statusId"/></index>
+    </entity>
+
+    <entity entity-name="LlmSkillUse" package="moqui.llm" use="transactional">
+        <field name="skillUseId" type="id" is-pk="true"/>
+        <field name="skillId" type="id"/>
+        <field name="conversationId" type="id"/>
+        <field name="contact" type="text-short"/>
+        <field name="outcome" type="text-short"/>
+        <field name="notes" type="text-long"/>
+        <field name="usedDate" type="date-time"/>
+        <relationship type="one" related="moqui.llm.LlmSkill"/>
+        <relationship type="one-nofk" related="moqui.llm.LlmConversation"/>
+        <index name="LLMSKILLUSE_SKILL"><index-field name="skillId"/></index>
+    </entity>
+
+    <entity entity-name="LlmLesson" package="moqui.llm" use="transactional">
+        <field name="lessonId" type="id" is-pk="true"/>
+        <field name="skillId" type="id"/>
+        <field name="title" type="text-medium"/>
+        <field name="body" type="text-very-long"/>
+        <field name="provenanceId" type="id"/>
+        <field name="statusId" type="id"/>
+        <field name="createdDate" type="date-time"/>
+        <relationship type="one-nofk" related="moqui.llm.LlmSkill"/>
+        <relationship type="one" title="Provenance" related="moqui.basic.Enumeration">
+            <key-map field-name="provenanceId"/></relationship>
+        <relationship type="one" title="Status" related="moqui.basic.Enumeration">
+            <key-map field-name="statusId"/></relationship>
+    </entity>
 </entities>

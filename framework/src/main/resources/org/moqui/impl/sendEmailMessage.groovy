@@ -30,6 +30,10 @@ Logger logger = LoggerFactory.getLogger("org.moqui.impl.sendEmailMessage")
 ExecutionContextImpl ec = context.ec
 
 try {
+    if (ec.simSession) {
+        logger.info("Sim fence: skipping sendEmailMessage ${emailMessageId}")
+        return
+    }
 
     EntityValue emailMessage = ec.entity.find("moqui.basic.email.EmailMessage").condition("emailMessageId", emailMessageId).one()
     if (emailMessage == null) { ec.message.addError(ec.resource.expand('No EmailMessage record found for ID ${emailMessageId}','')); return }

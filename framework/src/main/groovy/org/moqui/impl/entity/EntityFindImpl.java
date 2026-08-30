@@ -14,7 +14,11 @@
 package org.moqui.impl.entity;
 
 import org.moqui.entity.EntityDynamicView;
+import org.moqui.entity.EntityException;
 import org.moqui.entity.EntityListIterator;
+import org.moqui.entity.EntityValue;
+import org.moqui.impl.context.EntityTxCache;
+import org.moqui.impl.context.TransactionCacheDb;
 import org.moqui.impl.entity.condition.EntityConditionImplBase;
 import org.moqui.impl.entity.EntityJavaUtil.FieldOrderOptions;
 import org.moqui.util.LiteStringMap;
@@ -46,10 +50,32 @@ public class EntityFindImpl extends EntityFindBase {
     @Override
     public EntityValueBase oneExtended(EntityConditionImplBase whereCondition, FieldInfo[] fieldInfoArray,
                                        FieldOrderOptions[] fieldOptionsArray) throws SQLException {
+        TransactionCacheDb db = overlayDb();
+        if (db != null) {
+            EntityDefinition ed = getEntityDef();
+            // Actual-entity one(): miss in H2 means copy-on-read from production via onePut in EntityFindBase.
+            // View-entity one(): query H2 after copying production members (overlay creates have no production row).
+            if (ed.isViewEntity) {
+                db.ensureReady(ed);
+                db.beginBypass();
+                try {
+                    EntityValueBase prod = oneInternal(whereCondition, fieldInfoArray, fieldOptionsArray, null);
+                    if (prod != null) db.copyFromProduction(prod);
+                } finally {
+                    db.endBypass();
+                }
+                return oneInternal(whereCondition, fieldInfoArray, fieldOptionsArray, db);
+            }
+        }
+        return oneInternal(whereCondition, fieldInfoArray, fieldOptionsArray, null);
+    }
+
+    private EntityValueBase oneInternal(EntityConditionImplBase whereCondition, FieldInfo[] fieldInfoArray,
+            FieldOrderOptions[] fieldOptionsArray, TransactionCacheDb overlay) throws SQLException {
         EntityDefinition ed = getEntityDef();
 
         // table doesn't exist, just return null
-        if (!ed.tableExistsDbMetaOnly()) return null;
+        if (overlay == null && !ed.tableExistsDbMetaOnly()) return null;
 
         EntityFindBuilder efb = new EntityFindBuilder(ed, this, whereCondition, fieldInfoArray);
         // flag as a find one, small changes to internal behavior to reduce overhead
@@ -65,17 +91,20 @@ public class EntityFindImpl extends EntityFindBase {
         efb.makeGroupByClause();
         // NOTE 20200707 don't do this, databases such as Oracle (error ORA-02014) do not allow use of limit/offset with for update: LIMIT/OFFSET clause - for find one always limit to 1: efb.addLimitOffset(1, 0);
         // FOR UPDATE
-        if (getForUpdate()) efb.makeForUpdate();
+        if (getForUpdate() && overlay == null) efb.makeForUpdate();
 
         // run the SQL now that it is built
         EntityValueBase newEntityValue = null;
+        Connection overlayCon = null;
         try {
-            // don't check create, above tableExists check is done:
-            // efi.getEntityDbMeta().checkTableRuntime(ed)
-            // if this is a view-entity and any table in it exists check/create all or will fail with optional members, etc
-            if (ed.isViewEntity) efi.getEntityDbMeta().checkTableRuntime(ed);
+            if (overlay == null && ed.isViewEntity) efi.getEntityDbMeta().checkTableRuntime(ed);
 
-            efb.makeConnection(useClone);
+            if (overlay != null) {
+                overlayCon = overlay.getConnection();
+                efb.useConnection(overlayCon);
+            } else {
+                efb.makeConnection(useClone);
+            }
             efb.makePreparedStatement();
             efb.setPreparedStatementValues();
 
@@ -99,6 +128,10 @@ public class EntityFindImpl extends EntityFindBase {
         } finally {
             try { efb.closeAll(); }
             catch (SQLException sqle) { logger.error("Error closing query", sqle); }
+            if (overlayCon != null) {
+                try { overlayCon.close(); }
+                catch (SQLException sqle) { logger.error("Error closing overlay connection", sqle); }
+            }
         }
 
         return newEntityValue;
@@ -108,10 +141,56 @@ public class EntityFindImpl extends EntityFindBase {
     public EntityListIterator iteratorExtended(EntityConditionImplBase whereCondition, EntityConditionImplBase havingCondition,
                                                ArrayList<String> orderByExpanded, FieldInfo[] fieldInfoArray,
                                                FieldOrderOptions[] fieldOptionsArray) throws SQLException {
+        TransactionCacheDb db = overlayDb();
+        if (db != null) {
+            copyWorkingSet(db, whereCondition, havingCondition, orderByExpanded, fieldInfoArray, fieldOptionsArray);
+            return iteratorInternal(whereCondition, havingCondition, orderByExpanded, fieldInfoArray, fieldOptionsArray,
+                    db, null);
+        }
+        return iteratorInternal(whereCondition, havingCondition, orderByExpanded, fieldInfoArray, fieldOptionsArray,
+                null, txCache);
+    }
+
+    private TransactionCacheDb overlayDb() {
+        if (!(txCache instanceof TransactionCacheDb)) return null;
+        TransactionCacheDb db = (TransactionCacheDb) txCache;
+        if (db.isBypass()) return null;
+        EntityDefinition ed = getEntityDef();
+        if (!db.handles(ed)) return null;
+        return db;
+    }
+
+    private void copyWorkingSet(TransactionCacheDb db, EntityConditionImplBase whereCondition,
+            EntityConditionImplBase havingCondition, ArrayList<String> orderByExpanded, FieldInfo[] fieldInfoArray,
+            FieldOrderOptions[] fieldOptionsArray) throws SQLException {
+        EntityDefinition ed = getEntityDef();
+        db.ensureReady(ed);
+        db.beginBypass();
+        try {
+            try (EntityListIterator eli = iteratorInternal(whereCondition, havingCondition, orderByExpanded,
+                    fieldInfoArray, fieldOptionsArray, null, null)) {
+                EntityValue ev;
+                int n = 0;
+                while ((ev = eli.next()) != null) {
+                    if (++n > TransactionCacheDb.COPY_CAP)
+                        throw new EntityException("TX cache DB copy-on-read exceeded " +
+                                TransactionCacheDb.COPY_CAP + " rows for " + ed.getFullEntityName());
+                    if (ev instanceof EntityValueBase) db.copyFromProduction((EntityValueBase) ev);
+                }
+            }
+        } finally {
+            db.endBypass();
+        }
+    }
+
+    private EntityListIterator iteratorInternal(EntityConditionImplBase whereCondition, EntityConditionImplBase havingCondition,
+            ArrayList<String> orderByExpanded, FieldInfo[] fieldInfoArray, FieldOrderOptions[] fieldOptionsArray,
+            TransactionCacheDb overlay, EntityTxCache mergeCache) throws SQLException {
         EntityDefinition ed = this.getEntityDef();
 
-        // table doesn't exist, just return empty ELI
-        if (!ed.tableExistsDbMetaOnly()) return new EntityListIteratorWrapper(new ArrayList<>(), ed, efi, null, null);
+        // table doesn't exist, just return empty ELI (overlay still has tables we created)
+        if (overlay == null && !ed.tableExistsDbMetaOnly())
+            return new EntityListIteratorWrapper(new ArrayList<>(), ed, efi, null, null);
 
         EntityFindBuilder efb = new EntityFindBuilder(ed, this, whereCondition, fieldInfoArray);
         if (getDistinct()) efb.makeDistinct();
@@ -133,32 +212,31 @@ public class EntityFindImpl extends EntityFindBase {
         // LIMIT/OFFSET clause
         if (hasLimitOffset) efb.addLimitOffset(limit, offset);
         // FOR UPDATE
-        if (getForUpdate()) efb.makeForUpdate();
+        if (getForUpdate() && overlay == null) efb.makeForUpdate();
 
-        // run the SQL now that it is built
         EntityListIteratorImpl elii;
         try {
-            // don't check create, above tableExists check is done:
-            // efi.getEntityDbMeta().checkTableRuntime(ed)
-            // if this is a view-entity and any table in it exists check/create all or will fail with optional members, etc
-            if (ed.isViewEntity) efi.getEntityDbMeta().checkTableRuntime(ed);
+            if (overlay == null && ed.isViewEntity) efi.getEntityDbMeta().checkTableRuntime(ed);
 
-            Connection con = efb.makeConnection(useClone);
+            Connection con;
+            if (overlay != null) {
+                con = overlay.getConnection();
+                efb.useConnection(con);
+            } else {
+                con = efb.makeConnection(useClone);
+            }
             efb.makePreparedStatement();
             efb.setPreparedStatementValues();
 
             ResultSet rs = efb.executeQuery();
-            elii = new EntityListIteratorImpl(con, rs, ed, fieldInfoArray, efi, txCache, whereCondition, orderByExpanded);
-            // ResultSet will be closed in the EntityListIterator
+            elii = new EntityListIteratorImpl(con, rs, ed, fieldInfoArray, efi, mergeCache, whereCondition, orderByExpanded);
             efb.releaseAll();
             queryTextList.add(efb.finalSql);
         } catch (Throwable t) {
-            // close the ResultSet/etc on error as there won't be an ELI
             try { efb.closeAll(); }
             catch (SQLException sqle) { logger.error("Error closing query", sqle); }
             throw t;
         }
-        // no finally block to close ResultSet, etc because contained in EntityListIterator and closed with it
 
         return elii;
     }
@@ -166,10 +244,20 @@ public class EntityFindImpl extends EntityFindBase {
     @Override
     public long countExtended(EntityConditionImplBase whereCondition, EntityConditionImplBase havingCondition,
                               FieldInfo[] fieldInfoArray, FieldOrderOptions[] fieldOptionsArray) throws SQLException {
+        TransactionCacheDb db = overlayDb();
+        if (db != null) {
+            copyWorkingSet(db, whereCondition, havingCondition, null, fieldInfoArray, fieldOptionsArray);
+            return countInternal(whereCondition, havingCondition, fieldInfoArray, fieldOptionsArray, db);
+        }
+        return countInternal(whereCondition, havingCondition, fieldInfoArray, fieldOptionsArray, null);
+    }
+
+    private long countInternal(EntityConditionImplBase whereCondition, EntityConditionImplBase havingCondition,
+            FieldInfo[] fieldInfoArray, FieldOrderOptions[] fieldOptionsArray, TransactionCacheDb overlay) throws SQLException {
         EntityDefinition ed = getEntityDef();
 
         // table doesn't exist, just return 0
-        if (!ed.tableExistsDbMetaOnly()) return 0;
+        if (overlay == null && !ed.tableExistsDbMetaOnly()) return 0;
 
         EntityFindBuilder efb = new EntityFindBuilder(ed, this, whereCondition, fieldInfoArray);
 
@@ -193,13 +281,16 @@ public class EntityFindImpl extends EntityFindBase {
 
         // run the SQL now that it is built
         long count = 0;
+        Connection overlayCon = null;
         try {
-            // don't check create, above tableExists check is done:
-            // efi.getEntityDbMeta().checkTableRuntime(ed)
-            // if this is a view-entity and any table in it exists check/create all or will fail with optional members, etc
-            if (ed.isViewEntity) efi.getEntityDbMeta().checkTableRuntime(ed);
+            if (overlay == null && ed.isViewEntity) efi.getEntityDbMeta().checkTableRuntime(ed);
 
-            efb.makeConnection(useClone);
+            if (overlay != null) {
+                overlayCon = overlay.getConnection();
+                efb.useConnection(overlayCon);
+            } else {
+                efb.makeConnection(useClone);
+            }
             efb.makePreparedStatement();
             efb.setPreparedStatementValues();
 
@@ -209,6 +300,10 @@ public class EntityFindImpl extends EntityFindBase {
         } finally {
             try { efb.closeAll(); }
             catch (SQLException sqle) { logger.error("Error closing query", sqle); }
+            if (overlayCon != null) {
+                try { overlayCon.close(); }
+                catch (SQLException sqle) { logger.error("Error closing overlay connection", sqle); }
+            }
         }
 
         return count;

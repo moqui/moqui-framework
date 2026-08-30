@@ -53,6 +53,10 @@ public class ExecutionContextImpl implements ExecutionContext {
     public final ContextBinding contextBindingInternal = new ContextBinding(contextStack);
 
     private EntityFacadeImpl activeEntityFacade;
+    /** Thread-local entity overlay (TransactionCacheDb); not the JTA TransactionCache. */
+    public EntityTxCache entityTxCache = null;
+    /** When true, side-effect fence is on (email/HTTP/async suppressed). Usually paired with HOLD overlay. */
+    public boolean simSession = false;
 
     private WebFacade webFacade = (WebFacade) null;
     private WebFacadeImpl webFacadeImpl = (WebFacadeImpl) null;
@@ -241,6 +245,11 @@ public class ExecutionContextImpl implements ExecutionContext {
         // if webFacade exists this is the end of a request, so trigger after-request actions
         if (webFacadeImpl != null) webFacadeImpl.runAfterRequestActions();
 
+        if (entityTxCache != null) {
+            try { entityTxCache.close(); }
+            catch (Throwable t) { loggerDirect.warn("Error closing entity TX cache on destroy", t); }
+            entityTxCache = null;
+        }
         // make sure there are no transactions open, if any commit them all now
         ecfi.transactionFacade.destroyAllInThread();
         // clean up resources, like JCR session
