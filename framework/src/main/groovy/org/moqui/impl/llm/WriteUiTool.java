@@ -30,17 +30,25 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
- * Client-passthrough form tool. Server may sanitize and prefill; it never submits.
+ * Client-passthrough UI tool (form spec or Vue SFC). Server may sanitize and prefill; it never submits.
  */
 public class WriteUiTool implements LlmTool {
     static final String NAME = "write_ui";
-    /** 2: form spec plus list/actions/writeThrough. kind=form in this pass. */
-    static final int SCHEMA_VERSION = 2;
+    /** 3: kind=form | vue-sfc. Form spec plus list/actions/writeThrough; vue-sfc is client http-vue-loader.parse. */
+    static final int SCHEMA_VERSION = 3;
     static final String KIND_FORM = "form";
+    static final String KIND_VUE_SFC = "vue-sfc";
     // FUTURE: KIND_SCREEN_XML = "screen-xml" (server round-trip compile/render of generated XML screen)
-    // FUTURE: KIND_VUE_SFC = "vue-sfc" (client http-vue-loader.parse of script+template+style)
+    static final int MAX_SFC_CHARS = 64 * 1024;
+    static final Pattern LINK_TAG = Pattern.compile("(?is)<link\\b[^>]*(?:/>|>)(?:\\s*</link>)?");
+    static final Pattern SCRIPT_SRC = Pattern.compile(
+            "(?is)(<script\\b[^>]*?)\\ssrc\\s*=\\s*(?:'[^']*'|\"[^\"]*\"|[^\\s>]+)");
+    static final Pattern STYLE_SRC = Pattern.compile(
+            "(?is)(<style\\b[^>]*?)\\ssrc\\s*=\\s*(?:'[^']*'|\"[^\"]*\"|[^\\s>]+)");
+    static final Pattern TEMPLATE_TAG = Pattern.compile("(?is)<template\\b");
     static final Set<String> WIDGETS = new LinkedHashSet<>(Arrays.asList(
             "text-line", "text-area", "drop-down", "date-time", "check", "radio",
             "display", "display-entity", "hidden"));
@@ -55,7 +63,8 @@ public class WriteUiTool implements LlmTool {
     static final Set<String> TOP_KEYS = new LinkedHashSet<>(Arrays.asList(
             "title", "instruction", "submitLabel", "cancelLabel", "formId", "prefill", "fields",
             "schemaVersion", "prefillError", "kind", "writeThrough", "columns", "rows", "actions",
-            "removeFields", "removeActions"));
+            "removeFields", "removeActions", "sfc", "template", "script", "style", "sfcError"));
+    static final Set<String> SFC_KEYS = new LinkedHashSet<>(Arrays.asList("sfc", "template", "script", "style"));
     static final Set<String> COLUMN_KEYS = new LinkedHashSet<>(Arrays.asList("name", "label", "widget"));
     static final Set<String> ACTION_KEYS = new LinkedHashSet<>(Arrays.asList(
             "id", "label", "method", "path", "primary", "bodyFromFields", "queryFromFields",
@@ -115,7 +124,22 @@ public class WriteUiTool implements LlmTool {
         props.put("formId", mapOf("type", "string"));
         props.put("prefill", prefill);
         props.put("fields", fields);
-        props.put("kind", mapOf("type", "string"));
+        Map<String, Object> kindSchema = new LinkedHashMap<>();
+        kindSchema.put("type", "string");
+        kindSchema.put("enum", Arrays.asList(KIND_FORM, KIND_VUE_SFC));
+        kindSchema.put("description", "form: xml-form widgets. vue-sfc: Vue 2 SFC mounted on Assist "
+                + "(sfc, or template+script+style). Default form.");
+        props.put("kind", kindSchema);
+        Map<String, Object> sfcProp = mapOf("type", "string");
+        sfcProp.put("description", "Full Vue 2 SFC. Wins over template/script/style. module.exports, not export default.");
+        props.put("sfc", sfcProp);
+        Map<String, Object> templateProp = mapOf("type", "string");
+        templateProp.put("description", "Vue template inner HTML, or a full <template> block");
+        props.put("template", templateProp);
+        Map<String, Object> scriptProp = mapOf("type", "string");
+        scriptProp.put("description", "Vue 2 script body assigning module.exports, or a full <script> block");
+        props.put("script", scriptProp);
+        props.put("style", mapOf("type", "string"));
         props.put("writeThrough", mapOf("type", "boolean"));
         Map<String, Object> col = new LinkedHashMap<>();
         col.put("type", "object");
@@ -176,13 +200,14 @@ public class WriteUiTool implements LlmTool {
 
     @Override public String getName() { return NAME; }
     @Override public String getDescription() {
-        return "Present a structured form (kind=form) using xml-form widgets. Never emit HTML, Vue, or JS. "
-                + "Wait for the user to submit; values in the tool result are the only source of truth. "
-                + "The server never submits this form. "
-                + "Set writeThrough=true to edit the current canvas: omitted fields/actions are kept; "
-                + "use removeFields/removeActions to drop them. The resume tool result includes canvas "
-                + "(current schema with user values) so you can correct errors or add/remove sections. "
-                + "Always declare actions[] (method+path) so Script mode can run them.";
+        return "Present a UI on Assist. kind=form (default): xml-form widgets; do not emit HTML/Vue/JS. "
+                + "kind=vue-sfc: Vue 2 SFC (sfc, or template+script+style) mounted as a sub-component; "
+                + "use module.exports (not export default / script setup), Quasar v1, and Assist m-* widgets "
+                + "(see system prompt). Always declare actions[] (method+path) and keep fields[].name in sync "
+                + "with values. Wait for the user to submit; values in the tool result are the only source of truth. "
+                + "The server never submits. Set writeThrough=true to edit the current canvas: omitted "
+                + "fields/actions/SFC source are kept; use removeFields/removeActions to drop them. "
+                + "The resume tool result includes canvas (current schema with user values).";
     }
     @Override public Map<String, Object> getParametersSchema() { return SCHEMA; }
     @Override public Execution getExecution() { return Execution.CLIENT; }
@@ -245,11 +270,23 @@ public class WriteUiTool implements LlmTool {
         }
         out.put("fields", kept);
 
+        boolean writeThroughFlag = Boolean.TRUE.equals(out.get("writeThrough"));
         String kind = str(out.get("kind"));
-        if (kind == null || kind.isBlank()) kind = KIND_FORM;
-        // First pass: only kind=form. FUTURE: screen-xml (server round-trip), vue-sfc (script/template/style).
-        if (!KIND_FORM.equals(kind)) kind = KIND_FORM;
-        out.put("kind", kind);
+        if (kind == null || kind.isBlank()) {
+            if (writeThroughFlag) {
+                out.remove("kind");
+                kind = null;
+            } else {
+                kind = KIND_FORM;
+                out.put("kind", kind);
+            }
+        } else if (!KIND_FORM.equals(kind) && !KIND_VUE_SFC.equals(kind)) {
+            kind = KIND_FORM;
+            out.put("kind", kind);
+        } else {
+            out.put("kind", kind);
+        }
+        applyVueSfc(out, kind, kept);
         if (!(out.get("writeThrough") instanceof Boolean)) out.put("writeThrough", Boolean.FALSE);
 
         out.put("columns", cleanColumns(out.get("columns")));
@@ -300,8 +337,33 @@ public class WriteUiTool implements LlmTool {
     @SuppressWarnings("unchecked")
     static Map<String, Object> mergeCanvas(Map<String, Object> last, Map<String, Object> incoming) {
         Map<String, Object> out = deepCopy(last);
-        for (String key : Arrays.asList("title", "instruction", "submitLabel", "cancelLabel", "formId", "kind")) {
+        for (String key : Arrays.asList("title", "instruction", "submitLabel", "cancelLabel", "formId")) {
             if (incoming.containsKey(key) && incoming.get(key) != null) out.put(key, incoming.get(key));
+        }
+        String lastKind = str(out.get("kind"));
+        if (lastKind == null || lastKind.isBlank()) lastKind = KIND_FORM;
+        String nextKind = lastKind;
+        if (incoming.containsKey("kind") && incoming.get("kind") != null) {
+            String k = str(incoming.get("kind"));
+            if (KIND_FORM.equals(k) || KIND_VUE_SFC.equals(k)) nextKind = k;
+        }
+        out.put("kind", nextKind);
+        if (KIND_VUE_SFC.equals(nextKind)) {
+            if (hasSfcParts(incoming)) {
+                out.remove("template");
+                out.remove("script");
+                out.remove("style");
+                out.remove("sfcError");
+                if (incoming.get("sfc") != null) out.put("sfc", incoming.get("sfc"));
+                else {
+                    out.remove("sfc");
+                    for (String k : Arrays.asList("template", "script", "style")) {
+                        if (incoming.containsKey(k) && incoming.get(k) != null) out.put(k, incoming.get(k));
+                    }
+                }
+            }
+        } else {
+            clearSfcKeys(out);
         }
         List<Map<String, Object>> fields = mergeByName(asMapList(out.get("fields")), asMapList(incoming.get("fields")),
                 asStringList(incoming.get("removeFields")));
@@ -446,6 +508,111 @@ public class WriteUiTool implements LlmTool {
         }
     }
 
+    /**
+     * Sanitize vue-sfc source: assemble parts, strip remote loads and fences, enforce size.
+     * kind=form drops SFC keys. writeThrough with omitted kind still sanitizes parts if present.
+     */
+    static void applyVueSfc(Map<String, Object> out, String kind, List<Map<String, Object>> fields) {
+        boolean writeThrough = Boolean.TRUE.equals(out.get("writeThrough"));
+        boolean asSfc = KIND_VUE_SFC.equals(kind) || (kind == null && hasSfcParts(out));
+        if (KIND_FORM.equals(kind) || (!asSfc && kind != null)) {
+            clearSfcKeys(out);
+            return;
+        }
+        if (!asSfc) {
+            clearSfcKeys(out);
+            return;
+        }
+        String assembled = assembleSfc(out);
+        clearSfcKeys(out);
+        if (assembled == null || assembled.isBlank() || !TEMPLATE_TAG.matcher(assembled).find()) {
+            if (writeThrough) return;
+            if (fields != null && !fields.isEmpty()) {
+                out.put("kind", KIND_FORM);
+                return;
+            }
+            out.put("kind", KIND_VUE_SFC);
+            out.put("sfcError", "vue-sfc requires a template");
+            return;
+        }
+        if (assembled.length() > MAX_SFC_CHARS) {
+            if (writeThrough) return;
+            out.put("kind", KIND_VUE_SFC);
+            out.put("sfcError", "vue-sfc exceeds 64KiB");
+            if (fields != null && !fields.isEmpty()) out.put("kind", KIND_FORM);
+            return;
+        }
+        if (kind == null) out.put("kind", KIND_VUE_SFC);
+        out.put("sfc", assembled);
+        out.remove("sfcError");
+    }
+    static boolean hasSfcParts(Map<String, Object> map) {
+        if (map == null) return false;
+        for (String k : SFC_KEYS) {
+            String v = str(map.get(k));
+            if (v != null && !v.isBlank()) return true;
+        }
+        return false;
+    }
+    static void clearSfcKeys(Map<String, Object> map) {
+        if (map == null) return;
+        for (String k : SFC_KEYS) map.remove(k);
+        map.remove("sfcError");
+    }
+    static String assembleSfc(Map<String, Object> in) {
+        String sfc = stripFences(str(in.get("sfc")));
+        if (sfc != null && !sfc.isBlank()) return stripRemoteLoads(sfc);
+        String template = str(in.get("template"));
+        String script = str(in.get("script"));
+        String style = str(in.get("style"));
+        boolean any = (template != null && !template.isBlank())
+                || (script != null && !script.isBlank())
+                || (style != null && !style.isBlank());
+        if (!any) return null;
+        StringBuilder sb = new StringBuilder();
+        if (template != null && !template.isBlank()) {
+            String t = template.trim();
+            if (startsWithTag(t, "template")) sb.append(t);
+            else sb.append("<template>\n").append(template).append("\n</template>");
+            sb.append('\n');
+        }
+        if (script != null && !script.isBlank()) {
+            String sc = script.trim();
+            if (startsWithTag(sc, "script")) sb.append(sc);
+            else sb.append("<script>\n").append(script).append("\n</script>");
+            sb.append('\n');
+        } else {
+            sb.append("<script>\nmodule.exports = {}\n</script>\n");
+        }
+        if (style != null && !style.isBlank()) {
+            String st = style.trim();
+            if (startsWithTag(st, "style")) sb.append(st);
+            else sb.append("<style>\n").append(style).append("\n</style>");
+        }
+        return stripRemoteLoads(sb.toString());
+    }
+    static boolean startsWithTag(String s, String tag) {
+        if (s == null || s.length() < tag.length() + 1 || s.charAt(0) != '<') return false;
+        return s.regionMatches(true, 1, tag, 0, tag.length());
+    }
+    static String stripFences(String s) {
+        if (s == null) return null;
+        String t = s.trim();
+        if (t.startsWith("```")) {
+            int nl = t.indexOf('\n');
+            if (nl > 0) t = t.substring(nl + 1);
+            if (t.endsWith("```")) t = t.substring(0, t.length() - 3);
+            t = t.trim();
+        }
+        return t;
+    }
+    static String stripRemoteLoads(String sfc) {
+        if (sfc == null) return null;
+        String s = LINK_TAG.matcher(sfc).replaceAll("");
+        s = SCRIPT_SRC.matcher(s).replaceAll("$1");
+        s = STYLE_SRC.matcher(s).replaceAll("$1");
+        return s;
+    }
     static String clean(String s) {
         if (s == null) return null;
         // Strip tags, then unescape so Vue text interpolation does not show &amp;

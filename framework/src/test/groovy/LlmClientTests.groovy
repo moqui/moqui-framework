@@ -983,7 +983,7 @@ class LlmClientTests extends Specification {
         enriched.fields[1].name == "when"
         enriched.fields[1].widget == "date-time"
         enriched.fields[1].widgetType == "date"
-        enriched.schemaVersion == 2
+        enriched.schemaVersion == 3
         enriched.kind == "form"
     }
 
@@ -1039,6 +1039,127 @@ class LlmClientTests extends Specification {
         enriched.actions.size() == 1
         enriched.actions[0].method == "POST"
         enriched.actions[0].path == "/rest/s1/x"
+    }
+
+    def "write_ui kind vue-sfc is kept and form drops sfc"() {
+        given:
+        WriteUiTool tool = new WriteUiTool()
+        String sfc = "<template><div>{{values.n}}</div></template>\n<script>module.exports = {props:['values']}</script>"
+        when:
+        def vue = tool.enrichForClient([
+                kind: "vue-sfc",
+                title: "Hi",
+                fields: [[name: "n", widget: "text-line"]],
+                sfc: sfc,
+                actions: [[id: "go", method: "POST", path: "/rest/s1/x"]]
+        ], null)
+        def form = tool.enrichForClient([
+                kind: "form",
+                fields: [[name: "n", widget: "text-line"]],
+                sfc: sfc
+        ], null)
+        def other = tool.enrichForClient([kind: "screen-xml", fields: [[name: "n", widget: "text-line"]]], null)
+        then:
+        vue.kind == "vue-sfc"
+        vue.schemaVersion == 3
+        vue.sfc.contains("<template>")
+        vue.sfc.contains("module.exports")
+        !vue.containsKey("template")
+        form.kind == "form"
+        !form.containsKey("sfc")
+        other.kind == "form"
+        !other.containsKey("sfc")
+    }
+
+    def "write_ui vue-sfc assembles parts, strips script src and fences, rejects empty and oversized"() {
+        given:
+        WriteUiTool tool = new WriteUiTool()
+        String huge = "<template><div>" + ("x" * (64 * 1024 + 10)) + "</div></template>"
+        when:
+        def parts = tool.enrichForClient([
+                kind: "vue-sfc",
+                template: "<div>{{values.n}}</div>",
+                script: "module.exports = {props:['values']}",
+                style: ".x { color: red }"
+        ], null)
+        def src = tool.enrichForClient([
+                kind: "vue-sfc",
+                sfc: "<template><div/></template>\n<script src=\"https://evil.example/x.js\">module.exports = {}</script>\n<link rel=\"stylesheet\" href=\"https://evil.example/x.css\">"
+        ], null)
+        def fenced = tool.enrichForClient([
+                kind: "vue-sfc",
+                sfc: "```vue\n<template><div>ok</div></template>\n<script>module.exports = {}</script>\n```"
+        ], null)
+        def empty = tool.enrichForClient([kind: "vue-sfc", script: "module.exports = {}"], null)
+        def emptyWithFields = tool.enrichForClient([
+                kind: "vue-sfc",
+                fields: [[name: "n", widget: "text-line"]]
+        ], null)
+        def oversized = tool.enrichForClient([kind: "vue-sfc", sfc: huge], null)
+        then:
+        parts.kind == "vue-sfc"
+        parts.sfc.contains("<template>")
+        parts.sfc.contains("<div>{{values.n}}</div>")
+        parts.sfc.contains("module.exports")
+        parts.sfc.contains("color: red")
+        src.sfc.contains("<template>")
+        !src.sfc.contains("src=")
+        !src.sfc.contains("<link")
+        !src.sfc.contains("evil.example")
+        fenced.sfc.startsWith("<template>")
+        !fenced.sfc.contains("```")
+        empty.kind == "vue-sfc"
+        empty.sfcError == "vue-sfc requires a template"
+        !empty.containsKey("sfc")
+        emptyWithFields.kind == "form"
+        !emptyWithFields.containsKey("sfc")
+        oversized.sfcError == "vue-sfc exceeds 64KiB"
+        !oversized.containsKey("sfc")
+    }
+
+    def "write_ui writeThrough replaces or keeps vue-sfc and switches kind"() {
+        given:
+        def conv = LlmConversationImpl.create(null, "default", null)
+        WriteUiTool tool = new WriteUiTool()
+        def first = tool.enrichForClient([
+                kind: "vue-sfc",
+                title: "One",
+                fields: [[name: "n", widget: "text-line", defaultValue: "1"]],
+                template: "<div>one</div>",
+                actions: [[id: "go", method: "POST", path: "/rest/s1/x"]]
+        ], null)
+        when:
+        WriteUiTool.applyWriteThrough(first, conv)
+        def keep = tool.enrichForClient([
+                writeThrough: true,
+                fields: [[name: "n", widget: "text-line", defaultValue: "2"]]
+        ], null)
+        def kept = WriteUiTool.applyWriteThrough(keep, conv)
+        then:
+        kept.kind == "vue-sfc"
+        kept.sfc.contains("one")
+        kept.fields[0].defaultValue == "2"
+        when:
+        def replace = tool.enrichForClient([
+                writeThrough: true,
+                kind: "vue-sfc",
+                template: "<div>two</div>"
+        ], null)
+        def replaced = WriteUiTool.applyWriteThrough(replace, conv)
+        then:
+        replaced.kind == "vue-sfc"
+        replaced.sfc.contains("two")
+        !replaced.sfc.contains("one")
+        when:
+        def toForm = tool.enrichForClient([
+                writeThrough: true,
+                kind: "form",
+                fields: [[name: "n", widget: "text-line"]]
+        ], null)
+        def formed = WriteUiTool.applyWriteThrough(toForm, conv)
+        then:
+        formed.kind == "form"
+        !formed.containsKey("sfc")
     }
 
     def "getClient-style builders are distinct instances"() {

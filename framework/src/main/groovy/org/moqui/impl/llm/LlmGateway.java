@@ -273,6 +273,12 @@ public final class LlmGateway {
         if (temp instanceof Number) impl.temperature(((Number) temp).doubleValue());
         Object maxTok = body.get("maxTokens");
         if (maxTok instanceof Number) impl.maxTokens(((Number) maxTok).intValue());
+        Object extraBody = body.get("extraBody");
+        if (extraBody instanceof Map) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> extraMap = (Map<String, Object>) extraBody;
+            impl.extraBody(extraMap);
+        }
 
         if (resume) {
             impl.markResumeFromYielded();

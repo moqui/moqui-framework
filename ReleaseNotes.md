@@ -200,7 +200,7 @@ def result = ec.llm.getDefault()
   with `inheritAuthz=N` so that does not skip later service/screen/entity checks. Servlet access is permission
   `LlmGateway` (ADMIN by default).
 - Agent loop: server tool `request` (method + path through ScreenRender on the same thread, authz and tarpit ON)
-  and client tool `write_ui` (schemaVersion 2 form yield; the server never submits). Optional typed
+  and client tool `write_ui` (schemaVersion 3 form or vue-sfc yield; the server never submits). Optional typed
   `LlmTool.service()`. Servlet may also attach `browse` (authz-filtered catalog) and `run_service`
   (generic service call) when the profile allows them.
 - Managed servlet at `/llm/*`. Not a provider-key proxy (keys stay on the profile). Service REST wrappers at
@@ -259,15 +259,17 @@ Other production notes:
   attach the `request` tool. Internal `LlmTool.request()` with no prefixes still means any path the user
   is authorized to hit. Profile `allow-unprefixed-request="true"` (Assist) attaches that unprefixed tool;
   operators may still add `allowed-path` prefixes to **narrow** it.
-- Assist Universal Screen (`/qapps/assist`, tools component): chat + generated form canvas. Profile
+- Assist Universal Screen (`/qapps/assist`, tools component): chat + generated canvas. Profile
   `assist` uses a server-owned SYSTEM file (`system-location`), ignores client `system`, and enables
   `write_ui`, `browse`, `run_service`, and unprefixed `request`. `browse` lists screens/REST/services/entities
-  the current user can VIEW (depth 1 default). `write_ui` schemaVersion 2 adds list columns/rows, declared
-  `actions[]`, and `writeThrough` so the model can correct/add/remove against the current canvas.
-  Script mode runs `actions[]` in the browser as the user; Agent mode resumes and the model calls tools.
-  First-pass canvas is `kind=form` only (not generated Vue or XML screens).
+  the current user can VIEW (depth 1 default). `write_ui` schemaVersion 3 is `kind=form` (xml-form widgets,
+  list columns/rows) or `kind=vue-sfc` (Vue 2 SFC parsed with `httpVueLoader.parse` and mounted as a
+  sub-component of Assist.qvue). `actions[]` and `writeThrough` apply to both kinds (SFC source is replaced
+  as a unit; omitted source is kept). Script mode runs `actions[]` in the browser as the user; Agent mode
+  resumes and the model calls tools. `kind=screen-xml` is still not implemented.
 - `write_ui` on the servlet requires profile `allow-write-ui="true"`. Client `tools` may only subset
-  `{request, write_ui, browse, run_service}`.
+  `{request, write_ui, browse, run_service}`. POST `/llm/v1/chat` may pass `extraBody` (merged into the
+  provider JSON) for vendor knobs such as Qwen `chat_template_kwargs` / `tool_choice`.
 - Purge old rows with `org.moqui.impl.LlmServices.clean#LlmData` (`daysToKeep` default 90). Schedule a
   ServiceJob like `clean_ArtifactData_daily`.
 - Browser clients: `fetch` POST + `ReadableStream`, not `EventSource` (`EventSource` is GET-only and cannot
