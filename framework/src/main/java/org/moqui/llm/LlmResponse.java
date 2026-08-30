@@ -23,6 +23,7 @@ public final class LlmResponse {
     public LlmUsage usage;
     public String model;
     public String profileName;
+    public String conversationId;
     public int httpStatus;
     public String errorMessage;
     public String providerErrorCode;
@@ -38,6 +39,7 @@ public final class LlmResponse {
     public LlmUsage getUsage() { return usage; }
     public String getModel() { return model; }
     public String getProfileName() { return profileName; }
+    public String getConversationId() { return conversationId; }
     public int getHttpStatus() { return httpStatus; }
     public String getErrorMessage() { return errorMessage; }
     public String getProviderErrorCode() { return providerErrorCode; }

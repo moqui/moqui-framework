@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-3.xsd">
+
+    <!-- ========================================================= -->
+    <!-- moqui.llm -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="LlmConversation" package="moqui.llm" use="transactional" cache="never">
+        <field name="conversationId" type="id" is-pk="true"/>
+        <field name="profileName" type="text-medium"/>
+        <field name="userId" type="id"/>
+        <field name="visitId" type="id"/>
+        <field name="statusId" type="id"/>
+        <field name="title" type="text-medium"/>
+        <field name="systemText" type="text-very-long">
+            <description>Denormalized copy of the current SYSTEM message for listing/search. Source of truth for
+                replaceSystem / buildWindow is the Role.SYSTEM LlmMessage row (there is at most one).
+                replaceSystem writes both.</description></field>
+        <field name="windowPolicyJson" type="text-long"/>
+        <field name="pendingToolCallsJson" type="text-very-long"/>
+        <field name="attributesJson" type="text-long"/>
+        <field name="lastMessageDate" type="date-time"/>
+        <field name="messageCount" type="number-integer"/>
+        <relationship type="one-nofk" related="moqui.security.UserAccount"/>
+        <relationship type="one-nofk" related="moqui.server.Visit"/>
+        <relationship type="one" title="Status" related="moqui.basic.Enumeration">
+            <key-map field-name="statusId"/></relationship>
+        <index name="LLMCONV_USER"><index-field name="userId"/></index>
+        <index name="LLMCONV_STATUS"><index-field name="statusId"/></index>
+        <seed-data>
+            <moqui.basic.EnumerationType description="LLM Conversation Status" enumTypeId="LlmConversationStatus"/>
+            <moqui.basic.Enumeration enumId="LlmcsActive" enumTypeId="LlmConversationStatus" description="Active"/>
+            <moqui.basic.Enumeration enumId="LlmcsStreaming" enumTypeId="LlmConversationStatus" description="Streaming"/>
+            <moqui.basic.Enumeration enumId="LlmcsYielded" enumTypeId="LlmConversationStatus" description="Yielded (waiting client tools)"/>
+            <moqui.basic.Enumeration enumId="LlmcsComplete" enumTypeId="LlmConversationStatus" description="Complete"/>
+            <moqui.basic.Enumeration enumId="LlmcsFailed" enumTypeId="LlmConversationStatus" description="Failed"/>
+            <moqui.basic.Enumeration enumId="LlmcsCancelled" enumTypeId="LlmConversationStatus" description="Cancelled"/>
+        </seed-data>
+    </entity>
+
+    <entity entity-name="LlmMessage" package="moqui.llm" use="transactional" cache="never">
+        <field name="messageId" type="id" is-pk="true"/>
+        <field name="conversationId" type="id"/>
+        <field name="ordinal" type="number-integer"/>
+        <field name="role" type="text-short"/>
+        <field name="content" type="text-very-long"/>
+        <field name="name" type="text-medium"/>
+        <field name="toolCallId" type="text-medium"/>
+        <field name="toolCallsJson" type="text-very-long"/>
+        <field name="metadataJson" type="text-long"/>
+        <field name="tokenEstimate" type="number-integer"/>
+        <field name="sentDate" type="date-time"/>
+        <relationship type="one" related="moqui.llm.LlmConversation"/>
+        <index name="LLMMSG_CONV_ORD" unique="true">
+            <index-field name="conversationId"/><index-field name="ordinal"/></index>
+    </entity>
+
+    <entity entity-name="LlmCallLog" package="moqui.llm" use="transactional" cache="never" sequence-bank-size="100">
+        <description>One row per provider HTTP round-trip. Content fields populated only if profile log-content=true.
+            No artifactHitId: ArtifactHit is deferred and often not persisted; correlate via conversationId + startDate / profileName.</description>
+        <field name="callId" type="id" is-pk="true"/>
+        <field name="conversationId" type="id"/>
+        <field name="profileName" type="text-medium"/>
+        <field name="model" type="text-medium"/>
+        <field name="protocolName" type="text-medium"/>
+        <field name="userId" type="id"/>
+        <field name="visitId" type="id"/>
+        <field name="httpStatus" type="number-integer"/>
+        <field name="finishReason" type="text-short"/>
+        <field name="promptTokens" type="number-integer"/>
+        <field name="completionTokens" type="number-integer"/>
+        <field name="totalTokens" type="number-integer"/>
+        <field name="durationMs" type="number-integer"/>
+        <field name="iteration" type="number-integer"/>
+        <field name="wasError" type="text-indicator"/>
+        <field name="errorMessage" type="text-long"/>
+        <field name="requestJson" type="text-very-long"/>
+        <field name="responseJson" type="text-very-long"/>
+        <field name="startDate" type="date-time"/>
+        <relationship type="one-nofk" related="moqui.llm.LlmConversation"/>
+        <relationship type="one-nofk" related="moqui.security.UserAccount"/>
+        <index name="LLMCALL_CONV"><index-field name="conversationId"/></index>
+        <index name="LLMCALL_USER_DATE"><index-field name="userId"/><index-field name="startDate"/></index>
+        <index name="LLMCALL_PROF_DATE"><index-field name="profileName"/><index-field name="startDate"/></index>
+    </entity>
+</entities>

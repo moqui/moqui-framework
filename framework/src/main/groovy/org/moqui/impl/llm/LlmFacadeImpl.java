@@ -127,15 +127,18 @@ public class LlmFacadeImpl implements LlmFacade {
 
     @Override
     public LlmConversation getConversation(String conversationId) {
-        throw new UnsupportedOperationException("LlmFacade.getConversation is not yet implemented");
+        return LlmConversationImpl.load(ecfi.getExecutionContext(), conversationId, true);
     }
     @Override
     public LlmConversation createConversation(String profileName) {
-        throw new UnsupportedOperationException("LlmFacade.createConversation is not yet implemented");
+        return createConversation(profileName, null);
     }
     @Override
     public LlmConversation createConversation(String profileName, Map<String, Object> attributes) {
-        throw new UnsupportedOperationException("LlmFacade.createConversation is not yet implemented");
+        if (profileName == null || profileName.isBlank()) profileName = defaultProfileName;
+        if (!profileByName.containsKey(profileName))
+            throw new LlmException("No LLM profile named '" + profileName + "'");
+        return LlmConversationImpl.create(ecfi.getExecutionContext(), profileName, attributes);
     }
     @Override
     public void registerClientToolType(String name, LlmTool.Factory factory) {

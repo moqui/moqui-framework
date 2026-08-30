@@ -175,6 +175,7 @@
         <artifact-stats type="AT_XML_SCREEN_CONTENT" persist-bin="true" persist-hit="false"/>
         <artifact-stats type="AT_XML_SCREEN_TRANS" persist-bin="true" persist-hit="true"/>
         <artifact-stats type="AT_SERVICE" persist-bin="true" persist-hit="false"/>
+        <artifact-stats type="AT_LLM" persist-bin="true" persist-hit="false"/>
         <artifact-stats type="AT_ENTITY" persist-bin="false"/>
     </server-stats>
 
@@ -296,6 +297,7 @@
         <artifact-execution type="AT_SERVICE" authz-enabled="true" tarpit-enabled="true"/>
         <!-- NOTE: entity tarpit disabled by default for performance and tracking overhead reasons -->
         <artifact-execution type="AT_ENTITY" authz-enabled="true" tarpit-enabled="false"/>
+        <artifact-execution type="AT_LLM" authz-enabled="true" tarpit-enabled="true"/>
     </artifact-execution-facade>
     <user-facade>
         <password encrypt-hash-type="SHA-256" min-length="8" min-digits="1" min-others="1"
@@ -418,6 +420,7 @@
         <service-file location="classpath://service/org/moqui/impl/PrintServices.xml"/>
         <service-file location="classpath://service/org/moqui/impl/ScreenServices.xml"/>
         <service-file location="classpath://service/org/moqui/impl/ServerServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/LlmServices.xml"/>
         <service-file location="classpath://service/org/moqui/impl/ServiceServices.xml"/>
         <service-file location="classpath://service/org/moqui/impl/SystemMessageServices.xml"/>
         <service-file location="classpath://service/org/moqui/impl/UserServices.xml"/>
@@ -539,12 +542,14 @@
         <load-entity location="classpath://entity/ServerEntities.xml"/>
         <load-entity location="classpath://entity/ServiceEntities.xml"/>
         <load-entity location="classpath://entity/TestEntities.xml"/>
+        <load-entity location="classpath://entity/LlmEntities.xml"/>
         <!-- in framework/data -->
         <load-data location="classpath://data/CommonL10nData.xml"/>
         <load-data location="classpath://data/CurrencyData.xml"/>
         <load-data location="classpath://data/EntityTypeData.xml"/>
         <load-data location="classpath://data/GeoCountryData.xml"/>
         <load-data location="classpath://data/SecurityTypeData.xml"/>
+        <load-data location="classpath://data/LlmTypeData.xml"/>
         <load-data location="classpath://data/UnitData.xml"/>
         <load-data location="classpath://data/MoquiSetupData.xml"/>
     </entity-facade>

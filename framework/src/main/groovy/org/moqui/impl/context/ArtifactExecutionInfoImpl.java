@@ -37,7 +37,8 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
         artifactTypeDescriptionMap.put(AT_XML_SCREEN, "Screen"); artifactTypeDescriptionMap.put(AT_XML_SCREEN_TRANS, "Transition");
         artifactTypeDescriptionMap.put(AT_XML_SCREEN_CONTENT, "Screen Content");
         artifactTypeDescriptionMap.put(AT_SERVICE, "Service"); artifactTypeDescriptionMap.put(AT_ENTITY, "Entity");
-        artifactTypeDescriptionMap.put(AT_REST_PATH, "REST Path"); artifactTypeDescriptionMap.put(AT_OTHER, "Other");
+        artifactTypeDescriptionMap.put(AT_REST_PATH, "REST Path"); artifactTypeDescriptionMap.put(AT_LLM, "LLM");
+        artifactTypeDescriptionMap.put(AT_OTHER, "Other");
 
         artifactActionDescriptionMap.put(AUTHZA_VIEW, "View"); artifactActionDescriptionMap.put(AUTHZA_CREATE, "Create");
         artifactActionDescriptionMap.put(AUTHZA_UPDATE, "Update"); artifactActionDescriptionMap.put(AUTHZA_DELETE, "Delete");
@@ -219,11 +220,11 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
 
     public static class ArtifactTypeStats {
 
-        public int screenCount = 0, screenTransCount = 0, screenContentCount = 0, restPathCount = 0,
+        public int screenCount = 0, screenTransCount = 0, screenContentCount = 0, restPathCount = 0, llmCount = 0,
                 serviceViewCount = 0, serviceOtherCount = 0,
                 entityFindOneCount = 0, entityFindListCount = 0, entityFindIteratorCount = 0, entityFindCountCount = 0,
                 entityCreateCount = 0, entityUpdateCount = 0, entityDeleteCount = 0;
-        public long screenTime = 0, screenTransTime = 0, screenContentTime = 0, restPathTime = 0,
+        public long screenTime = 0, screenTransTime = 0, screenContentTime = 0, restPathTime = 0, llmTime = 0,
                 serviceViewTime = 0, serviceOtherTime = 0,
                 entityFindOneTime = 0, entityFindListTime = 0, entityFindIteratorTime = 0, entityFindCountTime = 0,
                 entityCreateTime = 0, entityUpdateTime = 0, entityDeleteTime = 0;
@@ -232,6 +233,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
 
             screenCount += that.screenCount; screenTransCount += that.screenTransCount;
             screenContentCount += that.screenContentCount; restPathCount += that.restPathCount;
+            llmCount += that.llmCount;
             serviceViewCount += that.serviceViewCount; serviceOtherCount += that.serviceOtherCount;
             entityFindOneCount += that.entityFindOneCount; entityFindListCount += that.entityFindListCount;
             entityFindIteratorCount += that.entityFindIteratorCount; entityFindCountCount += that.entityFindCountCount;
@@ -240,6 +242,7 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
 
             screenTime += that.screenTime; screenTransTime += that.screenTransTime;
             screenContentTime += that.screenContentTime; restPathTime += that.restPathTime;
+            llmTime += that.llmTime;
             serviceViewTime += that.serviceViewTime; serviceOtherTime += that.serviceOtherTime;
             entityFindOneTime += that.entityFindOneTime; entityFindListTime += that.entityFindListTime;
             entityFindIteratorTime += that.entityFindIteratorTime; entityFindCountTime += that.entityFindCountTime;
@@ -330,6 +333,10 @@ public class ArtifactExecutionInfoImpl implements ArtifactExecutionInfo {
                 case AT_REST_PATH:
                     stats.restPathCount++;
                     stats.restPathTime += aeii.getRunningTime();
+                    break;
+                case AT_LLM:
+                    stats.llmCount++;
+                    stats.llmTime += aeii.getRunningTime();
                     break;
             }
 

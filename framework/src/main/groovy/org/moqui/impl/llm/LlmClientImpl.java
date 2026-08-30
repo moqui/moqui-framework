@@ -13,13 +13,14 @@
  */
 package org.moqui.impl.llm;
 
+import org.moqui.context.ArtifactExecutionFacade;
+import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.context.ExecutionContext;
 import org.moqui.llm.LlmClient;
 import org.moqui.llm.LlmConversation;
 import org.moqui.llm.LlmException;
 import org.moqui.llm.LlmFinishReason;
 import org.moqui.llm.LlmMessage;
-import org.moqui.llm.LlmProtocol;
 import org.moqui.llm.LlmProtocol.ProtocolRequest;
 import org.moqui.llm.LlmProtocol.ProtocolResult;
 import org.moqui.llm.LlmResponse;
@@ -47,6 +48,8 @@ public class LlmClientImpl implements LlmClient {
     private Integer maxTokens = null;
     private Integer timeoutSeconds = null;
     private Map<String, Object> extraBody = null;
+    private LlmConversationImpl conversation = null;
+    private WindowPolicy windowPolicy = null;
 
     public LlmClientImpl(ExecutionContext ec, LlmFacadeImpl.ProfileState profile) {
         this(ec, profile, null);
@@ -64,10 +67,40 @@ public class LlmClientImpl implements LlmClient {
 
     @Override public String getProfileName() { return profile.name; }
 
-    @Override public LlmClient conversation(String conversationId) { throw uoe("conversation"); }
-    @Override public LlmClient conversation(LlmConversation conversation) { throw uoe("conversation"); }
-    @Override public LlmClient newConversation() { throw uoe("newConversation"); }
-    @Override public LlmClient injectContext(String source, String content) { throw uoe("injectContext"); }
+    @Override
+    public LlmClient conversation(String conversationId) {
+        if (conversationId == null || conversationId.isBlank())
+            throw new LlmException("conversationId is required");
+        this.conversation = LlmConversationImpl.load(ec, conversationId, true);
+        applyWindowPolicyToConversation();
+        return this;
+    }
+    @Override
+    public LlmClient conversation(LlmConversation conversation) {
+        if (conversation == null) {
+            this.conversation = null;
+            return this;
+        }
+        if (conversation instanceof LlmConversationImpl) {
+            this.conversation = (LlmConversationImpl) conversation;
+        } else {
+            this.conversation = LlmConversationImpl.load(ec, conversation.getConversationId(), true);
+        }
+        applyWindowPolicyToConversation();
+        return this;
+    }
+    @Override
+    public LlmClient newConversation() {
+        this.conversation = LlmConversationImpl.create(ec, profile.name, null);
+        applyWindowPolicyToConversation();
+        return this;
+    }
+    @Override
+    public LlmClient injectContext(String source, String content) {
+        if (conversation != null) conversation.injectContext(source, content);
+        else extraMessages.add(LlmMessage.context(source, content));
+        return this;
+    }
     @Override public LlmClient tool(LlmTool tool) { throw uoe("tool"); }
     @Override public LlmClient tools(List<LlmTool> tools) { throw uoe("tools"); }
     @Override public LlmClient toolResults(List<LlmToolResult> results) { throw uoe("toolResults"); }
@@ -75,7 +108,12 @@ public class LlmClientImpl implements LlmClient {
     @Override public LlmClient allowedEntity(String entityName) { throw uoe("allowedEntity"); }
     @Override public LlmClient allowedPath(String prefix, String methodsCsv) { throw uoe("allowedPath"); }
     @Override public LlmClient maxIterations(int n) { throw uoe("maxIterations"); }
-    @Override public LlmClient windowPolicy(WindowPolicy policy) { throw uoe("windowPolicy"); }
+    @Override
+    public LlmClient windowPolicy(WindowPolicy policy) {
+        this.windowPolicy = policy != null ? policy : new WindowPolicy();
+        applyWindowPolicyToConversation();
+        return this;
+    }
     @Override public LlmResponse stream(LlmStreamListener listener) { throw uoe("stream"); }
 
     @Override
@@ -126,76 +164,151 @@ public class LlmClientImpl implements LlmClient {
 
     @Override
     public LlmResponse call() {
-        // Fail-fast before any HTTP.
+        // Fail-fast BEFORE any status=Streaming write. persistIsolated resumes the caller TX, so a
+        // check after Streaming would still see a ServiceJob TX and wedge the conversation (K11).
         if (isTransactionInPlace() && !profile.allowTxOverHttp) {
             throw new LlmException(
                     "Cannot call LLM while a JTA transaction is active (default TX timeout 60s vs LLM timeout "
                             + (timeoutSeconds != null ? timeoutSeconds : profile.timeoutSeconds)
                             + "s). Commit first, or set allow-tx-over-http=true.",
-                    LlmFinishReason.ERROR, 0, profile.name);
+                    null, LlmFinishReason.ERROR, 0, profile.name, convId());
         }
 
         String model = resolveModel();
         if (model == null || model.isBlank()) {
             throw new LlmException("profile '" + profile.name + "' has no model",
-                    LlmFinishReason.ERROR, 0, profile.name);
+                    null, LlmFinishReason.ERROR, 0, profile.name, convId());
         }
 
-        List<LlmMessage> window = buildWindow();
+        if (conversation != null) {
+            String st = conversation.getStatus();
+            if (LlmConversationImpl.STATUS_STREAMING.equals(st) || LlmConversationImpl.STATUS_YIELDED.equals(st)) {
+                throw new LlmException("Conversation is " + st + " (single-flight)",
+                        null, LlmFinishReason.ERROR, 409, profile.name, convId());
+            }
+        }
+
+        boolean streamingSet = false;
+        if (conversation != null) {
+            LlmConversationImpl.persistIsolated(ec, () -> {
+                if (systemContent != null) conversation.replaceSystemInternal(systemContent);
+                for (LlmMessage u : userMessages) conversation.appendInternal(u.copy());
+                conversation.setStatusInternal(LlmConversationImpl.STATUS_STREAMING);
+            });
+            streamingSet = true;
+        }
+
         int emptyAttempts = 0;
         int errorAttempts = 0;
         float waitSeconds = profile.retryInitialSeconds > 0 ? profile.retryInitialSeconds : 0;
         long start = System.currentTimeMillis();
+        ProtocolResult lastResult = null;
+        try {
+            while (true) {
+                List<LlmMessage> window = buildWindow();
+                ProtocolRequest req = buildRequest(model, window);
+                ProtocolResult result;
+                ArtifactExecutionFacade aefi = ec != null ? ec.getArtifactExecution() : null;
+                ArtifactExecutionInfo aei = null;
+                try {
+                    if (aefi != null) {
+                        aei = aefi.push(profile.name, ArtifactExecutionInfo.AT_LLM,
+                                ArtifactExecutionInfo.AUTHZA_VIEW, true);
+                    }
+                    result = profile.protocol.chat(req);
+                } catch (LlmException e) {
+                    throw e;
+                } catch (RuntimeException e) {
+                    throw new LlmException("LLM protocol call failed: " + e.getMessage(), e,
+                            LlmFinishReason.ERROR, 0, profile.name, convId());
+                } finally {
+                    if (aefi != null && aei != null) aefi.pop(aei);
+                }
+                if (result == null) {
+                    throw new LlmException("LLM protocol returned no result",
+                            null, LlmFinishReason.ERROR, 0, profile.name, convId());
+                }
+                lastResult = result;
+                LlmFinishReason fr = result.finishReason != null ? result.finishReason : LlmFinishReason.ERROR;
 
-        while (true) {
-            ProtocolRequest req = buildRequest(model, window);
-            ProtocolResult result;
-            try {
-                result = profile.protocol.chat(req);
-            } catch (LlmException e) {
-                throw e;
-            } catch (RuntimeException e) {
-                throw new LlmException("LLM protocol call failed: " + e.getMessage(), e,
-                        LlmFinishReason.ERROR, 0, profile.name);
-            }
-            if (result == null) {
-                throw new LlmException("LLM protocol returned no result", LlmFinishReason.ERROR, 0, profile.name);
-            }
-            LlmFinishReason fr = result.finishReason != null ? result.finishReason : LlmFinishReason.ERROR;
+                if (fr == LlmFinishReason.STOP || fr == LlmFinishReason.LENGTH || fr == LlmFinishReason.TOOL_CALLS) {
+                    persistSuccess(window, result, fr, start);
+                    return toResponse(result, fr, start);
+                }
+                if (fr == LlmFinishReason.CONTENT_FILTER) {
+                    throw new LlmException(nvl(result.errorMessage, "LLM content filter"),
+                            null, LlmFinishReason.CONTENT_FILTER, result.httpStatus, profile.name, convId());
+                }
+                if (fr == LlmFinishReason.CONTEXT_OVERFLOW) {
+                    throw new LlmException(nvl(result.errorMessage, "LLM context length exceeded"),
+                            null, LlmFinishReason.CONTEXT_OVERFLOW, result.httpStatus, profile.name, convId());
+                }
+                if (fr == LlmFinishReason.EMPTY) {
+                    if (emptyAttempts < profile.emptyRetries) {
+                        emptyAttempts++;
+                        sleepBackoff(waitSeconds);
+                        waitSeconds = nextWait(waitSeconds);
+                        continue;
+                    }
+                    throw new LlmException("LLM returned empty content after " + profile.emptyRetries + " retries",
+                            null, LlmFinishReason.EMPTY, result.httpStatus, profile.name, convId());
+                }
 
-            if (fr == LlmFinishReason.STOP || fr == LlmFinishReason.LENGTH || fr == LlmFinishReason.TOOL_CALLS) {
-                return toResponse(result, fr, start);
-            }
-            if (fr == LlmFinishReason.CONTENT_FILTER) {
-                throw new LlmException(nvl(result.errorMessage, "LLM content filter"),
-                        LlmFinishReason.CONTENT_FILTER, result.httpStatus, profile.name);
-            }
-            if (fr == LlmFinishReason.CONTEXT_OVERFLOW) {
-                throw new LlmException(nvl(result.errorMessage, "LLM context length exceeded"),
-                        LlmFinishReason.CONTEXT_OVERFLOW, result.httpStatus, profile.name);
-            }
-            if (fr == LlmFinishReason.EMPTY) {
-                if (emptyAttempts < profile.emptyRetries) {
-                    emptyAttempts++;
+                boolean retryable = result.retryable;
+                if (retryable && errorAttempts < profile.retryMax) {
+                    errorAttempts++;
                     sleepBackoff(waitSeconds);
                     waitSeconds = nextWait(waitSeconds);
                     continue;
                 }
-                throw new LlmException("LLM returned empty content after " + profile.emptyRetries + " retries",
-                        LlmFinishReason.EMPTY, result.httpStatus, profile.name);
+                throw new LlmException(nvl(result.errorMessage, "LLM call failed"),
+                        null, LlmFinishReason.ERROR, result.httpStatus, profile.name, convId());
             }
-
-            // ERROR
-            boolean retryable = result.retryable;
-            if (retryable && errorAttempts < profile.retryMax) {
-                errorAttempts++;
-                sleepBackoff(waitSeconds);
-                waitSeconds = nextWait(waitSeconds);
-                continue;
+        } catch (Throwable t) {
+            if (streamingSet && conversation != null) {
+                try { persistFailure(lastResult, start, t); }
+                catch (Throwable ignored) { }
             }
-            throw new LlmException(nvl(result.errorMessage, "LLM call failed"),
-                    LlmFinishReason.ERROR, result.httpStatus, profile.name);
+            if (t instanceof LlmException) throw (LlmException) t;
+            if (t instanceof RuntimeException) throw (RuntimeException) t;
+            throw new LlmException("LLM call failed: " + t.getMessage(), t,
+                    LlmFinishReason.ERROR, 0, profile.name, convId());
+        } finally {
+            // Safety net: never leave LlmcsStreaming committed if this call is failing.
+            if (streamingSet && conversation != null
+                    && LlmConversationImpl.STATUS_STREAMING.equals(conversation.getStatus())) {
+                try {
+                    persistFailure(lastResult, start, null);
+                } catch (Throwable ignored) { }
+            }
         }
+    }
+
+    private void persistSuccess(List<LlmMessage> window, ProtocolResult result, LlmFinishReason fr, long start) {
+        if (conversation == null) return;
+        LlmConversationImpl.persistIsolated(ec, () -> {
+            LlmMessage asst = LlmMessage.assistant(result.content);
+            asst.toolCalls = result.toolCalls;
+            conversation.appendInternal(asst);
+            conversation.writeCallLog(profile.name, profile.protocol != null ? profile.protocol.getName() : null,
+                    result.model != null ? result.model : resolveModel(), profile.logContent,
+                    window, result, System.currentTimeMillis() - start, 1, false);
+            conversation.setStatusInternal(LlmConversationImpl.STATUS_COMPLETE);
+        });
+    }
+
+    private void persistFailure(ProtocolResult result, long start, Throwable t) {
+        if (conversation == null) return;
+        boolean cancelled = LlmConversationImpl.isCancelThrowable(t);
+        String status = cancelled ? LlmConversationImpl.STATUS_CANCELLED : LlmConversationImpl.STATUS_FAILED;
+        LlmConversationImpl.persistIsolated(ec, () -> {
+            if (result != null) {
+                conversation.writeCallLog(profile.name, profile.protocol != null ? profile.protocol.getName() : null,
+                        result.model != null ? result.model : resolveModel(), profile.logContent,
+                        null, result, System.currentTimeMillis() - start, 1, true);
+            }
+            conversation.setStatusInternal(status);
+        });
     }
 
     private boolean isTransactionInPlace() {
@@ -215,6 +328,15 @@ public class LlmClientImpl implements LlmClient {
     }
 
     private List<LlmMessage> buildWindow() {
+        if (conversation != null) {
+            WindowPolicy policy = windowPolicy != null ? windowPolicy : conversation.getWindowPolicy();
+            List<LlmMessage> window = conversation.buildWindow(policy);
+            for (LlmMessage extra : extraMessages) {
+                if (extra == null || extra.role == LlmMessage.Role.SYSTEM) continue;
+                window.add(extra);
+            }
+            return window;
+        }
         List<LlmMessage> window = new ArrayList<>();
         if (systemContent != null) window.add(LlmMessage.system(systemContent));
         window.addAll(extraMessages);
@@ -255,6 +377,7 @@ public class LlmClientImpl implements LlmClient {
         r.usage = result.usage;
         r.model = result.model != null ? result.model : resolveModel();
         r.profileName = profile.name;
+        r.conversationId = convId();
         r.httpStatus = result.httpStatus;
         r.errorMessage = result.errorMessage;
         r.providerErrorCode = result.providerErrorCode;
@@ -264,13 +387,19 @@ public class LlmClientImpl implements LlmClient {
         return r;
     }
 
+    private void applyWindowPolicyToConversation() {
+        if (conversation != null && windowPolicy != null) conversation.setWindowPolicy(windowPolicy);
+    }
+
+    private String convId() { return conversation != null ? conversation.getConversationId() : null; }
+
     private void sleepBackoff(float waitSeconds) {
         if (waitSeconds <= 0) return;
         try {
             Thread.sleep(Math.round(waitSeconds * 1000.0f));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new LlmException("LLM retry sleep interrupted", e, LlmFinishReason.ERROR, 0, profile.name);
+            throw new LlmException("LLM retry sleep interrupted", e, LlmFinishReason.ERROR, 0, profile.name, convId());
         }
     }
 

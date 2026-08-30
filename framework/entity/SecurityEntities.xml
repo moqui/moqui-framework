@@ -59,6 +59,7 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Service" enumId="AT_SERVICE" enumTypeId="ArtifactType"/>
             <moqui.basic.Enumeration description="Entity" enumId="AT_ENTITY" enumTypeId="ArtifactType"/>
             <moqui.basic.Enumeration description="REST API Path" enumId="AT_REST_PATH" enumTypeId="ArtifactType"/>
+            <moqui.basic.Enumeration description="LLM" enumId="AT_LLM" enumTypeId="ArtifactType"/>
             <moqui.basic.Enumeration description="Other" enumId="AT_OTHER" enumTypeId="ArtifactType"/>
             <!-- not yet pushed/tracked/checked types below here
                 some of these are experimental ideas and may not ever be implemented, or useful

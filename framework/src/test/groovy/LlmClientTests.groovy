@@ -13,6 +13,7 @@
  */
 
 import org.moqui.impl.llm.LlmClientImpl
+import org.moqui.impl.llm.LlmConversationImpl
 import org.moqui.impl.llm.LlmFacadeImpl
 import org.moqui.impl.llm.LlmRetryClassifier
 import org.moqui.impl.llm.OpenAiCompatProtocol
@@ -23,6 +24,8 @@ import org.moqui.llm.LlmMessage
 import org.moqui.llm.LlmProtocol
 import org.moqui.llm.LlmProtocol.ProtocolRequest
 import org.moqui.llm.LlmResponse
+import org.moqui.llm.LlmToolCall
+import org.moqui.llm.WindowPolicy
 import org.moqui.llm.test.FakeLlmProtocol
 import org.moqui.util.MNode
 import org.moqui.util.RestClient
@@ -428,15 +431,9 @@ class LlmClientTests extends Specification {
         proto.chatCount == 1
     }
 
-    def "unimplemented methods throw UnsupportedOperationException"() {
+    def "tool and stream methods still throw UnsupportedOperationException"() {
         given:
         LlmClient c = client(new FakeLlmProtocol())
-        when: c.conversation("x")
-        then: thrown(UnsupportedOperationException)
-        when: c.newConversation()
-        then: thrown(UnsupportedOperationException)
-        when: c.injectContext("s", "c")
-        then: thrown(UnsupportedOperationException)
         when: c.tool(null)
         then: thrown(UnsupportedOperationException)
         when: c.tools(null)
@@ -451,10 +448,113 @@ class LlmClientTests extends Specification {
         then: thrown(UnsupportedOperationException)
         when: c.maxIterations(3)
         then: thrown(UnsupportedOperationException)
-        when: c.windowPolicy(null)
-        then: thrown(UnsupportedOperationException)
         when: c.stream(null)
         then: thrown(UnsupportedOperationException)
+    }
+
+    // ========== conversations, context, window, call sequence ==========
+
+    def "TX active with conversation throws before Streaming row"() {
+        given:
+        def proto = new FakeLlmProtocol(failIfInvoked: true)
+        def conv = LlmConversationImpl.create(null, "default", null)
+        when:
+        client(proto, "test-model", false, { true }).conversation(conv).user("hi").call()
+        then:
+        LlmException e = thrown()
+        e.message.toLowerCase().contains("transaction")
+        proto.chatCount == 0
+        conv.status == LlmConversationImpl.STATUS_ACTIVE
+        conv.history.findAll { it.role == LlmMessage.Role.USER }.isEmpty()
+    }
+
+    def "Fake protocol throw after Streaming persists Failed"() {
+        given:
+        def proto = new FakeLlmProtocol()
+        proto.handler = { throw new RuntimeException("provider boom") }
+        def conv = LlmConversationImpl.create(null, "default", null)
+        when:
+        client(proto).conversation(conv).user("hi").call()
+        then:
+        LlmException e = thrown()
+        e.message.contains("provider boom")
+        proto.chatCount == 1
+        conv.status == LlmConversationImpl.STATUS_FAILED
+        conv.history.find { it.role == LlmMessage.Role.USER }?.content == "hi"
+        conv.history.find { it.role == LlmMessage.Role.ASSISTANT } == null
+    }
+
+    def "replaceSystem is SYSTEM and injectContext is CONTEXT not SYSTEM"() {
+        given:
+        def conv = LlmConversationImpl.create(null, "default", null)
+        when:
+        conv.replaceSystem("you are a classifier")
+        conv.injectContext("entity:Party:1", "Acme Corp")
+        conv.replaceSystem("you classify tickets")
+        def hist = conv.history
+        def systems = hist.findAll { it.role == LlmMessage.Role.SYSTEM }
+        def contexts = hist.findAll { it.role == LlmMessage.Role.CONTEXT }
+        then:
+        systems.size() == 1
+        systems[0].content == "you classify tickets"
+        contexts.size() == 1
+        contexts[0].content == "Acme Corp"
+        contexts[0].metadata.source == "entity:Party:1"
+        contexts[0].role == LlmMessage.Role.CONTEXT
+    }
+
+    def "buildWindow keeps system first and does not split tool pairs"() {
+        given:
+        def conv = LlmConversationImpl.create(null, "default", null)
+        conv.replaceSystem("sys")
+        conv.appendUser("old-user")
+        LlmMessage asst = LlmMessage.assistant(null)
+        asst.toolCalls = [new LlmToolCall("c1", "request", "{}")]
+        conv.append(asst)
+        conv.appendToolResult("c1", "request", "tool-out")
+        def policy = new WindowPolicy()
+        policy.maxMessages = 2
+        policy.keepSystemFirst = true
+        policy.keepToolPairs = true
+        when:
+        def window = conv.buildWindow(policy)
+        then:
+        window[0].role == LlmMessage.Role.SYSTEM
+        window[0].content == "sys"
+        // pair is atomic: dropping old-user leaves assistant+tool, never an orphan TOOL
+        window.find { it.role == LlmMessage.Role.TOOL } != null
+        window.find { it.role == LlmMessage.Role.ASSISTANT } != null
+        int asstIdx = window.findIndexOf { it.role == LlmMessage.Role.ASSISTANT }
+        int toolIdx = window.findIndexOf { it.role == LlmMessage.Role.TOOL }
+        toolIdx == asstIdx + 1
+        window.find { it.role == LlmMessage.Role.USER } == null
+    }
+
+    def "call with conversation persists user and assistant and returns Complete"() {
+        given:
+        def proto = new FakeLlmProtocol()
+        proto.results = [FakeLlmProtocol.stop("classified")]
+        def conv = LlmConversationImpl.create(null, "default", null)
+        when:
+        LlmResponse r = client(proto).conversation(conv).system("classify").user("ticket").call()
+        then:
+        r.content == "classified"
+        r.conversationId == conv.conversationId
+        conv.status == LlmConversationImpl.STATUS_COMPLETE
+        conv.history[0].role == LlmMessage.Role.SYSTEM
+        conv.history[0].content == "classify"
+        conv.history[1].role == LlmMessage.Role.USER
+        conv.history[2].role == LlmMessage.Role.ASSISTANT
+        proto.lastRequest.window[0].role == LlmMessage.Role.SYSTEM
+    }
+
+    def "newConversation and windowPolicy do not throw"() {
+        given:
+        LlmClient c = client(new FakeLlmProtocol())
+        when:
+        c.newConversation().windowPolicy(new WindowPolicy()).injectContext("s", "c")
+        then:
+        notThrown(UnsupportedOperationException)
     }
 
     def "getClient-style builders are distinct instances"() {
