@@ -126,7 +126,7 @@ public class LlmClientImpl implements LlmClient {
 
     @Override
     public LlmResponse call() {
-        // Fail-fast BEFORE any HTTP. persistIsolated (later PR) would resume the caller TX.
+        // Fail-fast before any HTTP.
         if (isTransactionInPlace() && !profile.allowTxOverHttp) {
             throw new LlmException(
                     "Cannot call LLM while a JTA transaction is active (default TX timeout 60s vs LLM timeout "
@@ -171,7 +171,6 @@ public class LlmClientImpl implements LlmClient {
                         LlmFinishReason.CONTENT_FILTER, result.httpStatus, profile.name);
             }
             if (fr == LlmFinishReason.CONTEXT_OVERFLOW) {
-                // TRIM_AND_RETRY_ONCE is WindowPolicy; no window yet in this PR — FAIL.
                 throw new LlmException(nvl(result.errorMessage, "LLM context length exceeded"),
                         LlmFinishReason.CONTEXT_OVERFLOW, result.httpStatus, profile.name);
             }
@@ -284,6 +283,6 @@ public class LlmClientImpl implements LlmClient {
     private static String nvl(String v, String def) { return v == null || v.isBlank() ? def : v; }
 
     private static UnsupportedOperationException uoe(String method) {
-        return new UnsupportedOperationException("LlmClient." + method + " is not implemented in this PR");
+        return new UnsupportedOperationException("LlmClient." + method + " is not yet implemented");
     }
 }

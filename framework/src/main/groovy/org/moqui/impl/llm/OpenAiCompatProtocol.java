@@ -46,7 +46,7 @@ public class OpenAiCompatProtocol implements LlmProtocol {
 
     @Override
     public void chatStream(ProtocolRequest request, ProtocolStreamListener listener) {
-        throw new UnsupportedOperationException("OpenAiCompatProtocol.chatStream is not implemented in this PR");
+        throw new UnsupportedOperationException("OpenAiCompatProtocol.chatStream is not yet implemented");
     }
 
     @Override
@@ -66,7 +66,7 @@ public class OpenAiCompatProtocol implements LlmProtocol {
                 .retry(request.retryInitialSeconds > 0 ? request.retryInitialSeconds : 2.0f,
                         request.retryMax >= 0 ? request.retryMax : 5)
                 .timeoutRetry(request.timeoutRetry)
-                .redactHeaders("Authorization", "api-key", "x-api-key")
+                .redactHeaders(redactHeaderNames(request))
                 .text(json);
         if (request.requestFactory != null) restClient.withRequestFactory(request.requestFactory);
         applyAuthAndHeaders(restClient, request);
@@ -77,7 +77,10 @@ public class OpenAiCompatProtocol implements LlmProtocol {
         } catch (BaseException e) {
             ProtocolResult err = new ProtocolResult(LlmFinishReason.ERROR);
             err.errorMessage = e.getMessage();
-            err.retryable = isTimeout(e);
+            // Timeout retry is Layer A (RestClient.timeoutRetry). Layer B must not retry
+            // timeouts: if RestClient later propagates TimeoutException to call(), Layer A
+            // would already have retried retryMax times.
+            err.retryable = false;
             if (logger.isDebugEnabled()) logger.debug("LLM HTTP call failed for profile " + request.profileName, e);
             return err;
         }
@@ -92,13 +95,8 @@ public class OpenAiCompatProtocol implements LlmProtocol {
     }
 
     static void applyAuthAndHeaders(RestClient restClient, ProtocolRequest request) {
-        String apiKey = request.apiKey;
-        if (apiKey != null && !apiKey.isBlank()) {
-            String headerName = request.authHeaderName != null && !request.authHeaderName.isBlank()
-                    ? request.authHeaderName : "Authorization";
-            String headerValue = request.authHeaderValue;
-            if (headerValue == null || headerValue.isBlank()) headerValue = "Bearer " + apiKey;
-            restClient.addHeader(headerName, headerValue);
+        for (Map.Entry<String, String> e : authHeaders(request).entrySet()) {
+            restClient.addHeader(e.getKey(), e.getValue());
         }
         if (request.extraHeaders != null) {
             for (Map.Entry<String, String> e : request.extraHeaders.entrySet()) {
@@ -106,6 +104,30 @@ public class OpenAiCompatProtocol implements LlmProtocol {
                 restClient.addHeader(e.getKey(), e.getValue());
             }
         }
+    }
+
+    /** Auth header only; empty when api-key is blank (no Authorization: Bearer ). */
+    public static Map<String, String> authHeaders(ProtocolRequest request) {
+        Map<String, String> headers = new LinkedHashMap<>();
+        if (request == null) return headers;
+        String apiKey = request.apiKey;
+        if (apiKey == null || apiKey.isBlank()) return headers;
+        String headerName = request.authHeaderName != null && !request.authHeaderName.isBlank()
+                ? request.authHeaderName : "Authorization";
+        String headerValue = request.authHeaderValue;
+        if (headerValue == null || headerValue.isBlank()) headerValue = "Bearer " + apiKey;
+        headers.put(headerName, headerValue);
+        return headers;
+    }
+
+    public static String[] redactHeaderNames(ProtocolRequest request) {
+        LinkedHashSet<String> names = new LinkedHashSet<>();
+        names.add("Authorization");
+        names.add("api-key");
+        names.add("x-api-key");
+        if (request != null && request.authHeaderName != null && !request.authHeaderName.isBlank())
+            names.add(request.authHeaderName);
+        return names.toArray(new String[0]);
     }
 
     public static Map<String, Object> buildRequestBody(ProtocolRequest request) {
@@ -256,15 +278,5 @@ public class OpenAiCompatProtocol implements LlmProtocol {
     static String escapeAttr(String s) {
         if (s == null || s.isEmpty()) return "";
         return s.replace("&", "&amp;").replace("\"", "&quot;").replace("<", "&lt;");
-    }
-
-    static boolean isTimeout(Throwable t) {
-        while (t != null) {
-            if (t instanceof java.util.concurrent.TimeoutException) return true;
-            String msg = t.getMessage();
-            if (msg != null && msg.toLowerCase().contains("timeout")) return true;
-            t = t.getCause();
-        }
-        return false;
     }
 }

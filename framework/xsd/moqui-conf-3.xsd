@@ -651,14 +651,14 @@ along with this software (see the LICENSE.md file). If not, see
                         <xs:enumeration value="max_completion_tokens"/>
                     </xs:restriction></xs:simpleType>
                 </xs:attribute>
-                <xs:attribute name="allow-write-ui" type="boolean" default="false"/>
-                <xs:attribute name="allow-tx-over-http" type="boolean" default="false"/>
+                <xs:attribute name="allow-write-ui" type="boolean-expandable" default="false"/>
+                <xs:attribute name="allow-tx-over-http" type="boolean-expandable" default="false"/>
                 <xs:attribute name="tool-result-max-chars" type="xs:positiveInteger" default="8000"/>
                 <xs:attribute name="sse-ping-seconds" type="xs:positiveInteger" default="15"/>
                 <xs:attribute name="timeout-seconds" type="xs:positiveInteger" default="120"/>
                 <xs:attribute name="retry-initial-seconds" type="xs:decimal" default="2"/>
                 <xs:attribute name="retry-max" type="xs:nonNegativeInteger" default="5"/>
-                <xs:attribute name="timeout-retry" type="boolean" default="true"/>
+                <xs:attribute name="timeout-retry" type="boolean-expandable" default="true"/>
                 <xs:attribute name="empty-retries" type="xs:nonNegativeInteger" default="2"/>
                 <xs:attribute name="context-limit-policy" default="fail">
                     <xs:simpleType><xs:restriction base="xs:token">
@@ -671,11 +671,11 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:attribute name="max-iterations" type="xs:positiveInteger" default="8"/>
                 <xs:attribute name="pool-max" type="xs:positiveInteger" default="16"/>
                 <xs:attribute name="queue-size" type="xs:positiveInteger" default="64"/>
-                <xs:attribute name="log-content" type="boolean" default="false"/>
-                <xs:attribute name="disabled" type="boolean" default="false"/>
+                <xs:attribute name="log-content" type="boolean-expandable" default="false"/>
+                <xs:attribute name="disabled" type="boolean-expandable" default="false"/>
             </xs:complexType></xs:element>
         </xs:sequence>
-        <xs:attribute name="enabled" type="boolean" default="true"/>
+        <xs:attribute name="enabled" type="boolean-expandable" default="true"/>
         <xs:attribute name="default-profile" type="xs:string" default="default"/>
     </xs:complexType></xs:element>
 

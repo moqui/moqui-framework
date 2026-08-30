@@ -16,7 +16,7 @@ package org.moqui.llm;
 import java.util.List;
 import java.util.Map;
 
-/** Durable conversation handle. Persistence and windowing are implemented in a later PR. */
+/** Durable conversation handle. */
 public interface LlmConversation {
     String getConversationId();
     String getProfileName();

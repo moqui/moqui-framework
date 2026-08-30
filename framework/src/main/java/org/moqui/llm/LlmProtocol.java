@@ -25,7 +25,7 @@ public interface LlmProtocol {
     /** Blocking chat. Must not run the agent loop. Must not persist. */
     ProtocolResult chat(ProtocolRequest request);
 
-    /** Streaming chat. v1 streaming is a later PR; default impls may throw UOE. */
+    /** Streaming chat. Implementations that do not support streaming throw UOE. */
     void chatStream(ProtocolRequest request, ProtocolStreamListener listener);
 
     boolean supportsTools();

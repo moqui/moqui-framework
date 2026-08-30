@@ -127,24 +127,34 @@ public class LlmFacadeImpl implements LlmFacade {
 
     @Override
     public LlmConversation getConversation(String conversationId) {
-        throw new UnsupportedOperationException("LlmFacade.getConversation is not implemented in this PR");
+        throw new UnsupportedOperationException("LlmFacade.getConversation is not yet implemented");
     }
     @Override
     public LlmConversation createConversation(String profileName) {
-        throw new UnsupportedOperationException("LlmFacade.createConversation is not implemented in this PR");
+        throw new UnsupportedOperationException("LlmFacade.createConversation is not yet implemented");
     }
     @Override
     public LlmConversation createConversation(String profileName, Map<String, Object> attributes) {
-        throw new UnsupportedOperationException("LlmFacade.createConversation is not implemented in this PR");
+        throw new UnsupportedOperationException("LlmFacade.createConversation is not yet implemented");
     }
     @Override
     public void registerClientToolType(String name, LlmTool.Factory factory) {
-        throw new UnsupportedOperationException("LlmFacade.registerClientToolType is not implemented in this PR");
+        throw new UnsupportedOperationException("LlmFacade.registerClientToolType is not yet implemented");
     }
 
     ProfileState getProfileState(String name) { return profileByName.get(name); }
 
     static String nvl(String v, String def) { return v == null || v.isEmpty() ? def : v; }
+
+    /**
+     * Substitute the profile api-key into a raw (unexpanded) auth-header-pattern.
+     * Omitted/blank pattern defaults to {@code Bearer ${api-key}}. Blank key omits the header.
+     */
+    public static String resolveAuthHeaderValue(String rawPattern, String apiKey) {
+        if (apiKey == null || apiKey.isBlank()) return null;
+        String pattern = (rawPattern == null || rawPattern.isEmpty()) ? "Bearer ${api-key}" : rawPattern;
+        return pattern.replace("${api-key}", apiKey);
+    }
 
     static boolean parseBoolean(String v, boolean def) {
         if (v == null || v.isBlank()) return def;
@@ -237,16 +247,15 @@ public class LlmFacadeImpl implements LlmFacade {
         }
 
         static ProfileState fromConf(String name, MNode node, ExecutionContextFactoryImpl ecfi) {
+            // Read auth-header-pattern from the raw map. attribute() SystemBinding-expands
+            // ${api-key} to empty (api - key) and would force Azure onto Bearer.
+            String authPatternRaw = node.getAttributes() != null ? node.getAttributes().get("auth-header-pattern") : null;
             String url = node.attribute("url");
             String path = nvl(node.attribute("path"), OpenAiCompatProtocol.DEFAULT_PATH);
             String apiKey = node.attribute("api-key");
             if (apiKey != null) apiKey = apiKey.trim();
             String authHeaderName = nvl(node.attribute("auth-header-name"), "Authorization");
-            String authPattern = nvl(node.attribute("auth-header-pattern"), "Bearer ${api-key}");
-            String authHeaderValue = null;
-            if (apiKey != null && !apiKey.isBlank()) {
-                authHeaderValue = authPattern.replace("${api-key}", apiKey);
-            }
+            String authHeaderValue = resolveAuthHeaderValue(authPatternRaw, apiKey);
             String model = node.attribute("model");
             if (model == null) model = "";
             String maxTokensParameter = nvl(node.attribute("max-tokens-parameter"), "max_tokens");

@@ -24,6 +24,7 @@ import org.moqui.llm.LlmProtocol
 import org.moqui.llm.LlmProtocol.ProtocolRequest
 import org.moqui.llm.LlmResponse
 import org.moqui.llm.test.FakeLlmProtocol
+import org.moqui.util.MNode
 import org.moqui.util.RestClient
 import spock.lang.IgnoreIf
 import spock.lang.Specification
@@ -71,6 +72,97 @@ class LlmClientTests extends Specification {
                 "/v1/chat/completions", [ "api-version": "ignore-me", "foo": "bar" ])
         then:
         url == "https://myres.openai.azure.com/openai/deployments/gpt4o/chat/completions?api-version=2024-10-21&foo=bar"
+    }
+
+    // ========== Auth header pattern (raw ${api-key}, not SystemBinding) ==========
+
+    def "Azure auth-header-pattern is the raw api-key with no Bearer"() {
+        expect:
+        LlmFacadeImpl.resolveAuthHeaderValue('${api-key}', 'sk-azure') == 'sk-azure'
+    }
+
+    def "omitted auth-header-pattern is Bearer plus key"() {
+        expect:
+        LlmFacadeImpl.resolveAuthHeaderValue(null, 'sk-oa') == 'Bearer sk-oa'
+        LlmFacadeImpl.resolveAuthHeaderValue('', 'sk-oa') == 'Bearer sk-oa'
+    }
+
+    def "explicit Bearer api-key pattern keeps Bearer prefix"() {
+        expect:
+        LlmFacadeImpl.resolveAuthHeaderValue('Bearer ${api-key}', 'sk-oa') == 'Bearer sk-oa'
+    }
+
+    def "blank api-key omits auth header value"() {
+        expect:
+        LlmFacadeImpl.resolveAuthHeaderValue('Bearer ${api-key}', '') == null
+        LlmFacadeImpl.resolveAuthHeaderValue('${api-key}', '  ') == null
+        LlmFacadeImpl.resolveAuthHeaderValue(null, null) == null
+    }
+
+    def "raw auth-header-pattern is used even after setSystemExpandAttributes"() {
+        given:
+        MNode azure = new MNode("profile", ["auth-header-name": "api-key", "auth-header-pattern": '${api-key}'])
+        azure.setSystemExpandAttributes(true)
+        MNode openai = new MNode("profile", ["auth-header-pattern": 'Bearer ${api-key}'])
+        openai.setSystemExpandAttributes(true)
+        MNode omitted = new MNode("profile", ["name": "default"])
+        omitted.setSystemExpandAttributes(true)
+        when:
+        String azureVal = LlmFacadeImpl.resolveAuthHeaderValue(azure.getAttributes().get("auth-header-pattern"), "sk-azure")
+        String openaiVal = LlmFacadeImpl.resolveAuthHeaderValue(openai.getAttributes().get("auth-header-pattern"), "sk-oa")
+        String omittedVal = LlmFacadeImpl.resolveAuthHeaderValue(omitted.getAttributes().get("auth-header-pattern"), "sk-oa")
+        then:
+        azureVal == "sk-azure"
+        openaiVal == "Bearer sk-oa"
+        omittedVal == "Bearer sk-oa"
+    }
+
+    def "applyAuthAndHeaders: Azure api-key has no Bearer; blank key adds no header"() {
+        when:
+        ProtocolRequest azure = new ProtocolRequest()
+        azure.apiKey = "sk-azure"
+        azure.authHeaderName = "api-key"
+        azure.authHeaderValue = LlmFacadeImpl.resolveAuthHeaderValue('${api-key}', "sk-azure")
+        Map azureHdrs = OpenAiCompatProtocol.authHeaders(azure)
+
+        ProtocolRequest omitted = new ProtocolRequest()
+        omitted.apiKey = "sk-oa"
+        omitted.authHeaderName = "Authorization"
+        omitted.authHeaderValue = LlmFacadeImpl.resolveAuthHeaderValue(null, "sk-oa")
+        Map omittedHdrs = OpenAiCompatProtocol.authHeaders(omitted)
+
+        ProtocolRequest explicit = new ProtocolRequest()
+        explicit.apiKey = "sk-oa"
+        explicit.authHeaderName = "Authorization"
+        explicit.authHeaderValue = LlmFacadeImpl.resolveAuthHeaderValue('Bearer ${api-key}', "sk-oa")
+        Map explicitHdrs = OpenAiCompatProtocol.authHeaders(explicit)
+
+        ProtocolRequest blank = new ProtocolRequest()
+        blank.apiKey = ""
+        blank.authHeaderName = "Authorization"
+        blank.authHeaderValue = LlmFacadeImpl.resolveAuthHeaderValue('Bearer ${api-key}', "")
+        Map blankHdrs = OpenAiCompatProtocol.authHeaders(blank)
+
+        then:
+        azureHdrs.size() == 1
+        azureHdrs["api-key"] == "sk-azure"
+        !azureHdrs["api-key"].contains("Bearer")
+        omittedHdrs["Authorization"] == "Bearer sk-oa"
+        explicitHdrs["Authorization"] == "Bearer sk-oa"
+        blankHdrs.isEmpty()
+    }
+
+    def "redactHeaders includes custom auth-header-name"() {
+        given:
+        ProtocolRequest req = new ProtocolRequest()
+        req.authHeaderName = "X-GOOG-API-KEY"
+        when:
+        String[] names = OpenAiCompatProtocol.redactHeaderNames(req)
+        then:
+        "Authorization" in names
+        "api-key" in names
+        "x-api-key" in names
+        "X-GOOG-API-KEY" in names
     }
 
     // ========== Layer B classification order ==========
@@ -336,7 +428,7 @@ class LlmClientTests extends Specification {
         proto.chatCount == 1
     }
 
-    def "later PR methods throw UnsupportedOperationException"() {
+    def "unimplemented methods throw UnsupportedOperationException"() {
         given:
         LlmClient c = client(new FakeLlmProtocol())
         when: c.conversation("x")
