@@ -16,11 +16,16 @@ package org.moqui.llm;
 import java.util.List;
 
 public interface LlmStreamListener {
-    void onConversation(String conversationId);
-    void onDelta(String textDelta);
-    void onToolCall(LlmToolCall call, LlmTool.Execution execution);
-    void onToolResult(LlmToolCall call, Object result, LlmTool.Execution execution);
-    void onYield(List<LlmToolCall> pendingClientCalls);
-    void onComplete(LlmResponse response);
-    void onError(LlmException error);
+    default void onConversation(String conversationId) { }
+    default void onDelta(String textDelta) { }
+    default void onToolCall(LlmToolCall call, LlmTool.Execution execution) { }
+    default void onToolResult(LlmToolCall call, Object result, LlmTool.Execution execution) { }
+    default void onYield(List<LlmToolCall> pendingClientCalls) { }
+    default void onComplete(LlmResponse response) { }
+    default void onError(LlmException error) { }
+    /** Drop / disconnect. Default wraps as {@link #onError}. */
+    default void onFailure(Throwable t) {
+        if (t instanceof LlmException) onError((LlmException) t);
+        else onError(new LlmException(t != null ? t.getMessage() : "LLM stream failed", t));
+    }
 }
