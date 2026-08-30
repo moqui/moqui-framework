@@ -148,6 +148,19 @@ class RestClientStreamTests extends Specification {
         if (stream != null) stream.close()
     }
 
+    def "stream checkError includes JSON error body"() {
+        when:
+        RestClient.RestStream stream = client("/error-json").stream()
+        stream.checkError()
+        then:
+        RestClient.HttpErrorException e = thrown()
+        e.statusCode == 400
+        e.responseText.contains("context_length_exceeded")
+        e.responseText.contains("too long")
+        cleanup:
+        if (stream != null) stream.close()
+    }
+
     def "SseConsumer returning false closes the stream and stops events"() {
         when:
         List events = []
@@ -208,6 +221,13 @@ class RestClientStreamTests extends Specification {
                         writeChunk(response, "data: [DONE]\n\n", true)
                         callback.succeeded()
                     }
+                } else if ("/error-json".equals(path)) {
+                    response.setStatus(400)
+                    response.getHeaders().put(HttpHeader.CONTENT_TYPE, "application/json")
+                    Content.Sink.write(response, true, ByteBuffer.wrap(
+                            '{"error":{"code":"context_length_exceeded","message":"too long"}}'
+                                    .getBytes(StandardCharsets.UTF_8)))
+                    callback.succeeded()
                 } else if ("/sse-slow".equals(path)) {
                     CountDownLatch done = slowDone
                     try {

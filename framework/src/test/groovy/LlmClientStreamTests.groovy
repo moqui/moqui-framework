@@ -197,9 +197,39 @@ class LlmClientStreamTests extends Specification {
         then:
         listener.failure == null
         listener.complete != null
-        listener.complete.finishReason == LlmFinishReason.ERROR
+        listener.complete.finishReason == LlmFinishReason.CONTEXT_OVERFLOW
         listener.complete.httpStatus == 400
+        listener.complete.providerErrorCode == "context_length_exceeded"
+        listener.complete.errorMessage == "too long"
         handler.hits.get() == 1
+    }
+
+    def "clean EOF without finish_reason is a drop not STOP"() {
+        given:
+        handler.scenario = "eof_partial"
+        def listener = new ProtoListener()
+        when:
+        new OpenAiCompatProtocol().chatStream(req(), listener)
+        then:
+        listener.failure != null
+        listener.complete == null
+        listener.deltas == ["Hel"]
+        handler.hits.get() == 1
+    }
+
+    def "tool_call argument chunks without index concatenate onto the current call"() {
+        given:
+        handler.scenario = "tool_calls_no_index"
+        def listener = new ProtoListener()
+        when:
+        new OpenAiCompatProtocol().chatStream(req(), listener)
+        then:
+        listener.failure == null
+        listener.complete.finishReason == LlmFinishReason.TOOL_CALLS
+        listener.complete.toolCalls.size() == 1
+        listener.complete.toolCalls[0].id == "call_1"
+        listener.complete.toolCalls[0].name == "request"
+        listener.complete.toolCalls[0].arguments == '{"method":"GET"}'
     }
 
     static class ProtoListener implements ProtocolStreamListener {
@@ -277,6 +307,16 @@ class LlmClientStreamTests extends Specification {
                     int gen = generation.get()
                     writeChunk(response, sse(contentChunk("Hel")), false)
                     for (int i = 0; i < 40 && generation.get() == gen; i++) Thread.sleep(250)
+                    callback.succeeded()
+                } else if ("eof_partial".equals(sc)) {
+                    writeChunk(response, sse(contentChunk("Hel")), true)
+                    callback.succeeded()
+                } else if ("tool_calls_no_index".equals(sc)) {
+                    writeChunk(response, sse('{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"request","arguments":""}}]}}]}'), false)
+                    writeChunk(response, sse('{"choices":[{"delta":{"tool_calls":[{"function":{"arguments":"{\\"method\\":"}}]}}]}'), false)
+                    writeChunk(response, sse('{"choices":[{"delta":{"tool_calls":[{"function":{"arguments":"\\"GET\\"}"}}]}}]}'), false)
+                    writeChunk(response, sse('{"choices":[{"delta":{},"finish_reason":"tool_calls"}]}'), false)
+                    writeChunk(response, "data: [DONE]\n\n", true)
                     callback.succeeded()
                 } else {
                     Response.writeError(request, response, callback, 404)

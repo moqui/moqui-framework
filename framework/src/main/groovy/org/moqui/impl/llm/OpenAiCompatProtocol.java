@@ -71,13 +71,19 @@ public class OpenAiCompatProtocol implements LlmProtocol {
                 return true;
             }
             @Override public void onComplete() {
-                if (finished.compareAndSet(false, true)) listener.onComplete(assembler.toResult(200, null));
+                if (!finished.compareAndSet(false, true)) return;
+                // Clean EOF or [DONE] with tokens but no finish_reason is a truncated stream, not STOP.
+                if (assembler.hasUnfinishedOutput()) {
+                    listener.onFailure(new java.io.IOException("LLM stream ended without finish_reason"));
+                } else {
+                    listener.onComplete(assembler.toResult(200, null));
+                }
             }
             @Override public void onFailure(Throwable t) {
                 if (!finished.compareAndSet(false, true)) return;
                 int status = httpStatusOf(t);
                 if (status >= 400) {
-                    // Finished HTTP error (not a mid-body drop). Classify; do not retry here.
+                    // Finished HTTP error (not a mid-body drop). Classify body the same as chat().
                     listener.onComplete(assembler.toResult(status, t));
                 } else {
                     listener.onFailure(t);
@@ -346,6 +352,10 @@ public class OpenAiCompatProtocol implements LlmProtocol {
     static int httpStatusOf(Throwable t) {
         Throwable cur = t;
         while (cur != null) {
+            if (cur instanceof RestClient.HttpErrorException) {
+                int status = ((RestClient.HttpErrorException) cur).getStatusCode();
+                if (status > 0) return status;
+            }
             if (cur instanceof HttpResponseException) {
                 Response resp = ((HttpResponseException) cur).getResponse();
                 if (resp != null && resp.getStatus() > 0) return resp.getStatus();
@@ -353,6 +363,17 @@ public class OpenAiCompatProtocol implements LlmProtocol {
             cur = cur.getCause();
         }
         return 0;
+    }
+
+    static String errorBodyOf(Throwable t) {
+        Throwable cur = t;
+        while (cur != null) {
+            if (cur instanceof RestClient.HttpErrorException) {
+                return ((RestClient.HttpErrorException) cur).getResponseText();
+            }
+            cur = cur.getCause();
+        }
+        return null;
     }
 
     /** Concatenate content and tool_call arguments by index; usage may arrive after finish_reason. */
@@ -434,16 +455,26 @@ public class OpenAiCompatProtocol implements LlmProtocol {
             }
         }
 
+        boolean hasUnfinishedOutput() {
+            return finishReason == null && error == null && (content.length() > 0 || !toolCalls.isEmpty());
+        }
+
         private void accumulateToolCall(Map<?, ?> tc) {
             if (tc == null) return;
             String id = LlmRetryClassifier.str(tc.get("id"));
+            boolean hasId = id != null && !id.isBlank();
             Integer idx = null;
             if (tc.get("index") != null) {
-                idx = LlmRetryClassifier.toInt(tc.get("index"));
-            } else if (id != null && toolCallIdToIndex.containsKey(id)) {
-                idx = toolCallIdToIndex.get(id);
+                Integer parsed = LlmRetryClassifier.toInt(tc.get("index"));
+                if (parsed != null) idx = parsed;
             }
-            if (idx == null) idx = toolCalls.isEmpty() ? 0 : toolCalls.lastKey() + 1;
+            if (idx == null && hasId && toolCallIdToIndex.containsKey(id)) {
+                idx = toolCallIdToIndex.get(id);
+            } else if (idx == null && hasId) {
+                idx = toolCalls.isEmpty() ? 0 : toolCalls.lastKey() + 1;
+            } else if (idx == null) {
+                idx = toolCalls.isEmpty() ? 0 : toolCalls.lastKey();
+            }
 
             ToolCallAcc acc = toolCalls.get(idx);
             if (acc == null) {
@@ -466,8 +497,10 @@ public class OpenAiCompatProtocol implements LlmProtocol {
         }
 
         ProtocolResult toResult(int httpStatus, Throwable t) {
+            String errorBody = errorBodyOf(t);
             if (error == null && content.length() == 0 && toolCalls.isEmpty() && t != null) {
-                ProtocolResult r = LlmRetryClassifier.classify(httpStatus, null, t.getMessage());
+                String raw = (errorBody != null && !errorBody.isBlank()) ? errorBody : t.getMessage();
+                ProtocolResult r = LlmRetryClassifier.classify(httpStatus, raw);
                 if (r.model == null) r.model = model != null ? model : requestModel;
                 if (r.errorMessage == null || r.errorMessage.isBlank()) r.errorMessage = t.getMessage();
                 if (!logContent) r.rawJson = null;
