@@ -21,6 +21,8 @@ public interface LlmStreamListener {
     default void onToolCall(LlmToolCall call, LlmTool.Execution execution) { }
     default void onToolResult(LlmToolCall call, Object result, LlmTool.Execution execution) { }
     default void onYield(List<LlmToolCall> pendingClientCalls) { }
+    /** Heartbeat while server tools run (servlet SSE ping). */
+    default void onPing() { }
     default void onComplete(LlmResponse response) { }
     default void onError(LlmException error) { }
     /** Drop / disconnect. Default wraps as {@link #onError}. */

@@ -44,6 +44,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
 
 import org.eclipse.jetty.client.CompletableResponseListener;
 import org.eclipse.jetty.client.ContentResponse;
@@ -389,10 +390,16 @@ public class RestClient {
 
     /** Parse text/event-stream. Blocks the caller thread, invoking consumer per event. */
     public void streamSse(SseConsumer consumer) {
+        streamSse(consumer, null);
+    }
+    /** Like {@link #streamSse(SseConsumer)} but exposes the RestStream as soon as headers arrive so
+     *  a disconnect/cancel path can {@link RestStream#close()} (Request.abort) from another thread. */
+    public void streamSse(SseConsumer consumer, Consumer<RestStream> onOpen) {
         if (consumer == null) throw new IllegalArgumentException("SseConsumer is required");
         RestStream restStream = null;
         try {
             restStream = stream();
+            if (onOpen != null) onOpen.accept(restStream);
             restStream.checkError();
             BufferedReader reader = restStream.reader();
             String event = null;

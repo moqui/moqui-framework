@@ -53,6 +53,8 @@ public interface LlmProtocol {
         public int retryMax = 5;
         public boolean timeoutRetry = true;
         public boolean logContent;
+        /** Set by chatStream so /cancel and client disconnect can RestStream.close(). */
+        public java.util.function.Consumer<RestClient.RestStream> onStreamOpen;
     }
 
     final class ProtocolResult {

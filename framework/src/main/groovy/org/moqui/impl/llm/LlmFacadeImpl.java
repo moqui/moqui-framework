@@ -43,6 +43,7 @@ public class LlmFacadeImpl implements LlmFacade {
     public final ExecutionContextFactoryImpl ecfi;
     private final Map<String, ProfileState> profileByName = new LinkedHashMap<>();
     private final Map<String, LlmTool.Factory> clientToolTypes = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, RestClient.RestStream> inFlight = new ConcurrentHashMap<>();
     private final boolean enabledFlag;
     private final String defaultProfileName;
     private boolean anyUrl = false;
@@ -152,6 +153,30 @@ public class LlmFacadeImpl implements LlmFacade {
 
     ProfileState getProfileState(String name) { return profileByName.get(name); }
 
+    /** Register the provider RestStream so /cancel and SSE disconnect can abort it. */
+    public void registerInFlight(String conversationId, RestClient.RestStream stream) {
+        if (conversationId == null || conversationId.isBlank() || stream == null) return;
+        RestClient.RestStream prev = inFlight.put(conversationId, stream);
+        if (prev != null && prev != stream) {
+            try { prev.close(); } catch (Throwable ignored) { }
+        }
+    }
+    public void unregisterInFlight(String conversationId, RestClient.RestStream stream) {
+        if (conversationId == null || conversationId.isBlank()) return;
+        if (stream == null) inFlight.remove(conversationId);
+        else inFlight.remove(conversationId, stream);
+    }
+    /** RestStream.close() / Request.abort. Returns true if a stream was in flight. */
+    public boolean abortInFlight(String conversationId) {
+        if (conversationId == null || conversationId.isBlank()) return false;
+        RestClient.RestStream stream = inFlight.remove(conversationId);
+        if (stream == null) return false;
+        try { stream.close(); } catch (Throwable t) {
+            logger.warn("Error aborting in-flight LLM RestStream for conversation " + conversationId, t);
+        }
+        return true;
+    }
+
     static String nvl(String v, String def) { return v == null || v.isEmpty() ? def : v; }
 
     /**
@@ -217,6 +242,8 @@ public class LlmFacadeImpl implements LlmFacade {
         public final LlmProtocol protocol;
         public final Set<String> allowedEntities;
         public final List<AllowedPath> allowedPaths;
+        public final boolean allowWriteUi;
+        public final int ssePingSeconds;
 
         ProfileState(String name, MNode confNode, String url, String path, String endpointUrl, String apiKey,
                 String authHeaderName, String authHeaderValue, String model, String maxTokensParameter,
@@ -225,7 +252,8 @@ public class LlmFacadeImpl implements LlmFacade {
                 Integer maxTokens, Double temperature, boolean logContent,
                 Map<String, String> extraHeaders, Map<String, String> extraQuery,
                 RestClient.PooledRequestFactory requestFactory, LlmProtocol protocol,
-                Set<String> allowedEntities, List<AllowedPath> allowedPaths) {
+                Set<String> allowedEntities, List<AllowedPath> allowedPaths,
+                boolean allowWriteUi, int ssePingSeconds) {
             this.name = name;
             this.confNode = confNode;
             this.url = url;
@@ -252,6 +280,8 @@ public class LlmFacadeImpl implements LlmFacade {
             this.protocol = protocol;
             this.allowedEntities = allowedEntities;
             this.allowedPaths = allowedPaths;
+            this.allowWriteUi = allowWriteUi;
+            this.ssePingSeconds = ssePingSeconds > 0 ? ssePingSeconds : 15;
         }
 
         static ProfileState fromConf(String name, MNode node, ExecutionContextFactoryImpl ecfi) {
@@ -280,6 +310,9 @@ public class LlmFacadeImpl implements LlmFacade {
             Integer maxTokens = parseInteger(node.attribute("max-tokens"));
             Double temperature = parseDouble(node.attribute("temperature"));
             boolean logContent = parseBoolean(node.attribute("log-content"), false);
+            boolean allowWriteUi = parseBoolean(node.attribute("allow-write-ui"), false);
+            int ssePingSeconds = parseInt(node.attribute("sse-ping-seconds"), 15);
+            if (ssePingSeconds < 1) ssePingSeconds = 15;
 
             Map<String, String> extraHeaders = new LinkedHashMap<>();
             for (MNode header : node.children("header")) {
@@ -329,12 +362,18 @@ public class LlmFacadeImpl implements LlmFacade {
                     timeoutRetry, emptyRetries, contextLimitPolicy, maxTokens, temperature, logContent,
                     Collections.unmodifiableMap(extraHeaders), Collections.unmodifiableMap(extraQuery),
                     rf, protocol, Collections.unmodifiableSet(allowedEntities),
-                    Collections.unmodifiableList(allowedPaths));
+                    Collections.unmodifiableList(allowedPaths), allowWriteUi, ssePingSeconds);
         }
 
         /** Test helper: no HTTP pool. */
         public static ProfileState forTest(String name, LlmProtocol protocol, String model,
                 boolean allowTxOverHttp, int emptyRetries, float retryInitialSeconds, int retryMax) {
+            return forTest(name, protocol, model, allowTxOverHttp, emptyRetries, retryInitialSeconds, retryMax,
+                    Collections.emptyList(), false);
+        }
+        public static ProfileState forTest(String name, LlmProtocol protocol, String model,
+                boolean allowTxOverHttp, int emptyRetries, float retryInitialSeconds, int retryMax,
+                List<AllowedPath> allowedPaths, boolean allowWriteUi) {
             if (protocol == null) protocol = new OpenAiCompatProtocol();
             return new ProfileState(name, null, "http://127.0.0.1", OpenAiCompatProtocol.DEFAULT_PATH,
                     "http://127.0.0.1/v1/chat/completions", "", "Authorization", null,
@@ -342,7 +381,9 @@ public class LlmFacadeImpl implements LlmFacade {
                     retryInitialSeconds, retryMax, true, emptyRetries,
                     WindowPolicy.ContextLimitPolicy.FAIL, null, null, false,
                     Collections.emptyMap(), Collections.emptyMap(), null, protocol,
-                    Collections.emptySet(), Collections.emptyList());
+                    Collections.emptySet(),
+                    allowedPaths != null ? allowedPaths : Collections.emptyList(),
+                    allowWriteUi, 15);
         }
     }
 

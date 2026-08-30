@@ -104,7 +104,8 @@ public class LlmConversationImpl implements LlmConversation {
         LlmConversationImpl conv = new LlmConversationImpl(ec, conversationId);
         persistIsolated(ec, () -> conv.readFromStore(), conv);
         if (conv.statusId == null)
-            throw new LlmException("Conversation not found: " + conversationId);
+            throw new LlmException("Conversation not found: " + conversationId,
+                    null, LlmFinishReason.ERROR, 404, null, conversationId);
         if (checkOwner) checkCanView(ec, conv.userId);
         return conv;
     }
@@ -369,6 +370,17 @@ public class LlmConversationImpl implements LlmConversation {
             pendingToolCalls.clear();
             updateHeader();
         });
+        abortInFlight();
+    }
+
+    private void abortInFlight() {
+        if (ec == null || conversationId == null) return;
+        try {
+            if (ec.getLlm() instanceof LlmFacadeImpl)
+                ((LlmFacadeImpl) ec.getLlm()).abortInFlight(conversationId);
+        } catch (Throwable t) {
+            logger.warn("Error aborting in-flight LLM stream for conversation " + conversationId, t);
+        }
     }
 
     @Override

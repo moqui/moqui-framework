@@ -90,7 +90,7 @@ public class OpenAiCompatProtocol implements LlmProtocol {
                     listener.onFailure(t);
                 }
             }
-        });
+        }, request.onStreamOpen);
     }
 
     @Override

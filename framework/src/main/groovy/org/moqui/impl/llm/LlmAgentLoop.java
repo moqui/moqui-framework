@@ -20,7 +20,9 @@ import org.moqui.llm.LlmFinishReason;
 import org.moqui.llm.LlmMessage;
 import org.moqui.llm.LlmProtocol.ProtocolRequest;
 import org.moqui.llm.LlmProtocol.ProtocolResult;
+import org.moqui.llm.LlmProtocol.ProtocolStreamListener;
 import org.moqui.llm.LlmResponse;
+import org.moqui.llm.LlmStreamListener;
 import org.moqui.llm.LlmTool;
 import org.moqui.llm.LlmToolCall;
 import org.moqui.llm.LlmToolResult;
@@ -40,10 +42,14 @@ final class LlmAgentLoop {
     static final String MALFORMED = "malformed arguments: ";
 
     private final LlmClientImpl client;
+    private LlmStreamListener listener;
 
     LlmAgentLoop(LlmClientImpl client) { this.client = client; }
 
-    LlmResponse run(long start) {
+    LlmResponse run(long start) { return run(start, null); }
+
+    LlmResponse run(long start, LlmStreamListener listener) {
+        this.listener = listener;
         int maxIter = client.maxIterationsEffective();
         boolean resume = client.hasResumeResults();
         List<LlmMessage> working = null;
@@ -56,6 +62,7 @@ final class LlmAgentLoop {
                 for (LlmMessage u : client.userMessages) client.conversation.appendInternal(u.copy());
             });
             client.markStreamingPersisted();
+            if (listener != null) listener.onConversation(client.conversation.getConversationId());
         } else {
             working = client.buildWindow();
             applyResumeResults(working);
@@ -74,7 +81,7 @@ final class LlmAgentLoop {
 
             ProtocolResult result;
             try {
-                result = client.profile.protocol.chat(req);
+                result = invokeProtocol(req);
             } catch (ArtifactAuthorizationException | ArtifactTarpitException e) {
                 throw e;
             } catch (LlmException e) {
@@ -145,6 +152,7 @@ final class LlmAgentLoop {
                 LlmResponse r = client.toResponse(result, fr, start);
                 r.toolResults = roundResults;
                 r.yielded = false;
+                if (listener != null) listener.onComplete(r);
                 return r;
             }
 
@@ -157,11 +165,14 @@ final class LlmAgentLoop {
                 else serverCalls.add(call);
             }
 
+            if (!serverCalls.isEmpty() && listener != null) listener.onPing();
             for (LlmToolCall call : serverCalls) {
+                if (listener != null) listener.onToolCall(call, LlmTool.Execution.SERVER);
                 Object executed = executeOne(call);
                 Object stored = client.truncateResult(executed);
                 roundResults.add(new LlmToolResult(call.id, call.name, stored));
                 appendTool(working, call.id, call.name, stored);
+                if (listener != null) listener.onToolResult(call, stored, LlmTool.Execution.SERVER);
             }
 
             if (!clientCalls.isEmpty()) {
@@ -203,6 +214,10 @@ final class LlmAgentLoop {
                 r.httpStatus = 202;
                 r.pendingToolCalls = pending;
                 r.toolResults = roundResults;
+                if (listener != null) {
+                    listener.onYield(pending);
+                    listener.onComplete(r);
+                }
                 return r;
             }
         }
@@ -215,6 +230,30 @@ final class LlmAgentLoop {
         }
         throw new LlmException("LLM agent loop exceeded maxIterations=" + maxIter,
                 null, LlmFinishReason.MAX_ITERATIONS, 0, client.profile.name, client.convId());
+    }
+
+    private ProtocolResult invokeProtocol(ProtocolRequest req) {
+        if (listener == null) return client.profile.protocol.chat(req);
+        ProtocolResult[] box = new ProtocolResult[1];
+        Throwable[] fail = new Throwable[1];
+        req.stream = true;
+        req.onStreamOpen = client::registerInFlight;
+        try {
+            client.profile.protocol.chatStream(req, new ProtocolStreamListener() {
+                @Override public void onDelta(String textDelta) {
+                    if (textDelta != null && !textDelta.isEmpty()) listener.onDelta(textDelta);
+                }
+                @Override public void onComplete(ProtocolResult result) { box[0] = result; }
+                @Override public void onFailure(Throwable t) { fail[0] = t; }
+            });
+        } finally {
+            client.unregisterInFlight();
+        }
+        if (fail[0] != null) {
+            throw new LlmException("LLM stream failed: " + fail[0].getMessage(), fail[0],
+                    LlmFinishReason.ERROR, 0, client.profile.name, client.convId());
+        }
+        return box[0];
     }
 
     private void completeConversation() {

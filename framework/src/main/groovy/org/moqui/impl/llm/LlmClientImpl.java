@@ -32,6 +32,7 @@ import org.moqui.llm.LlmTool;
 import org.moqui.llm.LlmToolCall;
 import org.moqui.llm.LlmToolResult;
 import org.moqui.llm.WindowPolicy;
+import org.moqui.util.RestClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -70,6 +71,7 @@ public class LlmClientImpl implements LlmClient {
     private Integer maxIterations = null;
     private int toolResultMaxChars = DEFAULT_TOOL_RESULT_MAX_CHARS;
     private boolean streamingWasPersisted = false;
+    private volatile RestClient.RestStream activeStream;
 
     public LlmClientImpl(ExecutionContext ec, LlmFacadeImpl.ProfileState profile) {
         this(ec, profile, null);
@@ -238,43 +240,102 @@ public class LlmClientImpl implements LlmClient {
         failFastIfTransaction();
 
         String model = requireModel();
-        List<LlmMessage> window = buildWindow();
-        ProtocolRequest req = buildRequest(model, window);
-        req.stream = true;
+        ArtifactExecutionFacade aefi = ec != null ? ec.getArtifactExecution() : null;
+        ArtifactExecutionInfo aei = null;
+        streamingWasPersisted = false;
+        boolean cancelled = false;
         long start = System.currentTimeMillis();
-
-        ProtocolResult[] resultBox = new ProtocolResult[1];
-        Throwable[] failBox = new Throwable[1];
+        ProtocolResult lastResult = null;
+        boolean fromAgent = !tools.isEmpty() || !resumeToolResults.isEmpty();
         try {
-            profile.protocol.chatStream(req, new ProtocolStreamListener() {
-                @Override public void onDelta(String textDelta) {
-                    if (textDelta != null && !textDelta.isEmpty()) listener.onDelta(textDelta);
-                }
-                @Override public void onComplete(ProtocolResult result) { resultBox[0] = result; }
-                @Override public void onFailure(Throwable t) { failBox[0] = t; }
-            });
-        } catch (LlmException e) {
-            listener.onError(e);
-            throw e;
-        } catch (RuntimeException e) {
-            listener.onFailure(e);
-            throw new LlmException("LLM protocol stream failed: " + e.getMessage(), e,
-                    LlmFinishReason.ERROR, 0, profile.name);
-        }
+            // Authz/tarpit after the caller parsed the profile (servlet body) and before Streaming.
+            if (aefi != null) {
+                aei = aefi.push(profile.name, ArtifactExecutionInfo.AT_LLM,
+                        ArtifactExecutionInfo.AUTHZA_VIEW, true);
+            }
+            if (fromAgent) {
+                return new LlmAgentLoop(this).run(start, listener);
+            }
+            if (conversation != null) {
+                conversation.persistIsolated(() -> {
+                    conversation.beginTurnStreaming();
+                    if (systemContent != null) conversation.replaceSystemInternal(systemContent);
+                    for (LlmMessage u : userMessages) conversation.appendInternal(u.copy());
+                });
+                streamingWasPersisted = true;
+                listener.onConversation(conversation.getConversationId());
+            }
+            List<LlmMessage> window = buildWindow();
+            ProtocolRequest req = buildRequest(model, window);
+            req.stream = true;
+            req.onStreamOpen = this::registerInFlight;
+            ProtocolResult[] resultBox = new ProtocolResult[1];
+            Throwable[] failBox = new Throwable[1];
+            try {
+                profile.protocol.chatStream(req, new ProtocolStreamListener() {
+                    @Override public void onDelta(String textDelta) {
+                        if (textDelta != null && !textDelta.isEmpty()) listener.onDelta(textDelta);
+                    }
+                    @Override public void onComplete(ProtocolResult result) { resultBox[0] = result; }
+                    @Override public void onFailure(Throwable t) { failBox[0] = t; }
+                });
+            } catch (LlmException e) {
+                listener.onError(e);
+                throw e;
+            } catch (RuntimeException e) {
+                listener.onFailure(e);
+                throw new LlmException("LLM protocol stream failed: " + e.getMessage(), e,
+                        LlmFinishReason.ERROR, 0, profile.name, convId());
+            } finally {
+                unregisterInFlight();
+            }
 
-        if (failBox[0] != null) {
-            listener.onFailure(failBox[0]);
-            throw new LlmException("LLM stream failed: " + failBox[0].getMessage(), failBox[0],
-                    LlmFinishReason.ERROR, 0, profile.name);
+            if (failBox[0] != null) {
+                listener.onFailure(failBox[0]);
+                throw new LlmException("LLM stream failed: " + failBox[0].getMessage(), failBox[0],
+                        LlmFinishReason.ERROR, 0, profile.name, convId());
+            }
+            ProtocolResult result = resultBox[0];
+            if (result == null) {
+                LlmException le = new LlmException("LLM protocol returned no stream result",
+                        null, LlmFinishReason.ERROR, 0, profile.name, convId());
+                listener.onError(le);
+                throw le;
+            }
+            lastResult = result;
+            LlmFinishReason fr = result.finishReason != null ? result.finishReason : LlmFinishReason.ERROR;
+            if (fr == LlmFinishReason.STOP || fr == LlmFinishReason.LENGTH || fr == LlmFinishReason.TOOL_CALLS) {
+                persistSuccess(window, result, fr, start);
+            }
+            return finishStreamResult(listener, result, start);
+        } catch (Throwable t) {
+            cancelled = LlmConversationImpl.isCancelThrowable(t);
+            if (streamingWasPersisted && conversation != null && !isMaxIterations(t)) {
+                try { persistFailure(lastResult, start, t); }
+                catch (Throwable persistErr) {
+                    logger.error("Error persisting LLM Failed/Cancelled for conversation " + convId(), persistErr);
+                }
+            }
+            if (fromAgent) {
+                if (t instanceof LlmException) listener.onError((LlmException) t);
+                else listener.onFailure(t);
+            }
+            if (t instanceof ArtifactAuthorizationException) throw (ArtifactAuthorizationException) t;
+            if (t instanceof ArtifactTarpitException) throw (ArtifactTarpitException) t;
+            if (t instanceof LlmException) throw (LlmException) t;
+            if (t instanceof RuntimeException) throw (RuntimeException) t;
+            throw new LlmException("LLM stream failed: " + t.getMessage(), t,
+                    LlmFinishReason.ERROR, 0, profile.name, convId());
+        } finally {
+            if (streamingWasPersisted && conversation != null
+                    && !LlmConversationImpl.STATUS_COMPLETE.equals(conversation.getStatus())) {
+                try { conversation.repairTerminalIfStreaming(cancelled); }
+                catch (Throwable persistErr) {
+                    logger.error("Error repairing LLM Streaming status for conversation " + convId(), persistErr);
+                }
+            }
+            if (aefi != null && aei != null) aefi.pop(aei);
         }
-        ProtocolResult result = resultBox[0];
-        if (result == null) {
-            LlmException le = new LlmException("LLM protocol returned no stream result",
-                    LlmFinishReason.ERROR, 0, profile.name);
-            listener.onError(le);
-            throw le;
-        }
-        return finishStreamResult(listener, result, start);
     }
 
     @Override
@@ -561,7 +622,8 @@ public class LlmClientImpl implements LlmClient {
         if (conversation != null && windowPolicy != null) conversation.setWindowPolicy(windowPolicy);
     }
 
-    String convId() { return conversation != null ? conversation.getConversationId() : null; }
+    public String convId() { return conversation != null ? conversation.getConversationId() : null; }
+    public int ssePingSeconds() { return profile != null ? profile.ssePingSeconds : 15; }
 
     void sleepBackoff(float waitSeconds) {
         if (waitSeconds <= 0) return;
@@ -590,6 +652,33 @@ public class LlmClientImpl implements LlmClient {
     }
 
     void markStreamingPersisted() { this.streamingWasPersisted = true; }
+
+    void registerInFlight(RestClient.RestStream stream) {
+        this.activeStream = stream;
+        LlmFacadeImpl f = facadeOrNull();
+        if (f != null) f.registerInFlight(convId(), stream);
+    }
+    void unregisterInFlight() {
+        RestClient.RestStream s = activeStream;
+        activeStream = null;
+        LlmFacadeImpl f = facadeOrNull();
+        if (f != null) f.unregisterInFlight(convId(), s);
+    }
+    public void abortActiveStream() {
+        RestClient.RestStream s = activeStream;
+        if (s != null) {
+            try { s.close(); } catch (Throwable ignored) { }
+        }
+        LlmFacadeImpl f = facadeOrNull();
+        if (f != null) f.abortInFlight(convId());
+    }
+    private LlmFacadeImpl facadeOrNull() {
+        if (ec == null) return null;
+        try {
+            if (ec.getLlm() instanceof LlmFacadeImpl) return (LlmFacadeImpl) ec.getLlm();
+        } catch (Throwable ignored) { }
+        return null;
+    }
 
     boolean hasResumeResults() { return !resumeToolResults.isEmpty(); }
 

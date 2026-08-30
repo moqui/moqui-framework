@@ -217,6 +217,12 @@
                 <init-param name="permission" value="KibanaRemote"/>
                 <url-pattern>/kibana/*</url-pattern>
             </filter>
+            <!-- LLM gateway: session/Basic/login_key via MoquiAuthFilter; CSRF is checked in LlmServlet.
+                 No async-supported: service() pumps SSE on the request thread so this filter's EC stays live. -->
+            <filter name="LlmAuthFilter" class="org.moqui.impl.webapp.MoquiAuthFilter">
+                <init-param name="permission" value="LlmGateway"/>
+                <url-pattern>/llm/*</url-pattern>
+            </filter>
 
             <!-- Moqui Session Listener (necessary to handle expired sessions, etc) -->
             <listener class="org.moqui.impl.webapp.MoquiSessionListener"/>
@@ -226,6 +232,9 @@
             </servlet>
             <servlet name="MoquiFopServlet" class="org.moqui.impl.webapp.MoquiFopServlet" load-on-startup="1">
                 <url-pattern>/fop/*</url-pattern>
+            </servlet>
+            <servlet name="LlmServlet" class="org.moqui.impl.webapp.LlmServlet" load-on-startup="1">
+                <url-pattern>/llm/*</url-pattern>
             </servlet>
 
             <!-- ElasticSearch and Kibana proxy servlets, see above for auth filters on the same url-pattern -->
