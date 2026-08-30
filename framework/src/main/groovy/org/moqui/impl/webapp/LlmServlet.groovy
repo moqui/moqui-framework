@@ -89,9 +89,6 @@ class LlmServlet extends HttpServlet {
             ec.setWebFacade(new WebFacadeImpl(webappName, request, response, ec))
         }
 
-        if (LlmGateway.isApiKeyOrBasic(request))
-            request.setAttribute("moqui.request.authenticated", "true")
-
         ExecutionContextFactoryImpl.WebappInfo webappInfo = ecfi.getWebappInfo(webappName)
         boolean requireSessionToken = webappInfo == null || webappInfo.requireSessionToken
         String csrfErr = LlmGateway.csrfError(request, ec.getWeb().getSessionToken(), requireSessionToken)

@@ -35,6 +35,7 @@ import org.moqui.impl.screen.ScreenUrlInfo
 import org.moqui.impl.service.RestApi
 import org.moqui.impl.service.ServiceJsonRpcDispatcher
 import org.moqui.impl.util.SimpleSigner
+import org.moqui.llm.LlmException
 import org.moqui.resource.ResourceReference
 import org.moqui.util.ContextStack
 import org.moqui.util.MNode
@@ -1131,6 +1132,11 @@ class WebFacadeImpl implements WebFacade {
             logger.warn("REST Entity Value Not Found (404): " + e.message)
             // record doesn't exist, send 404 Not Found
             sendJsonError(HttpServletResponse.SC_NOT_FOUND, null, e)
+        } catch (LlmException e) {
+            int status = e.getHttpStatus()
+            if (status < 400 || status >= 600) status = HttpServletResponse.SC_INTERNAL_SERVER_ERROR
+            logger.warn("REST LLM error (" + status + "): " + e.message)
+            sendJsonError(status, e.message, e)
         } catch (Throwable t) {
             String errorMessage = t.toString()
             if (eci.message.hasError()) {

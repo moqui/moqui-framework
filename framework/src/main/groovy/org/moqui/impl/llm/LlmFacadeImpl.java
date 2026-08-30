@@ -44,6 +44,7 @@ public class LlmFacadeImpl implements LlmFacade {
     private final Map<String, ProfileState> profileByName = new LinkedHashMap<>();
     private final Map<String, LlmTool.Factory> clientToolTypes = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, RestClient.RestStream> inFlight = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Boolean> cancelledIds = new ConcurrentHashMap<>();
     private final boolean enabledFlag;
     private final String defaultProfileName;
     private boolean anyUrl = false;
@@ -153,9 +154,14 @@ public class LlmFacadeImpl implements LlmFacade {
 
     ProfileState getProfileState(String name) { return profileByName.get(name); }
 
-    /** Register the provider RestStream so /cancel and SSE disconnect can abort it. */
+    /** Register the provider RestStream so /cancel and SSE disconnect can abort it.
+     *  If cancel already won, close immediately so persistSuccess cannot run on a live body. */
     public void registerInFlight(String conversationId, RestClient.RestStream stream) {
         if (conversationId == null || conversationId.isBlank() || stream == null) return;
+        if (cancelledIds.containsKey(conversationId)) {
+            try { stream.close(); } catch (Throwable ignored) { }
+            return;
+        }
         RestClient.RestStream prev = inFlight.put(conversationId, stream);
         if (prev != null && prev != stream) {
             try { prev.close(); } catch (Throwable ignored) { }
@@ -166,11 +172,18 @@ public class LlmFacadeImpl implements LlmFacade {
         if (stream == null) inFlight.remove(conversationId);
         else inFlight.remove(conversationId, stream);
     }
-    /** RestStream.close() / Request.abort. Returns true if a stream was in flight. */
+    public boolean isCancelled(String conversationId) {
+        return conversationId != null && cancelledIds.containsKey(conversationId);
+    }
+    public void clearCancelled(String conversationId) {
+        if (conversationId != null) cancelledIds.remove(conversationId);
+    }
+    /** Mark cancelled and RestStream.close() / Request.abort. True if a stream was closed or the id was marked. */
     public boolean abortInFlight(String conversationId) {
         if (conversationId == null || conversationId.isBlank()) return false;
+        cancelledIds.put(conversationId, Boolean.TRUE);
         RestClient.RestStream stream = inFlight.remove(conversationId);
-        if (stream == null) return false;
+        if (stream == null) return true;
         try { stream.close(); } catch (Throwable t) {
             logger.warn("Error aborting in-flight LLM RestStream for conversation " + conversationId, t);
         }

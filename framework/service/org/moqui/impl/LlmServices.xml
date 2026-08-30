@@ -58,7 +58,7 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
 
     <!-- Sync wrappers for Service REST (/rest/s1/moqui/llm/...). Do not SSE through these. -->
-    <service verb="chat" noun="Conversation" authenticate="true" allow-remote="true" validate="false">
+    <service verb="chat" noun="Conversation" authenticate="true" allow-remote="true" validate="false" transaction="ignore">
         <description>New LLM turn (sync JSON). Use POST /llm/v1/chat for SSE.</description>
         <in-parameters>
             <parameter name="profile"/>
@@ -89,7 +89,7 @@ along with this software (see the LICENSE.md file). If not, see
             if (result) context.putAll(result)
         </script></actions>
     </service>
-    <service verb="resume" noun="Conversation" authenticate="true" allow-remote="true" validate="false">
+    <service verb="resume" noun="Conversation" authenticate="true" allow-remote="true" validate="false" transaction="ignore">
         <description>Post client tool results and continue the agent loop (sync).</description>
         <in-parameters>
             <parameter name="conversationId" required="true"/>

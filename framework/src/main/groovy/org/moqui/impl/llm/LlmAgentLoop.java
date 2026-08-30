@@ -51,7 +51,7 @@ final class LlmAgentLoop {
     LlmResponse run(long start, LlmStreamListener listener) {
         this.listener = listener;
         int maxIter = client.maxIterationsEffective();
-        boolean resume = client.hasResumeResults();
+        boolean resume = client.hasResumeResults() || client.resumeFromYielded;
         List<LlmMessage> working = null;
 
         if (client.conversation != null) {
@@ -75,6 +75,7 @@ final class LlmAgentLoop {
         int iteration = 0;
 
         while (iteration < maxIter) {
+            client.throwIfCancelled();
             List<LlmMessage> window = client.conversation != null ? client.buildWindow() : working;
             ProtocolRequest req = client.buildRequest(client.resolveModel(), window);
             req.tools = client.tools;
@@ -82,6 +83,7 @@ final class LlmAgentLoop {
             ProtocolResult result;
             try {
                 result = invokeProtocol(req);
+                client.throwIfCancelled();
             } catch (ArtifactAuthorizationException | ArtifactTarpitException e) {
                 throw e;
             } catch (LlmException e) {
@@ -149,6 +151,7 @@ final class LlmAgentLoop {
 
             if (!hasCalls || fr == LlmFinishReason.STOP || fr == LlmFinishReason.LENGTH) {
                 completeConversation();
+                client.throwIfCancelled();
                 LlmResponse r = client.toResponse(result, fr, start);
                 r.toolResults = roundResults;
                 r.yielded = false;
@@ -167,8 +170,10 @@ final class LlmAgentLoop {
 
             if (!serverCalls.isEmpty() && listener != null) listener.onPing();
             for (LlmToolCall call : serverCalls) {
+                client.throwIfCancelled();
                 if (listener != null) listener.onToolCall(call, LlmTool.Execution.SERVER);
                 Object executed = executeOne(call);
+                client.throwIfCancelled();
                 Object stored = client.truncateResult(executed);
                 roundResults.add(new LlmToolResult(call.id, call.name, stored));
                 appendTool(working, call.id, call.name, stored);
@@ -208,6 +213,7 @@ final class LlmAgentLoop {
                         client.conversation.setPendingToolCallsInternal(pending);
                         client.conversation.setStatusInternal(LlmConversationImpl.STATUS_YIELDED);
                     });
+                    client.throwIfCancelled();
                 }
                 LlmResponse r = client.toResponse(result, LlmFinishReason.TOOL_CALLS, start);
                 r.yielded = true;
@@ -286,7 +292,7 @@ final class LlmAgentLoop {
     }
 
     private void applyResumeResults(LlmConversationImpl conv) {
-        if (!client.hasResumeResults()) {
+        if (!client.hasResumeResults() && !client.resumeFromYielded) {
             conv.setPendingToolCallsInternal(null);
             return;
         }

@@ -42,6 +42,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.function.BooleanSupplier;
 
 public class LlmClientImpl implements LlmClient {
@@ -65,6 +66,7 @@ public class LlmClientImpl implements LlmClient {
     private WindowPolicy windowPolicy = null;
     final List<LlmTool> tools = new ArrayList<>();
     final List<LlmToolResult> resumeToolResults = new ArrayList<>();
+    boolean resumeFromYielded = false;
     boolean allowClientTools = false;
     private final Set<String> allowedEntities = new LinkedHashSet<>();
     private final List<LlmFacadeImpl.AllowedPath> allowedPaths = new ArrayList<>();
@@ -246,7 +248,7 @@ public class LlmClientImpl implements LlmClient {
         boolean cancelled = false;
         long start = System.currentTimeMillis();
         ProtocolResult lastResult = null;
-        boolean fromAgent = !tools.isEmpty() || !resumeToolResults.isEmpty();
+        boolean fromAgent = !tools.isEmpty() || !resumeToolResults.isEmpty() || resumeFromYielded;
         try {
             // Authz/tarpit after the caller parsed the profile (servlet body) and before Streaming.
             if (aefi != null) {
@@ -371,7 +373,7 @@ public class LlmClientImpl implements LlmClient {
                 aei = aefi.push(profile.name, ArtifactExecutionInfo.AT_LLM,
                         ArtifactExecutionInfo.AUTHZA_VIEW, true);
             }
-            if (!tools.isEmpty() || !resumeToolResults.isEmpty()) {
+            if (!tools.isEmpty() || !resumeToolResults.isEmpty() || resumeFromYielded) {
                 return new LlmAgentLoop(this).run(start);
             }
             if (conversation != null) {
@@ -476,6 +478,7 @@ public class LlmClientImpl implements LlmClient {
                     window, result, System.currentTimeMillis() - start, 1, false);
             conversation.setStatusInternal(LlmConversationImpl.STATUS_COMPLETE);
         });
+        throwIfCancelled();
     }
 
     private void persistFailure(ProtocolResult result, long start, Throwable t) {
@@ -652,6 +655,17 @@ public class LlmClientImpl implements LlmClient {
     }
 
     void markStreamingPersisted() { this.streamingWasPersisted = true; }
+    LlmClientImpl markResumeFromYielded() { this.resumeFromYielded = true; return this; }
+
+    boolean isExternallyCancelled() {
+        if (conversation != null && LlmConversationImpl.STATUS_CANCELLED.equals(conversation.getStatus()))
+            return true;
+        LlmFacadeImpl f = facadeOrNull();
+        return f != null && f.isCancelled(convId());
+    }
+    void throwIfCancelled() {
+        if (isExternallyCancelled()) throw new CancellationException("LLM conversation cancelled");
+    }
 
     void registerInFlight(RestClient.RestStream stream) {
         this.activeStream = stream;

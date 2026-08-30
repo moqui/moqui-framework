@@ -686,6 +686,10 @@ class UserFacadeImpl implements UserFacade {
             if (eci.getWebImpl() != null) {
                 eci.getWebImpl().runAfterLoginActions()
                 eci.getWebImpl().getRequest().setAttribute("moqui.request.authenticated", "true")
+            } else if (this.request != null) {
+                // MoquiAuthFilter inits the user before WebFacade exists (LlmServlet). CSRF skip
+                // must follow a successful login_key/Basic, not header presence.
+                this.request.setAttribute("moqui.request.authenticated", "true")
             }
         } catch (SecondFactorRequiredException ae) {
             if (eci.web != null) {

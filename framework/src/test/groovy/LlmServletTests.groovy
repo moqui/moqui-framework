@@ -12,6 +12,8 @@
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
 
+import org.moqui.context.ExecutionContext
+import org.moqui.context.TransactionFacade
 import org.moqui.impl.llm.LlmClientImpl
 import org.moqui.impl.llm.LlmConversationImpl
 import org.moqui.impl.llm.LlmFacadeImpl
@@ -19,12 +21,14 @@ import org.moqui.impl.llm.LlmGateway
 import org.moqui.impl.webapp.SseSink
 import org.moqui.impl.webapp.ServletStreamListener
 import org.moqui.llm.LlmException
+import org.moqui.llm.LlmMessage
 import org.moqui.llm.LlmTool
 import org.moqui.llm.LlmToolCall
 import org.moqui.llm.test.FakeLlmProtocol
 import spock.lang.Specification
 
 import jakarta.servlet.http.HttpServletRequest
+import java.util.concurrent.atomic.AtomicBoolean
 
 class LlmServletTests extends Specification {
 
@@ -44,7 +48,7 @@ class LlmServletTests extends Specification {
         LlmGateway.parseRoute(null) == null
     }
 
-    def "CSRF required on POST unless login_key/Basic or authenticated attr"() {
+    def "CSRF required on POST unless authenticated attr; dummy login_key does not skip"() {
         given:
         HttpServletRequest missing = Stub(HttpServletRequest) {
             getMethod() >> "POST"
@@ -59,18 +63,18 @@ class LlmServletTests extends Specification {
             getHeader(_) >> { String n -> n == "X-CSRF-Token" ? "tok" : null }
             getParameter(_) >> null
         }
-        HttpServletRequest basic = Stub(HttpServletRequest) {
+        HttpServletRequest dummyKey = Stub(HttpServletRequest) {
+            getMethod() >> "POST"
+            getAttribute(_) >> null
+            getHeader("login_key") >> "x"
+            getHeader(_) >> { String n -> n == "login_key" ? "x" : null }
+            getParameter(_) >> null
+        }
+        HttpServletRequest dummyBasic = Stub(HttpServletRequest) {
             getMethod() >> "POST"
             getAttribute(_) >> null
             getHeader("Authorization") >> "Basic abc"
             getHeader(_) >> { String n -> n == "Authorization" ? "Basic abc" : null }
-            getParameter(_) >> null
-        }
-        HttpServletRequest loginKey = Stub(HttpServletRequest) {
-            getMethod() >> "POST"
-            getAttribute(_) >> null
-            getHeader("login_key") >> "k"
-            getHeader(_) >> { String n -> n == "login_key" ? "k" : null }
             getParameter(_) >> null
         }
         HttpServletRequest authed = Stub(HttpServletRequest) {
@@ -90,8 +94,8 @@ class LlmServletTests extends Specification {
         LlmGateway.csrfError(missing, "tok", true) == "Session token required (in X-CSRF-Token)"
         LlmGateway.csrfError(headerOk, "tok", true) == null
         LlmGateway.csrfError(headerOk, "other", true).contains("does not match")
-        LlmGateway.csrfError(basic, "tok", true) == null
-        LlmGateway.csrfError(loginKey, "tok", true) == null
+        LlmGateway.csrfError(dummyKey, "tok", true) == "Session token required (in X-CSRF-Token)"
+        LlmGateway.csrfError(dummyBasic, "tok", true) == "Session token required (in X-CSRF-Token)"
         LlmGateway.csrfError(authed, "tok", true) == null
         LlmGateway.csrfError(get, "tok", true) == null
         LlmGateway.csrfError(missing, "tok", false) == null
@@ -258,6 +262,91 @@ class LlmServletTests extends Specification {
         text.contains("event: done\n")
         text.contains("data: ")
     }
+
+    def "withoutCallerTx suspends an in-place JTA TX so call() does not fail-fast"() {
+        given:
+        def proto = new FakeLlmProtocol()
+        proto.results = [FakeLlmProtocol.stop("ok")]
+        AtomicBoolean tx = new AtomicBoolean(true)
+        TransactionFacade tf = Stub(TransactionFacade) {
+            isTransactionInPlace() >> { tx.get() }
+            suspend() >> { tx.set(false); true }
+            resume() >> { tx.set(true) }
+        }
+        ExecutionContext eci = Stub(ExecutionContext) {
+            getTransaction() >> tf
+        }
+        def client = new LlmClientImpl(null, LlmFacadeImpl.ProfileState.forTest("default", proto, "m", false, 2, 0f, 5),
+                { tx.get() })
+        when:
+        def r = LlmGateway.withoutCallerTx(eci) { client.user("hi").call() }
+        then:
+        r.content == "ok"
+        proto.chatCount == 1
+        tx.get()
+    }
+
+    def "resume with empty toolResults is still a resume of Yielded"() {
+        given:
+        def proto = new FakeLlmProtocol()
+        proto.results = [FakeLlmProtocol.stop("after")]
+        def conv = LlmConversationImpl.create(null, "default", null)
+        conv.@statusId = LlmConversationImpl.STATUS_YIELDED
+        conv.setPendingToolCallsInternal([new LlmToolCall("c1", "write_ui", '{}')])
+        def client = new LlmClientImpl(null, LlmFacadeImpl.ProfileState.forTest("default", proto, "m", false, 2, 0f, 5),
+                { false })
+        when:
+        def r = client.conversation(conv).markResumeFromYielded()
+                .tool(new GatewayRecordingTool("request")).call()
+        then:
+        r.content == "after"
+        conv.status == LlmConversationImpl.STATUS_COMPLETE
+        proto.lastRequest.window.find { it.role == LlmMessage.Role.TOOL && it.toolCallId == "c1" } != null
+        proto.lastRequest.window.find { it.role == LlmMessage.Role.TOOL && it.content.contains("missing") } != null
+    }
+
+    def "Yielded without resumeFromYielded is 409"() {
+        given:
+        def proto = new FakeLlmProtocol(failIfInvoked: true)
+        def conv = LlmConversationImpl.create(null, "default", null)
+        conv.@statusId = LlmConversationImpl.STATUS_YIELDED
+        def client = new LlmClientImpl(null, LlmFacadeImpl.ProfileState.forTest("default", proto, "m", false, 2, 0f, 5),
+                { false })
+        when:
+        client.conversation(conv).tool(new GatewayRecordingTool("request")).user("hi").call()
+        then:
+        LlmException e = thrown()
+        e.httpStatus == 409
+    }
+
+    def "cancel during server tool stays Cancelled and does not Complete"() {
+        given:
+        def proto = new FakeLlmProtocol()
+        proto.results = [
+                FakeLlmProtocol.toolCalls(new LlmToolCall("c1", "request", '{"method":"GET"}')),
+                FakeLlmProtocol.stop("should-not-run")
+        ]
+        def conv = LlmConversationImpl.create(null, "default", null)
+        def client = new LlmClientImpl(null, LlmFacadeImpl.ProfileState.forTest("default", proto, "m", false, 2, 0f, 5),
+                { false })
+        when:
+        client.conversation(conv).tool(new CancellingTool("request", conv)).user("hi").call()
+        then:
+        thrown(Exception)
+        conv.status == LlmConversationImpl.STATUS_CANCELLED
+        proto.chatCount == 1
+    }
+
+    def "setStatusInternal will not leave Cancelled"() {
+        given:
+        def conv = LlmConversationImpl.create(null, "default", null)
+        conv.@statusId = LlmConversationImpl.STATUS_CANCELLED
+        when:
+        conv.setStatusInternal(LlmConversationImpl.STATUS_COMPLETE)
+        conv.setStatusInternal(LlmConversationImpl.STATUS_YIELDED)
+        then:
+        conv.status == LlmConversationImpl.STATUS_CANCELLED
+    }
 }
 
 class GatewayRecordingTool implements LlmTool {
@@ -268,6 +357,23 @@ class GatewayRecordingTool implements LlmTool {
     @Override Map<String, Object> getParametersSchema() { return [type: "object", properties: [:]] }
     @Override LlmTool.Execution getExecution() { return LlmTool.Execution.SERVER }
     @Override Object execute(Map<String, Object> arguments, org.moqui.context.ExecutionContext ec) {
+        return [status: 200, json: [ok: true]]
+    }
+}
+
+class CancellingTool implements LlmTool {
+    final String name
+    final org.moqui.llm.LlmConversation conv
+    CancellingTool(String name, org.moqui.llm.LlmConversation conv) {
+        this.name = name
+        this.conv = conv
+    }
+    @Override String getName() { return name }
+    @Override String getDescription() { return name }
+    @Override Map<String, Object> getParametersSchema() { return [type: "object", properties: [:]] }
+    @Override LlmTool.Execution getExecution() { return LlmTool.Execution.SERVER }
+    @Override Object execute(Map<String, Object> arguments, org.moqui.context.ExecutionContext ec) {
+        conv.cancel()
         return [status: 200, json: [ok: true]]
     }
 }

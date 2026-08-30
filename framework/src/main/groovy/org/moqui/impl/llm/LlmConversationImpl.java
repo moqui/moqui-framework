@@ -382,6 +382,13 @@ public class LlmConversationImpl implements LlmConversation {
             logger.warn("Error aborting in-flight LLM stream for conversation " + conversationId, t);
         }
     }
+    private void clearCancelledFlag() {
+        if (ec == null || conversationId == null) return;
+        try {
+            if (ec.getLlm() instanceof LlmFacadeImpl)
+                ((LlmFacadeImpl) ec.getLlm()).clearCancelled(conversationId);
+        } catch (Throwable ignored) { }
+    }
 
     @Override
     public void persist() {
@@ -391,9 +398,26 @@ public class LlmConversationImpl implements LlmConversation {
         });
     }
 
+    /**
+     * FOR UPDATE: refuse to leave Cancelled so /cancel wins over persistSuccess/yield/complete.
+     */
     void setStatusInternal(String status) {
-        this.statusId = status;
-        updateHeader();
+        if (hasEntity(ec) && conversationId != null) {
+            EntityValue ev = ec.getEntity().find("moqui.llm.LlmConversation")
+                    .condition("conversationId", conversationId).forUpdate(true).useCache(false).one();
+            String dbStatus = ev != null ? ev.getString("statusId") : statusId;
+            if (STATUS_CANCELLED.equals(dbStatus) && !STATUS_CANCELLED.equals(status)) {
+                statusId = STATUS_CANCELLED;
+                return;
+            }
+            statusId = status;
+            if (ev != null) writeHeader(ev, false);
+            else updateHeader();
+        } else {
+            if (STATUS_CANCELLED.equals(statusId) && !STATUS_CANCELLED.equals(status)) return;
+            this.statusId = status;
+            updateHeader();
+        }
     }
 
     /**
@@ -403,6 +427,7 @@ public class LlmConversationImpl implements LlmConversation {
      */
     void beginTurnStreaming() { beginTurnStreaming(false); }
     void beginTurnStreaming(boolean resumeFromYielded) {
+        clearCancelledFlag();
         if (hasEntity(ec) && conversationId != null) {
             EntityValue ev = ec.getEntity().find("moqui.llm.LlmConversation")
                     .condition("conversationId", conversationId).forUpdate(true).useCache(false).one();

@@ -19,6 +19,9 @@ import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.context.ArtifactTarpitException;
 import org.moqui.context.ExecutionContext;
 import org.moqui.context.LlmFacade;
+import org.moqui.context.TransactionFacade;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.moqui.llm.LlmClient;
 import org.moqui.llm.LlmConversation;
 import org.moqui.llm.LlmException;
@@ -38,12 +41,14 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * Shared gateway logic for LlmServlet and Service REST wrappers.
  * Not a provider-key proxy: keys stay on the profile; tools are fail-closed.
  */
 public final class LlmGateway {
+    private static final Logger logger = LoggerFactory.getLogger(LlmGateway.class);
     private LlmGateway() { }
 
     public static final class Route {
@@ -103,7 +108,6 @@ public final class LlmGateway {
         if (!requireSessionToken) return null;
         if ("true".equals(request.getAttribute("moqui.request.authenticated"))) return null;
         if ("true".equals(request.getAttribute("moqui.session.token.created"))) return null;
-        if (isApiKeyOrBasic(request)) return null;
         if (sessionToken == null || sessionToken.isEmpty()) return null;
         String passed = request.getParameter("moquiSessionToken");
         if (passed == null || passed.isEmpty()) passed = request.getHeader("moquiSessionToken");
@@ -114,16 +118,6 @@ public final class LlmGateway {
         if (!sessionToken.equals(passed))
             return "Session token does not match (in X-CSRF-Token)";
         return null;
-    }
-
-    /** login_key / api_key / Basic — UserFacadeImpl sets moqui.request.authenticated only when WebFacade exists. */
-    public static boolean isApiKeyOrBasic(HttpServletRequest request) {
-        if (request == null) return false;
-        String authz = request.getHeader("Authorization");
-        if (authz != null && authz.length() > 6 && authz.regionMatches(true, 0, "Basic ", 0, 6)) return true;
-        String key = request.getHeader("login_key");
-        if (key == null || key.isBlank()) key = request.getHeader("api_key");
-        return key != null && !key.isBlank();
     }
 
     public static boolean wantsStream(Map<String, Object> body, String accept) {
@@ -262,17 +256,44 @@ public final class LlmGateway {
         Object maxTok = body.get("maxTokens");
         if (maxTok instanceof Number) impl.maxTokens(((Number) maxTok).intValue());
 
-        if (resume) impl.toolResults(parseToolResults(body.get("toolResults")));
+        if (resume) {
+            impl.markResumeFromYielded();
+            impl.toolResults(parseToolResults(body.get("toolResults")));
+        }
         return impl;
     }
 
+    /**
+     * Service REST /s1 begins a screen TX; LlmClient.call() fail-fasts if any JTA TX is in place (K11).
+     * Suspend the caller TX for the whole prepare+call, then resume. Do not set allow-tx-over-http.
+     */
+    public static <T> T withoutCallerTx(ExecutionContext ec, Supplier<T> work) {
+        if (work == null) return null;
+        if (ec == null || ec.getTransaction() == null) return work.get();
+        TransactionFacade tf = ec.getTransaction();
+        boolean suspended = false;
+        try {
+            if (tf.isTransactionInPlace()) suspended = tf.suspend();
+            return work.get();
+        } finally {
+            if (suspended) {
+                try { tf.resume(); }
+                catch (Throwable t) { logger.error("Error resuming transaction after LLM gateway call", t); }
+            }
+        }
+    }
+
     public static Map<String, Object> chat(ExecutionContext ec, Map<String, Object> body) {
-        LlmClientImpl client = prepareClient(ec, body, false);
-        return responseToMap(client.call());
+        return withoutCallerTx(ec, () -> {
+            LlmClientImpl client = prepareClient(ec, body, false);
+            return responseToMap(client.call());
+        });
     }
     public static Map<String, Object> resume(ExecutionContext ec, Map<String, Object> body) {
-        LlmClientImpl client = prepareClient(ec, body, true);
-        return responseToMap(client.call());
+        return withoutCallerTx(ec, () -> {
+            LlmClientImpl client = prepareClient(ec, body, true);
+            return responseToMap(client.call());
+        });
     }
 
     /**
