@@ -669,15 +669,18 @@ class LlmClientTests extends Specification {
         RequestTool.validatePath("http://evil") != null
         RequestTool.validatePath("//evil") != null
         RequestTool.validatePath("/foo/../bar") != null
+        RequestTool.validatePath("/foo/%2e%2e%2fsecret") != null
         RequestTool.validatePath("/rest/s1/moqui") == null
         when:
         def http = spy.execute([method: "GET", path: "http://evil"], null)
         def slash = spy.execute([method: "GET", path: "//evil.host/x"], null)
         def dotdot = spy.execute([method: "GET", path: "/foo/../secret"], null)
+        def encoded = spy.execute([method: "GET", path: "/foo/%2e%2e%2fsecret"], null)
         then:
         http.status == 400
         slash.status == 400
         dotdot.status == 400
+        encoded.status == 400
         !rendered
     }
 
@@ -708,6 +711,19 @@ class LlmClientTests extends Specification {
         ServiceCallTool.encodeFunctionName("a.b#c") == "s_a_pb_nc"
         ServiceCallTool.encodeFunctionName("a#b.c") == "s_a_nb_pc"
         ServiceCallTool.encodeFunctionName("a.b#c") != ServiceCallTool.encodeFunctionName("a#b.c")
+        when:
+        def cleaned = ServiceCallTool.sanitizeArguments([
+                foo: 1, authUsername: "eve", authPassword: "secret",
+                authUserAccount: [username: "eve", currentPassword: "secret"],
+                nested: [authUsername: "eve", keep: true]
+        ])
+        then:
+        cleaned.foo == 1
+        !cleaned.containsKey("authUsername")
+        !cleaned.containsKey("authPassword")
+        !cleaned.containsKey("authUserAccount")
+        cleaned.nested.keep == true
+        !cleaned.nested.containsKey("authUsername")
         when:
         String longName = "org.moqui.impl.ReallyQuiteLongServiceNameThatExceedsLimit.do#SomethingExtra"
         LlmTool.service(longName)
@@ -797,24 +813,42 @@ class LlmClientTests extends Specification {
                 .content.contains("client tool not available")
     }
 
+    def "maxIterations throws MAX_ITERATIONS and leaves conversation Active"() {
+        given:
+        def proto = new FakeLlmProtocol()
+        proto.results = [FakeLlmProtocol.toolCalls(new LlmToolCall("c1", "request", "{}"))]
+        LlmTool server = new RecordingTool("request")
+        def conv = LlmConversationImpl.create(null, "default", null)
+        when:
+        client(proto).conversation(conv).tool(server).maxIterations(1).user("loop").call()
+        then:
+        LlmException e = thrown()
+        e.reason == LlmFinishReason.MAX_ITERATIONS
+        conv.status == LlmConversationImpl.STATUS_ACTIVE
+    }
+
     def "write_ui enricher strips html widgets and password hidden fields"() {
         given:
         WriteUiTool tool = new WriteUiTool()
         when:
         def enriched = tool.enrichForClient([
                 title: "<script>x</script>Hi",
+                extraTop: "<script>x</script>",
                 fields: [
-                        [name: "ok", widget: "text-line", label: "<b>Name</b>"],
+                        [name: "ok", widget: "text-line", label: "<b>Name</b>", extraHtml: "<img>"],
                         [name: "bad", widget: "html"],
                         [name: "password", widget: "hidden"],
+                        [name: "newPassword", widget: "hidden"],
                         [name: "when", widget: "date"]
                 ]
         ], null)
         then:
         !enriched.title.contains("<script>")
+        !enriched.containsKey("extraTop")
         enriched.fields.size() == 2
         enriched.fields[0].name == "ok"
         !enriched.fields[0].label.contains("<b>")
+        !enriched.fields[0].containsKey("extraHtml")
         enriched.fields[1].name == "when"
         enriched.fields[1].widget == "date-time"
         enriched.fields[1].widgetType == "date"

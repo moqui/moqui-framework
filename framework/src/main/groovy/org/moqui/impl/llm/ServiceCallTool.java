@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -38,9 +39,15 @@ import java.util.regex.Pattern;
 public class ServiceCallTool implements LlmTool {
     private static final Pattern ALIAS = Pattern.compile("^[a-zA-Z0-9_-]{1,64}$");
     private static final int MAX_NAME = 64;
-    /** Copy of EntityAutoServiceRunner.otherFieldsToSkip (Groovy field not visible to javac stubs). */
-    private static final Set<String> SKIP_FIELDS =
-            new HashSet<>(Arrays.asList("ec", "_entity", "authUsername", "authPassword"));
+    /** EntityAutoServiceRunner.otherFieldsToSkip plus login-switch keys ServiceCallSyncImpl reads before validate. */
+    static final Set<String> SKIP_FIELDS = new HashSet<>(Arrays.asList(
+            "ec", "_entity", "authUsername", "authPassword", "authUserAccount", "currentPassword"));
+    private static final Set<String> SKIP_FIELDS_CI;
+    static {
+        Set<String> ci = new HashSet<>();
+        for (String s : SKIP_FIELDS) ci.add(s.toLowerCase(Locale.ROOT));
+        SKIP_FIELDS_CI = ci;
+    }
 
     private final String serviceName;
     private final String functionName;
@@ -136,8 +143,35 @@ public class ServiceCallTool implements LlmTool {
     public Object execute(Map<String, Object> arguments, ExecutionContext ec) {
         if (ec == null || ec.getService() == null)
             return error("no ExecutionContext for service call");
-        Map<String, Object> in = arguments != null ? arguments : Collections.emptyMap();
+        Map<String, Object> in = sanitizeArguments(arguments);
         return ec.getService().sync().name(serviceName).parameters(in).call();
+    }
+
+    /** Drop login-switch and other skip fields from tool args (do not trust the JSON Schema). */
+    @SuppressWarnings("unchecked")
+    static Map<String, Object> sanitizeArguments(Map<String, Object> arguments) {
+        if (arguments == null || arguments.isEmpty()) return Collections.emptyMap();
+        Map<String, Object> out = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> e : arguments.entrySet()) {
+            if (isSkipKey(e.getKey())) continue;
+            Object v = e.getValue();
+            if (v instanceof Map) out.put(e.getKey(), sanitizeArguments((Map<String, Object>) v));
+            else if (v instanceof List) {
+                List<Object> list = new ArrayList<>();
+                for (Object item : (List<?>) v) {
+                    if (item instanceof Map) list.add(sanitizeArguments((Map<String, Object>) item));
+                    else list.add(item);
+                }
+                out.put(e.getKey(), list);
+            } else out.put(e.getKey(), v);
+        }
+        return out;
+    }
+
+    static boolean isSkipKey(String key) {
+        if (key == null || key.isEmpty()) return false;
+        if (SKIP_FIELDS.contains(key)) return true;
+        return SKIP_FIELDS_CI.contains(key.toLowerCase(Locale.ROOT));
     }
 
     static Map<String, Object> error(String message) {

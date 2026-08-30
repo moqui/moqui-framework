@@ -331,7 +331,8 @@ public class LlmClientImpl implements LlmClient {
             }
         } catch (Throwable t) {
             cancelled = LlmConversationImpl.isCancelThrowable(t);
-            if (streamingWasPersisted && conversation != null) {
+            // MAX_ITERATIONS already wrote Active so the caller can continue; do not overwrite with Failed.
+            if (streamingWasPersisted && conversation != null && !isMaxIterations(t)) {
                 try { persistFailure(lastResult, start, t); }
                 catch (Throwable persistErr) {
                     logger.error("Error persisting LLM Failed/Cancelled for conversation " + convId(), persistErr);
@@ -372,6 +373,7 @@ public class LlmClientImpl implements LlmClient {
 
     private void persistFailure(ProtocolResult result, long start, Throwable t) {
         if (conversation == null) return;
+        if (isMaxIterations(t)) return;
         boolean cancelled = LlmConversationImpl.isCancelThrowable(t);
         String status = cancelled ? LlmConversationImpl.STATUS_CANCELLED : LlmConversationImpl.STATUS_FAILED;
         conversation.persistIsolated(() -> {
@@ -484,6 +486,10 @@ public class LlmClientImpl implements LlmClient {
     }
 
     private static String nvl(String v, String def) { return v == null || v.isBlank() ? def : v; }
+
+    static boolean isMaxIterations(Throwable t) {
+        return t instanceof LlmException && ((LlmException) t).getReason() == LlmFinishReason.MAX_ITERATIONS;
+    }
 
     private static UnsupportedOperationException uoe(String method) {
         return new UnsupportedOperationException("LlmClient." + method + " is not yet implemented");

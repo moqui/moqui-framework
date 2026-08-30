@@ -144,13 +144,21 @@ public class RequestTool implements LlmTool {
             String decoded;
             try { decoded = URLDecoder.decode(raw, StandardCharsets.UTF_8.name()); }
             catch (Exception e) { decoded = raw; }
-            if ("..".equals(decoded)) throw new IllegalArgumentException("path must not contain .. segments");
+            if (isDotDotSegment(decoded))
+                throw new IllegalArgumentException("path must not contain .. segments");
             segments.add(decoded);
         }
         if (segments.isEmpty()) throw new IllegalArgumentException("path must start with / (no host)");
         String first = segments.get(0);
         if (first.indexOf(':') >= 0) throw new IllegalArgumentException("path must not contain a host");
         return segments;
+    }
+
+    /** Exact {@code ..}, encoded leftover {@code ../…}, or a slash inside a segment. */
+    static boolean isDotDotSegment(String decoded) {
+        if (decoded == null || decoded.isEmpty()) return false;
+        if ("..".equals(decoded) || decoded.startsWith("..")) return true;
+        return decoded.indexOf('/') >= 0 || decoded.indexOf('\\') >= 0;
     }
 
     public boolean isPathAllowed(String normalizedPath, String method) {

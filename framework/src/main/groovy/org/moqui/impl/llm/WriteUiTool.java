@@ -41,7 +41,16 @@ public class WriteUiTool implements LlmTool {
     static final Set<String> DATE_TYPES = new LinkedHashSet<>(Arrays.asList(
             "timestamp", "date-time", "date", "time"));
     static final Set<String> HIDDEN_FORBIDDEN = new LinkedHashSet<>(Arrays.asList(
-            "password", "currentpassword"));
+            "password", "currentpassword", "newpassword", "passwordverify", "confirmpassword"));
+    static final Set<String> FIELD_KEYS = new LinkedHashSet<>(Arrays.asList(
+            "name", "label", "help", "widget", "widgetType", "required", "defaultValue",
+            "options", "entityName", "entityField", "entityFindOptions"));
+    static final Set<String> OPTION_KEYS = new LinkedHashSet<>(Arrays.asList("key", "text"));
+    static final Set<String> TOP_KEYS = new LinkedHashSet<>(Arrays.asList(
+            "title", "instruction", "submitLabel", "cancelLabel", "formId", "prefill", "fields",
+            "schemaVersion", "prefillError"));
+    static final Set<String> PREFILL_KEYS = new LinkedHashSet<>(Arrays.asList(
+            "entityName", "pk", "fromConversation"));
     static final Map<String, Object> SCHEMA;
     static {
         Map<String, Object> widget = new LinkedHashMap<>();
@@ -158,8 +167,8 @@ public class WriteUiTool implements LlmTool {
                 if (wt != null && !DATE_TYPES.contains(wt)) field.remove("widgetType");
                 sanitizeString(field, "label");
                 sanitizeString(field, "help");
-                if (field.get("defaultValue") instanceof String)
-                    field.put("defaultValue", clean((String) field.get("defaultValue")));
+                if (field.get("defaultValue") instanceof CharSequence)
+                    field.put("defaultValue", clean(field.get("defaultValue").toString()));
                 Object options = field.get("options");
                 if (options instanceof List) {
                     List<Map<String, Object>> cleanOpts = new ArrayList<>();
@@ -168,18 +177,18 @@ public class WriteUiTool implements LlmTool {
                         Map<String, Object> om = deepCopy((Map<String, Object>) opt);
                         sanitizeString(om, "text");
                         sanitizeString(om, "key");
-                        cleanOpts.add(om);
+                        cleanOpts.add(keepKeys(om, OPTION_KEYS));
                     }
                     field.put("options", cleanOpts);
                 }
-                kept.add(field);
+                kept.add(keepKeys(field, FIELD_KEYS));
             }
         }
         out.put("fields", kept);
 
         Object prefillObj = out.get("prefill");
         if (prefillObj instanceof Map) {
-            Map<String, Object> prefill = (Map<String, Object>) prefillObj;
+            Map<String, Object> prefill = keepKeys(deepCopy((Map<String, Object>) prefillObj), PREFILL_KEYS);
             String entityName = str(prefill.get("entityName"));
             Object pkObj = prefill.get("pk");
             if (entityName != null && !entityName.isBlank() && pkObj instanceof Map) {
@@ -187,11 +196,14 @@ public class WriteUiTool implements LlmTool {
                     out.remove("prefill");
                     out.put("prefillError", "entity not allowed");
                 } else {
+                    out.put("prefill", prefill);
                     applyPrefill(out, kept, entityName, (Map<String, Object>) pkObj, ec);
                 }
+            } else {
+                out.put("prefill", prefill);
             }
         }
-        return out;
+        return keepKeys(out, TOP_KEYS);
     }
 
     @SuppressWarnings("unchecked")
@@ -232,7 +244,15 @@ public class WriteUiTool implements LlmTool {
     }
     static void sanitizeString(Map<String, Object> map, String key) {
         Object v = map.get(key);
-        if (v instanceof String) map.put(key, clean((String) v));
+        if (v instanceof CharSequence) map.put(key, clean(v.toString()));
+    }
+    static Map<String, Object> keepKeys(Map<String, Object> in, Set<String> keys) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        if (in == null) return out;
+        for (String k : keys) {
+            if (in.containsKey(k)) out.put(k, in.get(k));
+        }
+        return out;
     }
     static String str(Object o) { return o == null ? null : o.toString(); }
     static Map<String, Object> mapOf(String k, Object v) {

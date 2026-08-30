@@ -18,6 +18,7 @@ import org.moqui.context.WebFacade
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.UserFacadeImpl
 import org.moqui.impl.llm.RequestTool
+import org.moqui.impl.llm.ServiceCallTool
 import org.moqui.impl.screen.WebFacadeStub
 import org.moqui.llm.LlmTool
 import spock.lang.IgnoreIf
@@ -134,5 +135,17 @@ class LlmRequestToolTests extends Specification {
         after.requestParameters.marker == "outer"
         cleanup:
         eci.clearWebFacade()
+    }
+
+    def "service tool does not switch user via authUsername authPassword"() {
+        given:
+        LlmTool tool = LlmTool.service("org.moqui.impl.LlmServices.clean#LlmData", "clean_llm")
+        String before = ec.user.username
+        when:
+        tool.execute([daysToKeep: 36500, authUsername: "llm.noauth", authPassword: "moqui",
+                authUserAccount: [username: "llm.noauth", currentPassword: "moqui"]], ec)
+        then:
+        ec.user.username == before
+        !ServiceCallTool.sanitizeArguments([authUsername: "x", foo: 1]).containsKey("authUsername")
     }
 }
