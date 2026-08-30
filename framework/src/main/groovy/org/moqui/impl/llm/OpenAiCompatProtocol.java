@@ -65,7 +65,6 @@ public class OpenAiCompatProtocol implements LlmProtocol {
                 .timeout(request.timeoutSeconds != null && request.timeoutSeconds > 0 ? request.timeoutSeconds : 120)
                 .retry(request.retryInitialSeconds > 0 ? request.retryInitialSeconds : 2.0f,
                         request.retryMax >= 0 ? request.retryMax : 5)
-                .timeoutRetry(request.timeoutRetry)
                 .redactHeaders(redactHeaderNames(request))
                 .text(json);
         if (request.requestFactory != null) restClient.withRequestFactory(request.requestFactory);
@@ -77,10 +76,10 @@ public class OpenAiCompatProtocol implements LlmProtocol {
         } catch (BaseException e) {
             ProtocolResult err = new ProtocolResult(LlmFinishReason.ERROR);
             err.errorMessage = e.getMessage();
-            // Timeout retry is Layer A (RestClient.timeoutRetry). Layer B must not retry
-            // timeouts: if RestClient later propagates TimeoutException to call(), Layer A
-            // would already have retried retryMax times.
-            err.retryable = false;
+            // RestClient.callInternal wraps TimeoutException in BaseException, so
+            // RestClient.timeoutRetry never runs. Layer B owns timeout retry until that
+            // propagates. Do not also call timeoutRetry() here (would double-retry).
+            err.retryable = request.timeoutRetry && isTimeout(e);
             if (logger.isDebugEnabled()) logger.debug("LLM HTTP call failed for profile " + request.profileName, e);
             return err;
         }
@@ -278,5 +277,15 @@ public class OpenAiCompatProtocol implements LlmProtocol {
     static String escapeAttr(String s) {
         if (s == null || s.isEmpty()) return "";
         return s.replace("&", "&amp;").replace("\"", "&quot;").replace("<", "&lt;");
+    }
+
+    static boolean isTimeout(Throwable t) {
+        while (t != null) {
+            if (t instanceof java.util.concurrent.TimeoutException) return true;
+            String msg = t.getMessage();
+            if (msg != null && msg.toLowerCase().contains("timeout")) return true;
+            t = t.getCause();
+        }
+        return false;
     }
 }
