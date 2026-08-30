@@ -52,7 +52,7 @@ public final class LlmGateway {
     private LlmGateway() { }
 
     public static final class Route {
-        public enum Op { CHAT, RESUME, CANCEL, GET_CONVERSATION, GET_PROFILES }
+        public enum Op { CHAT, RESUME, CANCEL, GET_CONVERSATION, LIST_CONVERSATIONS, GET_PROFILES }
         public final Op op;
         public final String conversationId;
         public Route(Op op, String conversationId) {
@@ -63,7 +63,7 @@ public final class LlmGateway {
             return op == Op.CHAT || op == Op.RESUME || op == Op.CANCEL;
         }
         public boolean isGet() {
-            return op == Op.GET_CONVERSATION || op == Op.GET_PROFILES;
+            return op == Op.GET_CONVERSATION || op == Op.LIST_CONVERSATIONS || op == Op.GET_PROFILES;
         }
     }
 
@@ -87,6 +87,7 @@ public final class LlmGateway {
             return null;
         }
         if ("conversations".equals(p[1])) {
+            if (p.length == 2) return new Route(Route.Op.LIST_CONVERSATIONS, null);
             if (p.length == 3) return new Route(Route.Op.GET_CONVERSATION, p[2]);
             if (p.length == 4 && "cancel".equals(p[3])) return new Route(Route.Op.CANCEL, p[2]);
             return null;
@@ -138,7 +139,7 @@ public final class LlmGateway {
     }
 
     /**
-     * Request tools may only subset {request, write_ui}. write-ui is accepted as write_ui.
+     * Request tools may only subset {request, write_ui, browse, run_service}. write-ui is accepted as write_ui.
      * Unknown names are 400, not silently ignored.
      */
     public static List<String> parseTools(Object tools) {
@@ -153,14 +154,15 @@ public final class LlmGateway {
                 if (o != null && !o.toString().isBlank()) names.add(o.toString().trim());
             }
         } else {
-            throw new LlmException("tools must be a list of request/write_ui",
+            throw new LlmException("tools must be a list of request/write_ui/browse/run_service",
                     null, LlmFinishReason.ERROR, 400, null, null);
         }
         Set<String> seen = new LinkedHashSet<>();
         for (String raw : names) {
             String n = "write-ui".equals(raw) ? "write_ui" : raw;
-            if (!"request".equals(n) && !"write_ui".equals(n))
-                throw new LlmException("tools may only subset {request, write_ui}",
+            if ("run-service".equals(n)) n = "run_service";
+            if (!"request".equals(n) && !"write_ui".equals(n) && !"browse".equals(n) && !"run_service".equals(n))
+                throw new LlmException("tools may only subset {request, write_ui, browse, run_service}",
                         null, LlmFinishReason.ERROR, 400, null, null);
             seen.add(n);
         }
@@ -168,11 +170,17 @@ public final class LlmGateway {
     }
 
     /**
-     * Fail-closed: empty allowed-path ⇒ no request tool (K19). Internal LlmTool.request() without
-     * prefixes still means any path the user is authorized to hit; the servlet never takes that path.
+     * Fail-closed: empty allowed-path ⇒ no request tool (K19), unless allow-unprefixed-request.
+     * Internal LlmTool.request() without prefixes still means any path the user is authorized to hit.
      */
     public static LlmTool requestToolForServlet(List<LlmFacadeImpl.AllowedPath> allowedPaths) {
-        if (allowedPaths == null || allowedPaths.isEmpty()) return null;
+        return requestToolForServlet(allowedPaths, false);
+    }
+    public static LlmTool requestToolForServlet(List<LlmFacadeImpl.AllowedPath> allowedPaths,
+            boolean allowUnprefixed) {
+        if (allowedPaths == null || allowedPaths.isEmpty()) {
+            return allowUnprefixed ? new RequestTool() : null;
+        }
         RequestTool rt = new RequestTool();
         for (LlmFacadeImpl.AllowedPath ap : allowedPaths) {
             if (ap != null) rt.addAllowedPath(ap.prefix, ap.methodsCsv);
@@ -184,14 +192,22 @@ public final class LlmGateway {
         if (client == null || tools == null || tools.isEmpty()) return;
         boolean wantRequest = tools.contains("request");
         boolean wantWriteUi = tools.contains("write_ui");
+        boolean wantBrowse = tools.contains("browse");
+        boolean wantRunService = tools.contains("run_service");
         if (wantRequest) {
-            LlmTool rt = requestToolForServlet(profile != null ? profile.allowedPaths : null);
+            boolean unprefixed = profile != null && profile.allowUnprefixedRequest;
+            LlmTool rt = requestToolForServlet(profile != null ? profile.allowedPaths : null, unprefixed);
             if (rt != null) client.tool(rt);
         }
         if (wantWriteUi && profile != null && profile.allowWriteUi) {
-            client.tool(LlmTool.writeUi());
+            WriteUiTool wt = new WriteUiTool();
+            if (profile.allowUnprefixedRequest && (profile.allowedEntities == null || profile.allowedEntities.isEmpty()))
+                wt.setAllowAnyAuthorizedEntity(true);
+            client.tool(wt);
             client.allowClientTools(true);
         }
+        if (wantBrowse && profile != null && profile.allowBrowse) client.tool(LlmTool.browse());
+        if (wantRunService && profile != null && profile.allowRunService) client.tool(LlmTool.runService());
     }
 
     public static LlmClientImpl prepareClient(ExecutionContext ec, Map<String, Object> body, boolean resume) {
@@ -219,6 +235,8 @@ public final class LlmGateway {
             Map<String, Object> attrs = new LinkedHashMap<>();
             String canvasId = str(body.get("canvasId"));
             if (canvasId != null) attrs.put("canvasId", canvasId);
+            String purpose = str(body.get("purpose"));
+            if (purpose != null) attrs.put("purpose", purpose);
             LlmConversation conv = facade.createConversation(profileName, attrs.isEmpty() ? null : attrs);
             impl.conversation(conv);
         }
@@ -234,8 +252,7 @@ public final class LlmGateway {
             }
         }
 
-        String system = str(body.get("system"));
-        if (system != null) impl.system(system);
+        applySystem(impl, body);
         String user = str(body.get("user"));
         if (user != null) impl.user(user);
 
@@ -251,6 +268,7 @@ public final class LlmGateway {
 
         attachServletTools(impl, impl.profile, parseTools(body.get("tools")));
 
+
         Object temp = body.get("temperature");
         if (temp instanceof Number) impl.temperature(((Number) temp).doubleValue());
         Object maxTok = body.get("maxTokens");
@@ -261,6 +279,33 @@ public final class LlmGateway {
             impl.toolResults(parseToolResults(body.get("toolResults")));
         }
         return impl;
+    }
+
+    /**
+     * Profile system-location wins. If allow-client-system is false, body.system is ignored.
+     */
+    static void applySystem(LlmClientImpl impl, Map<String, Object> body) {
+        LlmFacadeImpl.ProfileState profile = impl != null ? impl.profile : null;
+        if (profile != null && profile.systemLocation != null && !profile.systemLocation.isBlank()) {
+            String text = loadSystemText(impl.ec, profile.systemLocation);
+            if (text != null && !text.isBlank()) impl.system(text);
+            return;
+        }
+        boolean allowClient = profile == null || profile.allowClientSystem;
+        if (!allowClient) return;
+        String system = str(body != null ? body.get("system") : null);
+        if (system != null) impl.system(system);
+    }
+
+    static String loadSystemText(ExecutionContext ec, String location) {
+        if (location == null || location.isBlank()) return null;
+        try {
+            if (ec != null && ec.getResource() != null)
+                return ec.getResource().getLocationText(location, true);
+        } catch (Throwable t) {
+            logger.warn("Could not load LLM system-location {}: {}", location, t.getMessage());
+        }
+        return null;
     }
 
     /**
@@ -337,6 +382,47 @@ public final class LlmGateway {
         return out;
     }
 
+    /**
+     * Owner's conversations, newest first. ADMIN may list all. Optional profile and purpose (attributes.purpose).
+     */
+    public static List<Map<String, Object>> listConversations(ExecutionContext ec, String profile, String purpose) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        if (ec == null || ec.getEntity() == null || ec.getUser() == null) return out;
+        String userId = ec.getUser().getUserId();
+        boolean admin = ec.getUser().isInGroup("ADMIN");
+        boolean authzWasDisabled = ec.getArtifactExecution().disableAuthz();
+        org.moqui.entity.EntityList list;
+        try {
+            org.moqui.entity.EntityFind find = ec.getEntity().find("moqui.llm.LlmConversation")
+                    .orderBy("-lastMessageDate").limit(50);
+            if (!admin) find.condition("userId", userId);
+            if (profile != null && !profile.isBlank()) find.condition("profileName", profile.trim());
+            list = find.list();
+        } finally {
+            if (!authzWasDisabled) ec.getArtifactExecution().enableAuthz();
+        }
+        if (list == null) return out;
+        for (org.moqui.entity.EntityValue ev : list) {
+            if (ev == null) continue;
+            Map<String, Object> attrs = LlmJson.tryToMap(ev.getString("attributesJson"));
+            if (purpose != null && !purpose.isBlank()) {
+                String p = attrs != null ? str(attrs.get("purpose")) : null;
+                if (!purpose.equals(p)) continue;
+            }
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("conversationId", ev.getString("conversationId"));
+            row.put("profileName", ev.getString("profileName"));
+            row.put("userId", ev.getString("userId"));
+            row.put("status", ev.getString("statusId"));
+            row.put("title", ev.getString("title"));
+            row.put("lastMessageDate", ev.get("lastMessageDate"));
+            row.put("messageCount", ev.get("messageCount"));
+            row.put("attributes", attrs != null ? attrs : new LinkedHashMap<>());
+            out.add(row);
+        }
+        return out;
+    }
+
     /** Profiles the current user is authorized to use (AT_LLM VIEW). Names + model, never keys. */
     public static List<Map<String, Object>> listProfiles(ExecutionContext ec) {
         LlmFacade facade = ec.getLlm();
@@ -352,6 +438,13 @@ public final class LlmGateway {
                 LlmFacadeImpl.ProfileState ps = facade instanceof LlmFacadeImpl
                         ? ((LlmFacadeImpl) facade).getProfileState(name) : null;
                 row.put("model", ps != null ? ps.model : null);
+                if (ps != null) {
+                    row.put("allowWriteUi", ps.allowWriteUi);
+                    row.put("allowBrowse", ps.allowBrowse);
+                    row.put("allowRunService", ps.allowRunService);
+                    row.put("allowUnprefixedRequest", ps.allowUnprefixedRequest);
+                    row.put("allowClientSystem", ps.allowClientSystem);
+                }
                 out.add(row);
             } catch (ArtifactAuthorizationException ignored) {
                 // skip profiles the user cannot VIEW

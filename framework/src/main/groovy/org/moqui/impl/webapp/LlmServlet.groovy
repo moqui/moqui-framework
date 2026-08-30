@@ -124,6 +124,10 @@ class LlmServlet extends HttpServlet {
                 case LlmGateway.Route.Op.GET_PROFILES:
                     sendJson(response, 200, [profiles: LlmGateway.listProfiles(ec)])
                     return
+                case LlmGateway.Route.Op.LIST_CONVERSATIONS:
+                    sendJson(response, 200, [conversations: LlmGateway.listConversations(ec,
+                            request.getParameter("profile"), request.getParameter("purpose"))])
+                    return
                 case LlmGateway.Route.Op.GET_CONVERSATION:
                     sendJson(response, 200, LlmGateway.getConversationMap(ec, route.conversationId))
                     return

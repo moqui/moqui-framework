@@ -451,7 +451,7 @@
         <!-- No allowed-path: servlet does not attach the request tool. Add prefixes in runtime conf, e.g.:
              <allowed-path prefix="/rest/s1/mantle/" methods="GET,POST,PUT,PATCH,DELETE"/>
              <allowed-path prefix="/qapps/mantle/" methods="GET"/>
-             Universal Screen profiles should usually be GET-only on screen prefixes. -->
+             Assist profile (tools component) sets allow-unprefixed-request instead. -->
     </llm-facade>
 
     <entity-facade default-group-name="transactional" entity-eca-enabled="true" sequenced-id-prefix=""

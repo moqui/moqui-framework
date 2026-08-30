@@ -1,0 +1,538 @@
+/*
+ * This software is in the public domain under CC0 1.0 Universal plus a
+ * Grant of Patent License.
+ *
+ * To the extent possible under law, the author(s) have dedicated all
+ * copyright and related and neighboring rights to this software to the
+ * public domain worldwide. This software is distributed without any
+ * warranty.
+ *
+ * You should have received a copy of the CC0 Public Domain Dedication
+ * along with this software (see the LICENSE.md file). If not, see
+ * <http://creativecommons.org/publicdomain/zero/1.0/>.
+ */
+package org.moqui.impl.llm
+
+import groovy.transform.CompileStatic
+import org.moqui.context.ArtifactAuthorizationException
+import org.moqui.context.ArtifactExecutionInfo
+import org.moqui.context.ExecutionContext
+import org.moqui.impl.entity.EntityDefinition
+import org.moqui.impl.context.ArtifactExecutionInfoImpl
+import org.moqui.impl.context.ExecutionContextImpl
+import org.moqui.impl.entity.EntityFacadeImpl
+import org.moqui.impl.screen.ScreenDefinition
+import org.moqui.impl.screen.ScreenDefinition.SubscreensItem
+import org.moqui.impl.screen.ScreenDefinition.TransitionItem
+import org.moqui.impl.screen.ScreenFacadeImpl
+import org.moqui.impl.service.RestApi
+import org.moqui.impl.service.RestApi.PathNode
+import org.moqui.impl.service.RestApi.ResourceNode
+import org.moqui.impl.service.ServiceDefinition
+import org.moqui.impl.service.ServiceFacadeImpl
+import org.moqui.llm.LlmTool
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
+
+import java.util.regex.Pattern
+
+/**
+ * SERVER catalog tool: directory listing of screens, REST, services, and entities the current user can VIEW.
+ * Default depth 1. Never disableAuthz.
+ */
+@CompileStatic
+class BrowseTool implements LlmTool {
+    private static final Logger logger = LoggerFactory.getLogger(BrowseTool.class)
+    static final String NAME = "browse"
+    static final int MAX_CHILDREN = 100
+    static final int MAX_DEPTH = 3
+    static final int MAX_MATCH_LEN = 200
+    static final Set<String> SKIP_TRANSITIONS = new HashSet<>(
+            Arrays.asList("formSelectColumns", "formSaveFind", "screenDoc"))
+    private static final Map<String, Object> SCHEMA
+    static {
+        Map<String, Object> props = new LinkedHashMap<>()
+        props.put("path", [type:"string", description:
+                "Virtual catalog path. Empty or / lists roots: /qapps, /apps, /rest, /services, /entities"] as Map)
+        props.put("match", [type:"string", description:
+                "Optional case-insensitive regex on child name/title"] as Map)
+        props.put("depth", [type:"integer", description:
+                "1 = this directory only (default). 2-3 search descendants. Cap 3"] as Map)
+        props.put("detail", [type:"boolean", description:
+                "If path is a leaf, return parameters/fields/methods"] as Map)
+        Map<String, Object> schema = new LinkedHashMap<>()
+        schema.put("type", "object")
+        schema.put("properties", props)
+        SCHEMA = Collections.unmodifiableMap(schema)
+    }
+
+    @Override String getName() { return NAME }
+    @Override String getDescription() {
+        return "Browse screens, REST, services, and entities the current user is authorized to view. " +
+                "Directory listing, 1 level deep by default. Roots: /qapps (prefer), /apps, /rest (s1/e1/m1), " +
+                "/services (package.verb#noun), /entities (package). Use match to search. Set detail=true on a leaf."
+    }
+    @Override Map<String, Object> getParametersSchema() { return SCHEMA }
+    @Override Execution getExecution() { return Execution.SERVER }
+
+    @Override
+    Object execute(Map<String, Object> arguments, ExecutionContext ec) {
+        Map<String, Object> args = arguments != null ? arguments : Collections.emptyMap()
+        String path = str(args.get("path"))
+        if (path == null || path.isBlank()) path = "/"
+        path = normalizePath(path)
+        String match = str(args.get("match"))
+        Pattern matchPat = null
+        if (match != null && !match.isBlank()) {
+            if (match.length() > MAX_MATCH_LEN) return error("match exceeds ${MAX_MATCH_LEN} characters")
+            try {
+                matchPat = Pattern.compile(match, Pattern.CASE_INSENSITIVE)
+            } catch (Throwable t) {
+                return error("invalid match regex: " + t.getMessage())
+            }
+        }
+        int depth = intVal(args.get("depth"), 1)
+        if (depth < 1) depth = 1
+        if (depth > MAX_DEPTH) depth = MAX_DEPTH
+        boolean detail = boolVal(args.get("detail"))
+
+        List<String> segs = splitPath(path)
+        if (segs.isEmpty()) return roots(matchPat)
+
+        String root = segs.get(0)
+        if (ec == null && !isRootOnly(segs)) return error("no ExecutionContext for browse")
+        try {
+            if ("qapps".equals(root) || "apps".equals(root) || "vapps".equals(root))
+                return browseScreens(ec, "/" + root, segs.subList(1, segs.size()), matchPat, depth, detail)
+            if ("rest".equals(root))
+                return browseRest(ec, segs.subList(1, segs.size()), matchPat, depth, detail)
+            if ("services".equals(root))
+                return browseServices(ec, segs.subList(1, segs.size()), matchPat, depth, detail)
+            if ("entities".equals(root))
+                return browseEntities(ec, segs.subList(1, segs.size()), matchPat, depth, detail)
+            return error("unknown catalog root: /" + root)
+        } catch (ArtifactAuthorizationException e) {
+            return errorStatus(403, e.getMessage())
+        } catch (Throwable t) {
+            logger.warn("browse failed for path ${path}: ${t.message}", t)
+            return error(t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName())
+        }
+    }
+
+    static Map<String, Object> roots(Pattern matchPat) {
+        List<Map<String, Object>> children = new ArrayList<>()
+        addChild(children, matchPat, "qapps", "screens", "/qapps", "Quasar screens (this UI)")
+        addChild(children, matchPat, "apps", "screens", "/apps", "HTML screens (same tree as /qapps)")
+        addChild(children, matchPat, "vapps", "screens", "/vapps", "Bootstrap Vue screens (same tree as /qapps)")
+        addChild(children, matchPat, "rest", "rest", "/rest", "REST: s1 services, e1 entities, m1 masters")
+        addChild(children, matchPat, "services", "services", "/services", "Services by package (package.verb#noun)")
+        addChild(children, matchPat, "entities", "entities", "/entities", "Entities by package; HTTP via /rest/e1")
+        return listing("/", "root", children)
+    }
+
+    static boolean isRootOnly(List<String> segs) { return segs == null || segs.isEmpty() }
+
+    Map<String, Object> browseScreens(ExecutionContext ec, String wrapper, List<String> rest,
+            Pattern matchPat, int depth, boolean detail) {
+        ExecutionContextImpl eci = asEci(ec)
+        if (eci == null) return error("ExecutionContextImpl is required")
+        ScreenDefinition apps = getAppsScreen(eci)
+        if (apps == null) return error("apps screen tree not found")
+        ScreenDefinition cur = apps
+        StringBuilder pathB = new StringBuilder(wrapper)
+        for (String seg : rest) {
+            SubscreensItem si = cur.getSubscreensItem(seg)
+            if (si == null) {
+                // maybe a transition leaf
+                TransitionItem ti = cur.getTransitionItem(seg, "any")
+                if (ti == null) return error("not found: " + pathB.toString() + "/" + seg)
+                return screenTransitionDetail(pathB.toString() + "/" + seg, cur, ti, detail)
+            }
+            if (!permitted(eci, si.location, ArtifactExecutionInfo.AT_XML_SCREEN))
+                return errorStatus(403, "not authorized")
+            ScreenDefinition next = eci.screenFacade.getScreenDefinition(si.location)
+            if (next == null) return error("screen not found: " + si.location)
+            pathB.append('/').append(seg)
+            cur = next
+        }
+        List<Map<String, Object>> children = new ArrayList<>()
+        boolean truncated = collectScreenChildren(eci, cur, pathB.toString(), children, matchPat, depth, 1)
+        Map<String, Object> out = listing(pathB.toString(), "screens", children)
+        out.put("truncated", truncated)
+        if (detail) out.put("leaf", screenDetail(cur))
+        return out
+    }
+
+    boolean collectScreenChildren(ExecutionContextImpl eci, ScreenDefinition sd, String path,
+            List<Map<String, Object>> children, Pattern matchPat, int depth, int level) {
+        boolean truncated = false
+        ArrayList<SubscreensItem> items = sd.getSubscreensItemsSorted()
+        int n = items != null ? items.size() : 0
+        for (int i = 0; i < n; i++) {
+            SubscreensItem si = (SubscreensItem) items.get(i)
+            if (si == null || si.location == null) continue
+            // Isolated AT_XML_SCREEN checks miss inheritAuthz from parent apps (System/Tools).
+            // Include the child; request/run_service still enforce authz on execution.
+            String childPath = path + "/" + si.name
+            Map<String, Object> row = child(si.name, "screen", childPath, si.menuTitle)
+            if (matches(matchPat, si.name, si.menuTitle)) {
+                if (children.size() >= MAX_CHILDREN) { truncated = true; break }
+                children.add(row)
+            }
+            if (depth > level && !truncated) {
+                ScreenDefinition childSd = eci.screenFacade.getScreenDefinition(si.location)
+                if (childSd != null)
+                    truncated = collectScreenChildren(eci, childSd, childPath, children, matchPat, depth, level + 1) || truncated
+            }
+        }
+        if (level == 1) {
+            for (TransitionItem ti : sd.getAllTransitions()) {
+                if (ti == null || SKIP_TRANSITIONS.contains(ti.name)) continue
+                String childPath = path + "/" + ti.name
+                if (!matches(matchPat, ti.name, null)) continue
+                if (children.size() >= MAX_CHILDREN) { truncated = true; break }
+                Map<String, Object> row = child(ti.name, "transition", childPath, ti.name)
+                row.put("method", ti.method)
+                row.put("readOnly", ti.readOnly)
+                children.add(row)
+            }
+        }
+        return truncated
+    }
+
+    static Map<String, Object> screenTransitionDetail(String path, ScreenDefinition sd, TransitionItem ti, boolean detail) {
+        Map<String, Object> out = listing(path, "transition", Collections.emptyList())
+        if (detail) {
+            Map<String, Object> leaf = new LinkedHashMap<>()
+            leaf.put("name", ti.name)
+            leaf.put("method", ti.method)
+            leaf.put("readOnly", ti.readOnly)
+            if (ti.singleServiceName) leaf.put("serviceName", ti.singleServiceName)
+            out.put("leaf", leaf)
+        }
+        return out
+    }
+    static Map<String, Object> screenDetail(ScreenDefinition sd) {
+        Map<String, Object> leaf = new LinkedHashMap<>()
+        leaf.put("location", sd.location)
+        leaf.put("title", sd.defaultMenuName)
+        return leaf
+    }
+
+    Map<String, Object> browseRest(ExecutionContext ec, List<String> rest, Pattern matchPat, int depth, boolean detail) {
+        ExecutionContextImpl eci = asEci(ec)
+        if (eci == null) return error("ExecutionContextImpl is required")
+        if (rest.isEmpty()) {
+            List<Map<String, Object>> children = new ArrayList<>()
+            addChild(children, matchPat, "s1", "rest", "/rest/s1", "Service REST")
+            addChild(children, matchPat, "e1", "rest", "/rest/e1", "Entity REST")
+            addChild(children, matchPat, "m1", "rest", "/rest/m1", "Master/entity REST")
+            return listing("/rest", "rest", children)
+        }
+        String kind = rest.get(0)
+        if ("e1".equals(kind) || "m1".equals(kind)) {
+            String httpPrefix = "/rest/" + kind
+            List<String> restTail = rest.size() > 1 ? new ArrayList<String>(rest.subList(1, rest.size())) : new ArrayList<String>()
+            return browseEntityPackages(eci, restTail, matchPat, depth, detail, httpPrefix, "/rest/" + kind)
+        }
+        if (!"s1".equals(kind)) return error("unknown REST root: " + kind)
+        RestApi api = eci.serviceFacade.restApi
+        if (api == null) return error("REST API not available")
+        if (rest.size() == 1) {
+            List<Map<String, Object>> children = new ArrayList<>()
+            boolean truncated = false
+            for (ResourceNode rn : api.getFreshRootResources()) {
+                if (rn == null) continue
+                String artifact = "/" + rn.name
+                if (!permitted(eci, artifact, ArtifactExecutionInfo.AT_REST_PATH)) continue
+                if (!matches(matchPat, rn.name, rn.displayName)) continue
+                if (children.size() >= MAX_CHILDREN) { truncated = true; break }
+                Map<String, Object> row = child(rn.name, "resource", "/rest/s1/" + rn.name,
+                        rn.displayName ?: rn.name)
+                row.put("methods", new ArrayList<>(rn.methodMap.keySet()))
+                children.add(row)
+            }
+            Map<String, Object> out = listing("/rest/s1", "rest", children)
+            out.put("truncated", truncated)
+            return out
+        }
+        ResourceNode node = api.getRootResourceNode(rest.get(1))
+        if (node == null) return error("REST root not found: " + rest.get(1))
+        PathNode cur = node
+        StringBuilder pathB = new StringBuilder("/rest/s1/").append(rest.get(1))
+        for (int i = 2; i < rest.size(); i++) {
+            String seg = rest.get(i)
+            ResourceNode childRn = cur.resourceMap.get(seg)
+            if (childRn == null) return error("not found: " + pathB.toString() + "/" + seg)
+            cur = childRn
+            pathB.append('/').append(seg)
+        }
+        String artifact = restPathArtifact(cur)
+        if (artifact != null && !permitted(eci, artifact, ArtifactExecutionInfo.AT_REST_PATH))
+            return errorStatus(403, "not authorized")
+        List<Map<String, Object>> children = new ArrayList<>()
+        boolean truncated = collectRestChildren(eci, cur, pathB.toString(), children, matchPat, depth, 1)
+        Map<String, Object> out = listing(pathB.toString(), "rest", children)
+        out.put("truncated", truncated)
+        if (detail) out.put("leaf", restDetail(cur))
+        return out
+    }
+
+    boolean collectRestChildren(ExecutionContextImpl eci, PathNode node, String path,
+            List<Map<String, Object>> children, Pattern matchPat, int depth, int level) {
+        boolean truncated = false
+        for (ResourceNode rn : node.resourceMap.values()) {
+            if (rn == null) continue
+            String artifact = restPathArtifact(rn)
+            if (artifact != null && !permitted(eci, artifact, ArtifactExecutionInfo.AT_REST_PATH)) continue
+            String childPath = path + "/" + rn.name
+            if (matches(matchPat, rn.name, rn.displayName)) {
+                if (children.size() >= MAX_CHILDREN) { truncated = true; break }
+                Map<String, Object> row = child(rn.name, "resource", childPath, rn.displayName ?: rn.name)
+                row.put("methods", new ArrayList<>(rn.methodMap.keySet()))
+                children.add(row)
+            }
+            if (depth > level && !truncated)
+                truncated = collectRestChildren(eci, rn, childPath, children, matchPat, depth, level + 1) || truncated
+        }
+        if (level == 1 && node.idNode != null && children.size() < MAX_CHILDREN) {
+            Map<String, Object> idRow = child("{" + node.idNode.name + "}", "id",
+                    path + "/{" + node.idNode.name + "}", "Path id " + node.idNode.name)
+            if (matches(matchPat, node.idNode.name, null)) children.add(idRow)
+        }
+        return truncated
+    }
+
+    static String restPathArtifact(PathNode node) {
+        if (node == null || node.fullPathList == null || node.fullPathList.isEmpty()) return null
+        StringBuilder sb = new StringBuilder()
+        for (String p : node.fullPathList) sb.append('/').append(p)
+        return sb.toString()
+    }
+    static Map<String, Object> restDetail(PathNode node) {
+        Map<String, Object> leaf = new LinkedHashMap<>()
+        leaf.put("name", node.name)
+        leaf.put("displayName", node.displayName)
+        leaf.put("description", node.description)
+        leaf.put("methods", new ArrayList<>(node.methodMap.keySet()))
+        if (node.idNode != null) leaf.put("idName", node.idNode.name)
+        return leaf
+    }
+
+    Map<String, Object> browseServices(ExecutionContext ec, List<String> rest, Pattern matchPat,
+            int depth, boolean detail) {
+        ExecutionContextImpl eci = asEci(ec)
+        if (eci == null) return error("ExecutionContextImpl is required")
+        ServiceFacadeImpl sfi = eci.serviceFacade
+        Set<String> names = sfi.getKnownServiceNames()
+        String prefix = rest.isEmpty() ? "" : String.join(".", rest)
+        List<Map<String, Object>> children = new ArrayList<>()
+        boolean truncated = false
+        Set<String> seen = new LinkedHashSet<>()
+        String leafService = null
+        int showDepth = depth < 1 ? 1 : depth
+        for (String sn : names) {
+            if (sn == null) continue
+            if (prefix.length() > 0) {
+                if (sn.equals(prefix)) { leafService = sn; continue }
+                if (!sn.startsWith(prefix + ".")) continue
+            }
+            if (!matches(matchPat, sn, sn)) continue
+            String restName = prefix.length() == 0 ? sn : sn.substring(prefix.length() + 1)
+            String[] parts = restName.split("\\.", -1)
+            boolean isLeaf = parts.length <= showDepth
+            String childName
+            if (isLeaf) childName = restName
+            else {
+                StringBuilder cut = new StringBuilder()
+                for (int i = 0; i < showDepth; i++) {
+                    if (i > 0) cut.append('.')
+                    cut.append(parts[i])
+                }
+                childName = cut.toString()
+            }
+            if (seen.contains(childName)) continue
+            seen.add(childName)
+            if (children.size() >= MAX_CHILDREN) { truncated = true; break }
+            String childFull = prefix.length() == 0 ? childName : prefix + "." + childName
+            String childPath = "/services/" + childFull.replace('.', '/')
+            Map<String, Object> row = child(childName, isLeaf ? "service" : "package", childPath, isLeaf ? sn : childFull)
+            if (isLeaf) row.put("serviceName", sn)
+            children.add(row)
+        }
+        String listPath = prefix.length() == 0 ? "/services" : "/services/" + prefix.replace('.', '/')
+        Map<String, Object> out = listing(listPath, leafService != null ? "service" : "services", children)
+        out.put("truncated", truncated)
+        if (detail && leafService != null) out.put("leaf", serviceDetail(sfi, leafService))
+        else if (detail && children.size() == 1 && "service".equals(children.get(0).get("kind")))
+            out.put("leaf", serviceDetail(sfi, (String) children.get(0).get("serviceName")))
+        return out
+    }
+
+    static Map<String, Object> serviceDetail(ServiceFacadeImpl sfi, String serviceName) {
+        Map<String, Object> leaf = new LinkedHashMap<>()
+        leaf.put("serviceName", serviceName)
+        try {
+            if (!sfi.isServiceDefined(serviceName)) return leaf
+            ServiceDefinition sd = sfi.getServiceDefinition(serviceName)
+            if (sd == null) return leaf
+            leaf.put("inParameters", new ArrayList<>(sd.getInParameterNames()))
+            leaf.put("outParameters", new ArrayList<>(sd.getOutParameterNames()))
+        } catch (Throwable ignored) { }
+        return leaf
+    }
+
+    Map<String, Object> browseEntities(ExecutionContext ec, List<String> rest, Pattern matchPat,
+            int depth, boolean detail) {
+        ExecutionContextImpl eci = asEci(ec)
+        if (eci == null) return error("ExecutionContextImpl is required")
+        return browseEntityPackages(eci, rest, matchPat, depth, detail, "/rest/e1", "/entities")
+    }
+
+    Map<String, Object> browseEntityPackages(ExecutionContextImpl eci, List<String> rest, Pattern matchPat,
+            int depth, boolean detail, String httpPrefix, String catalogPrefix) {
+        EntityFacadeImpl efi = eci.entityFacade
+        Set<String> names = efi.getAllEntityNames()
+        String prefix = rest.isEmpty() ? "" : String.join(".", rest)
+        List<Map<String, Object>> children = new ArrayList<>()
+        boolean truncated = false
+        Set<String> seen = new LinkedHashSet<>()
+        String leafEntity = null
+        for (String en : names) {
+            if (en == null) continue
+            if (prefix.length() > 0) {
+                if (en.equals(prefix)) { leafEntity = en; continue }
+                if (!en.startsWith(prefix + ".")) continue
+            }
+            String restName = prefix.length() == 0 ? en : en.substring(prefix.length() + 1)
+            int dot = restName.indexOf('.')
+            String childName = (depth <= 1 && dot >= 0) ? restName.substring(0, dot) : restName
+            boolean isLeaf = dot < 0 || depth > 1
+            if (depth <= 1) isLeaf = dot < 0
+            if (depth <= 1 && seen.contains(childName)) continue
+            if (depth <= 1) seen.add(childName)
+            if (isLeaf && !permitted(eci, en, ArtifactExecutionInfo.AT_ENTITY)) continue
+            if (!matches(matchPat, childName, en)) continue
+            if (children.size() >= MAX_CHILDREN) { truncated = true; break }
+            String childPath = catalogPrefix + "/" + (prefix.length() == 0 ? childName : prefix + "." + childName).replace('.', '/')
+            Map<String, Object> row = child(childName, isLeaf ? "entity" : "package", childPath, en)
+            if (isLeaf) {
+                row.put("entityName", en)
+                row.put("httpPath", httpPrefix + "/" + en)
+            }
+            children.add(row)
+        }
+        String listPath = prefix.length() == 0 ? catalogPrefix : catalogPrefix + "/" + prefix.replace('.', '/')
+        Map<String, Object> out = listing(listPath, leafEntity != null ? "entity" : "entities", children)
+        out.put("truncated", truncated)
+        if (detail && leafEntity != null) out.put("leaf", entityDetail(efi, leafEntity, httpPrefix))
+        return out
+    }
+
+    static Map<String, Object> entityDetail(EntityFacadeImpl efi, String entityName, String httpPrefix) {
+        Map<String, Object> leaf = new LinkedHashMap<>()
+        leaf.put("entityName", entityName)
+        leaf.put("httpPath", httpPrefix + "/" + entityName)
+        try {
+            EntityDefinition ed = efi.getEntityDefinition(entityName)
+            if (ed == null) return leaf
+            leaf.put("fields", new ArrayList<>(ed.getAllFieldNames()))
+            leaf.put("pkFields", new ArrayList<>(ed.getPkFieldNames()))
+            leaf.put("isView", ed.isViewEntity)
+        } catch (Throwable ignored) { }
+        return leaf
+    }
+
+    static ScreenDefinition getAppsScreen(ExecutionContextImpl eci) {
+        ScreenFacadeImpl sfi = eci.screenFacade
+        List<String> roots = sfi.getAllRootScreenLocations()
+        for (String loc : roots) {
+            ScreenDefinition root = sfi.getScreenDefinition(loc)
+            if (root == null) continue
+            SubscreensItem apps = root.getSubscreensItem("apps")
+            if (apps == null) continue
+            ScreenDefinition appsSd = sfi.getScreenDefinition(apps.location)
+            if (appsSd != null) return appsSd
+        }
+        return null
+    }
+
+    static boolean permitted(ExecutionContextImpl eci, String name, ArtifactExecutionInfo.ArtifactType type) {
+        if (eci == null || name == null || name.isEmpty()) return false
+        try {
+            ArtifactExecutionInfoImpl aeii = new ArtifactExecutionInfoImpl(name, type,
+                    ArtifactExecutionInfo.AUTHZA_VIEW, "")
+            return eci.artifactExecutionFacade.isPermitted(aeii, null, true, false, false, null)
+        } catch (ArtifactAuthorizationException ignored) {
+            return false
+        } catch (Throwable t) {
+            logger.debug("browse authz check failed for ${name}: ${t.message}")
+            return false
+        }
+    }
+
+    static ExecutionContextImpl asEci(ExecutionContext ec) {
+        return ec instanceof ExecutionContextImpl ? (ExecutionContextImpl) ec : null
+    }
+    static String normalizePath(String path) {
+        String t = path.trim()
+        if (!t.startsWith("/")) t = "/" + t
+        while (t.endsWith("/") && t.length() > 1) t = t.substring(0, t.length() - 1)
+        return t
+    }
+    static List<String> splitPath(String path) {
+        List<String> segs = new ArrayList<>()
+        for (String raw : path.split("/")) {
+            if (raw != null && !raw.isEmpty()) segs.add(raw)
+        }
+        return segs
+    }
+    static boolean matches(Pattern pat, String name, String title) {
+        if (pat == null) return true
+        if (name != null && pat.matcher(name).find()) return true
+        if (title != null && pat.matcher(title).find()) return true
+        return false
+    }
+    static void addChild(List<Map<String, Object>> children, Pattern matchPat,
+            String name, String kind, String path, String title) {
+        if (!matches(matchPat, name, title)) return
+        children.add(child(name, kind, path, title))
+    }
+    static Map<String, Object> child(String name, String kind, String path, String title) {
+        Map<String, Object> m = new LinkedHashMap<>()
+        m.put("name", name)
+        m.put("kind", kind)
+        m.put("path", path)
+        if (title != null) m.put("title", title)
+        return m
+    }
+    static Map<String, Object> listing(String path, String kind, List<Map<String, Object>> children) {
+        Map<String, Object> m = new LinkedHashMap<>()
+        m.put("path", path)
+        m.put("kind", kind)
+        m.put("children", children)
+        m.put("truncated", false)
+        return m
+    }
+    static Map<String, Object> error(String message) {
+        Map<String, Object> m = new LinkedHashMap<>()
+        m.put("error", message)
+        return m
+    }
+    static Map<String, Object> errorStatus(int status, String message) {
+        Map<String, Object> m = error(message)
+        m.put("status", status)
+        return m
+    }
+    static String str(Object o) { return o == null ? null : o.toString() }
+    static int intVal(Object o, int defVal) {
+        if (o instanceof Number) return ((Number) o).intValue()
+        if (o == null) return defVal
+        try { return Integer.parseInt(o.toString().trim()) } catch (Exception ignored) { return defVal }
+    }
+    static boolean boolVal(Object o) {
+        if (o instanceof Boolean) return (Boolean) o
+        if (o == null) return false
+        return "true".equalsIgnoreCase(o.toString())
+    }
+}

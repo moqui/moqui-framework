@@ -893,6 +893,35 @@ class LlmClientTests extends Specification {
         conv.history.find { it.role == LlmMessage.Role.TOOL && it.toolCallId == "c2" } != null
     }
 
+    def "resume submitted false plus user can yield another write_ui"() {
+        given:
+        def proto = new FakeLlmProtocol()
+        proto.results = [
+                FakeLlmProtocol.toolCalls(
+                        new LlmToolCall("c1", "write_ui", '{"fields":[{"name":"n","widget":"text-line"}]}')),
+                FakeLlmProtocol.toolCalls(
+                        new LlmToolCall("c2", "write_ui", '{"writeThrough":true,"fields":[{"name":"n","widget":"text-line","defaultValue":"2"}]}')),
+                FakeLlmProtocol.stop("done")
+        ]
+        def conv = LlmConversationImpl.create(null, "default", null)
+        when:
+        LlmResponse r = client(proto).conversation(conv).tool(LlmTool.writeUi())
+                .allowClientTools(true).user("form").call()
+        then:
+        r.yielded
+        when:
+        LlmResponse r2 = client(proto).conversation(conv).tool(LlmTool.writeUi())
+                .allowClientTools(true)
+                .toolResults([new LlmToolResult("c1", "write_ui",
+                        [submitted: false, values: [n: "1"], canvas: [fields: [[name: "n"]]]])])
+                .user("make it 2")
+                .call()
+        then:
+        r2.yielded
+        r2.pendingToolCalls[0].name == "write_ui"
+        conv.status == LlmConversationImpl.STATUS_YIELDED
+    }
+
     def "allowClientTools false treats write_ui as tool error and does not yield"() {
         given:
         def proto = new FakeLlmProtocol()
@@ -954,7 +983,62 @@ class LlmClientTests extends Specification {
         enriched.fields[1].name == "when"
         enriched.fields[1].widget == "date-time"
         enriched.fields[1].widgetType == "date"
-        enriched.schemaVersion == 1
+        enriched.schemaVersion == 2
+        enriched.kind == "form"
+    }
+
+    def "write_ui writeThrough merges fields and honors removeFields"() {
+        given:
+        def conv = LlmConversationImpl.create(null, "default", null)
+        WriteUiTool tool = new WriteUiTool()
+        def first = tool.enrichForClient([
+                title: "Order",
+                fields: [
+                        [name: "qty", widget: "text-line", defaultValue: "1"],
+                        [name: "note", widget: "text-line", defaultValue: "hi"]
+                ],
+                actions: [[id: "place", method: "POST", path: "/rest/s1/x", label: "Place"]]
+        ], null)
+        when:
+        def stored = WriteUiTool.applyWriteThrough(first, conv)
+        def second = tool.enrichForClient([
+                writeThrough: true,
+                fields: [[name: "qty", widget: "text-line", defaultValue: "12"]],
+                removeFields: ["note"],
+                actions: [[id: "place", method: "POST", path: "/rest/s1/x", label: "Place order"]]
+        ], null)
+        def merged = WriteUiTool.applyWriteThrough(second, conv)
+        then:
+        stored.fields.size() == 2
+        merged.writeThrough
+        merged.fields.size() == 1
+        merged.fields[0].name == "qty"
+        merged.fields[0].defaultValue == "12"
+        merged.actions[0].label == "Place order"
+        conv.attributes.lastWriteUi != null
+    }
+
+    def "write_ui enricher keeps list columns and drops html action paths"() {
+        given:
+        WriteUiTool tool = new WriteUiTool()
+        when:
+        def enriched = tool.enrichForClient([
+                fields: [[name: "n", widget: "text-line"]],
+                columns: [[name: "id", label: "<b>Id</b>", widget: "display"], [name: "bad", widget: "html"]],
+                rows: [[id: "<script>x</script>"]],
+                actions: [
+                        [id: "ok", method: "post", path: "/rest/s1/x", label: "Go"],
+                        [id: "bad", method: "POST", path: "https://evil.example/x"]
+                ]
+        ], null)
+        then:
+        enriched.columns.size() == 2
+        !enriched.columns[0].label.contains("<b>")
+        enriched.columns[1].widget == "display"
+        !enriched.rows[0].id.contains("<script>")
+        enriched.actions.size() == 1
+        enriched.actions[0].method == "POST"
+        enriched.actions[0].path == "/rest/s1/x"
     }
 
     def "getClient-style builders are distinct instances"() {

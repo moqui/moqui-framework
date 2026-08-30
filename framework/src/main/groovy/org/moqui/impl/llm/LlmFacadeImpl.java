@@ -257,6 +257,11 @@ public class LlmFacadeImpl implements LlmFacade {
         public final List<AllowedPath> allowedPaths;
         public final boolean allowWriteUi;
         public final int ssePingSeconds;
+        public final String systemLocation;
+        public final boolean allowClientSystem;
+        public final boolean allowBrowse;
+        public final boolean allowRunService;
+        public final boolean allowUnprefixedRequest;
 
         ProfileState(String name, MNode confNode, String url, String path, String endpointUrl, String apiKey,
                 String authHeaderName, String authHeaderValue, String model, String maxTokensParameter,
@@ -266,7 +271,8 @@ public class LlmFacadeImpl implements LlmFacade {
                 Map<String, String> extraHeaders, Map<String, String> extraQuery,
                 RestClient.PooledRequestFactory requestFactory, LlmProtocol protocol,
                 Set<String> allowedEntities, List<AllowedPath> allowedPaths,
-                boolean allowWriteUi, int ssePingSeconds) {
+                boolean allowWriteUi, int ssePingSeconds, String systemLocation, boolean allowClientSystem,
+                boolean allowBrowse, boolean allowRunService, boolean allowUnprefixedRequest) {
             this.name = name;
             this.confNode = confNode;
             this.url = url;
@@ -295,6 +301,11 @@ public class LlmFacadeImpl implements LlmFacade {
             this.allowedPaths = allowedPaths;
             this.allowWriteUi = allowWriteUi;
             this.ssePingSeconds = ssePingSeconds > 0 ? ssePingSeconds : 15;
+            this.systemLocation = systemLocation;
+            this.allowClientSystem = allowClientSystem;
+            this.allowBrowse = allowBrowse;
+            this.allowRunService = allowRunService;
+            this.allowUnprefixedRequest = allowUnprefixedRequest;
         }
 
         static ProfileState fromConf(String name, MNode node, ExecutionContextFactoryImpl ecfi) {
@@ -326,6 +337,13 @@ public class LlmFacadeImpl implements LlmFacade {
             boolean allowWriteUi = parseBoolean(node.attribute("allow-write-ui"), false);
             int ssePingSeconds = parseInt(node.attribute("sse-ping-seconds"), 15);
             if (ssePingSeconds < 1) ssePingSeconds = 15;
+            String systemLocation = node.attribute("system-location");
+            if (systemLocation != null) systemLocation = systemLocation.trim();
+            if (systemLocation != null && systemLocation.isEmpty()) systemLocation = null;
+            boolean allowClientSystem = parseBoolean(node.attribute("allow-client-system"), true);
+            boolean allowBrowse = parseBoolean(node.attribute("allow-browse"), false);
+            boolean allowRunService = parseBoolean(node.attribute("allow-run-service"), false);
+            boolean allowUnprefixedRequest = parseBoolean(node.attribute("allow-unprefixed-request"), false);
 
             Map<String, String> extraHeaders = new LinkedHashMap<>();
             for (MNode header : node.children("header")) {
@@ -375,7 +393,8 @@ public class LlmFacadeImpl implements LlmFacade {
                     timeoutRetry, emptyRetries, contextLimitPolicy, maxTokens, temperature, logContent,
                     Collections.unmodifiableMap(extraHeaders), Collections.unmodifiableMap(extraQuery),
                     rf, protocol, Collections.unmodifiableSet(allowedEntities),
-                    Collections.unmodifiableList(allowedPaths), allowWriteUi, ssePingSeconds);
+                    Collections.unmodifiableList(allowedPaths), allowWriteUi, ssePingSeconds,
+                    systemLocation, allowClientSystem, allowBrowse, allowRunService, allowUnprefixedRequest);
         }
 
         /** Test helper: no HTTP pool. */
@@ -396,7 +415,29 @@ public class LlmFacadeImpl implements LlmFacade {
                     Collections.emptyMap(), Collections.emptyMap(), null, protocol,
                     Collections.emptySet(),
                     allowedPaths != null ? allowedPaths : Collections.emptyList(),
-                    allowWriteUi, 15);
+                    allowWriteUi, 15, null, true, false, false, false);
+        }
+        public static ProfileState forTest(String name, LlmProtocol protocol, String model,
+                boolean allowTxOverHttp, int emptyRetries, float retryInitialSeconds, int retryMax,
+                List<AllowedPath> allowedPaths, boolean allowWriteUi, boolean allowUnprefixedRequest,
+                boolean allowBrowse, boolean allowRunService) {
+            return forTest(name, protocol, model, allowTxOverHttp, emptyRetries, retryInitialSeconds, retryMax,
+                    allowedPaths, allowWriteUi, allowUnprefixedRequest, allowBrowse, allowRunService, true);
+        }
+        public static ProfileState forTest(String name, LlmProtocol protocol, String model,
+                boolean allowTxOverHttp, int emptyRetries, float retryInitialSeconds, int retryMax,
+                List<AllowedPath> allowedPaths, boolean allowWriteUi, boolean allowUnprefixedRequest,
+                boolean allowBrowse, boolean allowRunService, boolean allowClientSystem) {
+            if (protocol == null) protocol = new OpenAiCompatProtocol();
+            return new ProfileState(name, null, "http://127.0.0.1", OpenAiCompatProtocol.DEFAULT_PATH,
+                    "http://127.0.0.1/v1/chat/completions", "", "Authorization", null,
+                    model != null ? model : "", "max_tokens", allowTxOverHttp, 120,
+                    retryInitialSeconds, retryMax, true, emptyRetries,
+                    WindowPolicy.ContextLimitPolicy.FAIL, null, null, false,
+                    Collections.emptyMap(), Collections.emptyMap(), null, protocol,
+                    Collections.emptySet(),
+                    allowedPaths != null ? allowedPaths : Collections.emptyList(),
+                    allowWriteUi, 15, null, allowClientSystem, allowBrowse, allowRunService, allowUnprefixedRequest);
         }
     }
 

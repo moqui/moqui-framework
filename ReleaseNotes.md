@@ -200,8 +200,9 @@ def result = ec.llm.getDefault()
   with `inheritAuthz=N` so that does not skip later service/screen/entity checks. Servlet access is permission
   `LlmGateway` (ADMIN by default).
 - Agent loop: server tool `request` (method + path through ScreenRender on the same thread, authz and tarpit ON)
-  and client tool `write_ui` (schemaVersion 1 form yield; the server never submits). Optional typed
-  `LlmTool.service()`.
+  and client tool `write_ui` (schemaVersion 2 form yield; the server never submits). Optional typed
+  `LlmTool.service()`. Servlet may also attach `browse` (authz-filtered catalog) and `run_service`
+  (generic service call) when the profile allows them.
 - Managed servlet at `/llm/*`. Not a provider-key proxy (keys stay on the profile). Service REST wrappers at
   `/rest/s1/moqui/llm/...` for sync JSON only; do not SSE through Service REST.
 
@@ -210,8 +211,9 @@ Servlet endpoints:
 - `POST /llm/v1/chat` — SSE if `Accept: text/event-stream` or `body.stream`; otherwise JSON (202 if yielded)
 - `POST /llm/v1/chat/{id}/resume`
 - `POST /llm/v1/chat/{id}/cancel` (alias `POST /llm/v1/conversations/{id}/cancel`)
+- `GET /llm/v1/conversations` — list (owner; ADMIN may see all). Query `profile`, `purpose`
 - `GET /llm/v1/conversations/{id}` — owner and ADMIN only
-- `GET /llm/v1/profiles` — names and model, no API keys
+- `GET /llm/v1/profiles` — names, model, allow-* flags; no API keys
 
 #### LLM Operator Notes
 
@@ -253,18 +255,19 @@ Other production notes:
   TX timeout 60s vs LLM timeout 120s). Service jobs hold a TX for the job service — commit (or suspend)
   before the LLM call; do not set `allow-tx-over-http=true` to paper over a job TX. Service REST wrappers
   already suspend the `/rest/s1` screen TX around the call.
-- Servlet `allowed-path` is fail-closed: with no prefixes the servlet does not attach the `request` tool.
-  Add prefixes in runtime conf. Internal `LlmTool.request()` with no prefixes still means any path the
-  user is authorized to hit. For a Universal Screen (JS canvas is not in this release) use GET-only on
-  screen prefixes plus explicit REST write prefixes, for example:
-
-```
-<allowed-path prefix="/qapps/mantle/" methods="GET"/>
-<allowed-path prefix="/rest/s1/mantle/" methods="GET,POST,PUT,PATCH,DELETE"/>
-```
-
+- Servlet `allowed-path` is fail-closed on the **default** profile: with no prefixes the servlet does not
+  attach the `request` tool. Internal `LlmTool.request()` with no prefixes still means any path the user
+  is authorized to hit. Profile `allow-unprefixed-request="true"` (Assist) attaches that unprefixed tool;
+  operators may still add `allowed-path` prefixes to **narrow** it.
+- Assist Universal Screen (`/qapps/assist`, tools component): chat + generated form canvas. Profile
+  `assist` uses a server-owned SYSTEM file (`system-location`), ignores client `system`, and enables
+  `write_ui`, `browse`, `run_service`, and unprefixed `request`. `browse` lists screens/REST/services/entities
+  the current user can VIEW (depth 1 default). `write_ui` schemaVersion 2 adds list columns/rows, declared
+  `actions[]`, and `writeThrough` so the model can correct/add/remove against the current canvas.
+  Script mode runs `actions[]` in the browser as the user; Agent mode resumes and the model calls tools.
+  First-pass canvas is `kind=form` only (not generated Vue or XML screens).
 - `write_ui` on the servlet requires profile `allow-write-ui="true"`. Client `tools` may only subset
-  `{request, write_ui}`.
+  `{request, write_ui, browse, run_service}`.
 - Purge old rows with `org.moqui.impl.LlmServices.clean#LlmData` (`daysToKeep` default 90). Schedule a
   ServiceJob like `clean_ArtifactData_daily`.
 - Browser clients: `fetch` POST + `ReadableStream`, not `EventSource` (`EventSource` is GET-only and cannot

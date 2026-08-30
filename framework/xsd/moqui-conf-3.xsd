@@ -652,6 +652,28 @@ along with this software (see the LICENSE.md file). If not, see
                     </xs:restriction></xs:simpleType>
                 </xs:attribute>
                 <xs:attribute name="allow-write-ui" type="boolean-expandable" default="false"/>
+                <xs:attribute name="allow-client-system" type="boolean-expandable" default="true">
+                    <xs:annotation><xs:documentation>If false, servlet/gateway ignores body.system (Assist profile).
+                    </xs:documentation></xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="allow-browse" type="boolean-expandable" default="false">
+                    <xs:annotation><xs:documentation>Attach the browse catalog tool on the servlet when requested.
+                    </xs:documentation></xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="allow-run-service" type="boolean-expandable" default="false">
+                    <xs:annotation><xs:documentation>Attach the generic run_service tool on the servlet when requested.
+                    </xs:documentation></xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="allow-unprefixed-request" type="boolean-expandable" default="false">
+                    <xs:annotation><xs:documentation>If true and allowed-path is empty, attach request with no prefixes
+                        (any path the current user is authorized to hit). Default profile stays fail-closed.
+                    </xs:documentation></xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="system-location" type="xs:string">
+                    <xs:annotation><xs:documentation>Resource Facade location of SYSTEM text applied every turn
+                        (replaces client body.system). Example: component://tools/template/AssistSystem.md
+                    </xs:documentation></xs:annotation>
+                </xs:attribute>
                 <xs:attribute name="allow-tx-over-http" type="boolean-expandable" default="false"/>
                 <xs:attribute name="tool-result-max-chars" type="xs:positiveInteger" default="8000"/>
                 <xs:attribute name="sse-ping-seconds" type="xs:positiveInteger" default="15"/>

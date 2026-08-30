@@ -203,6 +203,8 @@ final class LlmAgentLoop {
                     }
                     if (tool != null) {
                         Map<String, Object> enriched = tool.enrichForClient(args, client.ec);
+                        if (enriched != null && WriteUiTool.NAME.equals(call.name))
+                            enriched = WriteUiTool.applyWriteThrough(enriched, client.conversation);
                         if (enriched != null) copy.arguments = LlmJson.toJson(enriched);
                     }
                     pending.add(copy);

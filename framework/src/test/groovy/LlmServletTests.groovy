@@ -40,6 +40,7 @@ class LlmServletTests extends Specification {
         LlmGateway.parseRoute("/v1/chat/100/cancel").op == LlmGateway.Route.Op.CANCEL
         LlmGateway.parseRoute("/v1/conversations/100/cancel").op == LlmGateway.Route.Op.CANCEL
         LlmGateway.parseRoute("/v1/conversations/100").op == LlmGateway.Route.Op.GET_CONVERSATION
+        LlmGateway.parseRoute("/v1/conversations").op == LlmGateway.Route.Op.LIST_CONVERSATIONS
         LlmGateway.parseRoute("/v1/profiles").op == LlmGateway.Route.Op.GET_PROFILES
         LlmGateway.parseRoute("/v1/chat").isPost()
         LlmGateway.parseRoute("/v1/profiles").isGet()
@@ -108,10 +109,11 @@ class LlmServletTests extends Specification {
         LlmGateway.requestToolForServlet([new LlmFacadeImpl.AllowedPath("/rest/s1/", "GET")]) != null
     }
 
-    def "tools may only subset request and write_ui"() {
+    def "tools may only subset request write_ui browse run_service"() {
         expect:
         LlmGateway.parseTools(null).isEmpty()
         LlmGateway.parseTools(["request", "write-ui"]) == ["request", "write_ui"]
+        LlmGateway.parseTools(["browse", "run-service"]).containsAll(["browse", "run_service"])
         when:
         LlmGateway.parseTools(["request", "clean_llm"])
         then:
@@ -131,6 +133,57 @@ class LlmServletTests extends Specification {
         then:
         r.content == "ok"
         proto.lastRequest.tools == null || proto.lastRequest.tools.isEmpty()
+    }
+
+    def "attachServletTools adds unprefixed request when allow-unprefixed-request"() {
+        given:
+        def proto = new FakeLlmProtocol()
+        proto.results = [FakeLlmProtocol.stop("ok")]
+        def profile = LlmFacadeImpl.ProfileState.forTest("assist", proto, "m", false, 2, 0f, 5,
+                [], true, true, true, true)
+        def client = new LlmClientImpl(null, profile, { false })
+        when:
+        LlmGateway.attachServletTools(client, profile, ["request", "write_ui", "browse", "run_service"])
+        client.user("hi").call()
+        then:
+        proto.lastRequest.tools.find { it.name == "request" } != null
+        proto.lastRequest.tools.find { it.name == "write_ui" } != null
+        proto.lastRequest.tools.find { it.name == "browse" } != null
+        proto.lastRequest.tools.find { it.name == "run_service" } != null
+    }
+
+    def "applySystem ignores client system when allow-client-system is false"() {
+        given:
+        def proto = new FakeLlmProtocol()
+        proto.results = [FakeLlmProtocol.stop("ok")]
+        def profile = LlmFacadeImpl.ProfileState.forTest("assist", proto, "m", false, 2, 0f, 5)
+        // allowClientSystem default true on forTest; set via new helper flags: use reflection-free path
+        def locked = LlmFacadeImpl.ProfileState.forTest("assist", proto, "m", false, 2, 0f, 5,
+                [], false, false, false, false, false)
+        def client = new LlmClientImpl(null, locked, { false })
+        when:
+        LlmGateway.applySystem(client, [system: "pwned"])
+        then:
+        client.systemContent == null
+    }
+
+    def "browse roots work without ExecutionContext"() {
+        when:
+        def out = (Map) new org.moqui.impl.llm.BrowseTool().execute([path: "/"], null)
+        then:
+        out.path == "/"
+        out.children.find { it.name == "qapps" }
+        out.children.find { it.name == "rest" }
+        out.children.find { it.name == "services" }
+        out.children.find { it.name == "entities" }
+    }
+
+    def "browse invalid regex is a tool error not an exception"() {
+        when:
+        def out = (Map) new org.moqui.impl.llm.BrowseTool().execute([path: "/", match: "("], null)
+        then:
+        out.error
+        out.error.toString().toLowerCase().contains("regex")
     }
 
     def "attachServletTools adds request when allowed-path is present and write_ui when allowed"() {
