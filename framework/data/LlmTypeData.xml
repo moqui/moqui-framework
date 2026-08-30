@@ -28,6 +28,28 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.security.ArtifactTarpit userGroupId="ALL_USERS" artifactGroupId="LlmProfiles"
             maxHitsCount="30" maxHitsDuration="60" tarpitDuration="300"/>
 
+    <!-- LlmServlet is not a screen, so ASSIST_APP inheritAuthz does not cover these entities.
+         ADMIN (LlmGateway) may view/create admitted and proposed skills. SkillIndex also
+         disableAuthz internally, same as LlmConversation persist. -->
+    <moqui.security.ArtifactGroup artifactGroupId="LlmSkillEntities" description="LLM skill memory entities"/>
+    <moqui.security.ArtifactGroupMember artifactGroupId="LlmSkillEntities" artifactName="moqui.llm.LlmSkill"
+            nameIsPattern="N" artifactTypeEnumId="AT_ENTITY" inheritAuthz="N"/>
+    <moqui.security.ArtifactGroupMember artifactGroupId="LlmSkillEntities" artifactName="moqui.llm.LlmSkillUse"
+            nameIsPattern="N" artifactTypeEnumId="AT_ENTITY" inheritAuthz="N"/>
+    <moqui.security.ArtifactGroupMember artifactGroupId="LlmSkillEntities" artifactName="moqui.llm.LlmLesson"
+            nameIsPattern="N" artifactTypeEnumId="AT_ENTITY" inheritAuthz="N"/>
+    <moqui.security.ArtifactAuthz artifactAuthzId="LlmSkillEntitiesADMIN" userGroupId="ADMIN"
+            artifactGroupId="LlmSkillEntities" authzTypeEnumId="AUTHZT_ALWAYS" authzActionEnumId="AUTHZA_ALL"/>
+
+    <!-- Framework test entity used by skill/sim tests and Assist miss→sim live path. -->
+    <moqui.security.ArtifactGroup artifactGroupId="LlmSimTestEntities" description="Framework test entities for LLM sim"/>
+    <moqui.security.ArtifactGroupMember artifactGroupId="LlmSimTestEntities" artifactName="moqui.test.TestEntity"
+            nameIsPattern="N" artifactTypeEnumId="AT_ENTITY" inheritAuthz="N"/>
+    <moqui.security.ArtifactGroupMember artifactGroupId="LlmSimTestEntities"
+            artifactName=".*#moqui.test.TestEntity" nameIsPattern="Y" artifactTypeEnumId="AT_SERVICE" inheritAuthz="N"/>
+    <moqui.security.ArtifactAuthz artifactAuthzId="LlmSimTestEntitiesADMIN" userGroupId="ADMIN"
+            artifactGroupId="LlmSimTestEntities" authzTypeEnumId="AUTHZT_ALWAYS" authzActionEnumId="AUTHZA_ALL"/>
+
     <moqui.basic.EnumerationType description="LLM Skill Status" enumTypeId="LlmSkillStatus"/>
     <moqui.basic.Enumeration enumId="LsksActive" enumTypeId="LlmSkillStatus" description="Active"/>
     <moqui.basic.Enumeration enumId="LsksProposed" enumTypeId="LlmSkillStatus" description="Proposed"/>

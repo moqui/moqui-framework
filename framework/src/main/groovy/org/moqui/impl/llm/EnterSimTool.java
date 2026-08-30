@@ -32,11 +32,12 @@ public class EnterSimTool implements LlmTool {
     private static final Logger logger = LoggerFactory.getLogger(EnterSimTool.class);
     static final String NAME = "enter_sim";
     static final String SIM_SYSTEM =
-            "You are in sim. Entity writes stay in an overlay and never commit. " +
-            "Email and outbound HTTP are fenced. Authz stays on. " +
-            "Explore with browse / run_service / request, test until success_criteria, " +
-            "then reply with a markdown skill (YAML front matter name/description/risk plus steps). " +
-            "Do not call write_ui or enter_sim.";
+            "You are in sim. Overlay writes never commit. Authz stays on. " +
+            "At most 2 browses, then run_service or request to test the write. " +
+            "As soon as a write succeeds (or you know the exact service), STOP and reply with ONLY a markdown skill, no other prose:\n" +
+            "---\nname: kebab-case-name\ntitle: short title\ndescription: one line\nrisk: reversible\n---\n" +
+            "# Steps\n- run_service create#... with the parameters that worked\n" +
+            "Do not call write_ui or enter_sim. Do not keep browsing after a successful write.";
     private static final Map<String, Object> SCHEMA;
     static {
         Map<String, Object> props = new LinkedHashMap<>();
@@ -48,7 +49,7 @@ public class EnterSimTool implements LlmTool {
         crit.put("description", "How to know the approach worked");
         Map<String, Object> max = new LinkedHashMap<>();
         max.put("type", "integer");
-        max.put("description", "Inner agent iterations (default 8)");
+        max.put("description", "Inner agent iterations (default 32, floor 32 for live prove)");
         props.put("goal", goal);
         props.put("success_criteria", crit);
         props.put("max_iterations", max);
@@ -72,9 +73,11 @@ public class EnterSimTool implements LlmTool {
         Map<String, Object> args = arguments != null ? arguments : Collections.emptyMap();
         String goal = args.get("goal") != null ? args.get("goal").toString() : "";
         String criteria = args.get("success_criteria") != null ? args.get("success_criteria").toString() : "";
-        int maxIter = 8;
+        // Prove-then-optimize: give the nested model enough rounds to actually return a skill.
+        // Floor 32 so a parent tool-call cannot shrink the budget back to 8.
+        int maxIter = 32;
         Object maxObj = args.get("max_iterations");
-        if (maxObj instanceof Number) maxIter = Math.max(1, Math.min(16, ((Number) maxObj).intValue()));
+        if (maxObj instanceof Number) maxIter = Math.max(32, Math.min(64, ((Number) maxObj).intValue()));
 
         ExecutionContextImpl eci = (ExecutionContextImpl) ec;
         if (eci.simSession) {
@@ -143,7 +146,7 @@ public class EnterSimTool implements LlmTool {
                 throw t;
             }
         } catch (Throwable t) {
-            logger.debug("Could not persist proposed skill: " + t.getMessage());
+            logger.warn("Could not persist proposed skill: {}", t.getMessage());
         }
     }
 }

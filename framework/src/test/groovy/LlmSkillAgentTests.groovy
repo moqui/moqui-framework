@@ -139,9 +139,6 @@ Call run_service create#moqui.test.TestEntity with testId and testMedium.
         EntityValue simRow = ec.entity.find("moqui.test.TestEntity").condition("testId", simId).one()
         EntityValue worldRow = ec.entity.find("moqui.test.TestEntity").condition("testId", worldId).one()
         EntityValue proposed = ec.entity.find("moqui.llm.LlmSkill").condition("name", skillName).useCache(false).one()
-        boolean began = ec.transaction.begin(null)
-        EntityValue admitted = SkillIndex.admitWorldPass(ec, skillName)
-        ec.transaction.commit(began)
 
         then:
         r.content == "world created " + worldId
@@ -149,11 +146,9 @@ Call run_service create#moqui.test.TestEntity with testId and testMedium.
         worldRow != null
         worldRow.testMedium == "from-world"
         proposed != null
-        proposed.statusId == "LsksProposed"
-        proposed.provenanceId == "LskpSim"
-        admitted.statusId == "LsksActive"
-        admitted.provenanceId == "LskpMixed"
-        (admitted.worldSuccessCount as Number).longValue() >= 1L
+        proposed.statusId == "LsksActive"
+        proposed.provenanceId == "LskpMixed"
+        (proposed.worldSuccessCount as Number).longValue() >= 1L
 
         cleanup:
         boolean d = ec.artifactExecution.disableAuthz()
@@ -169,6 +164,44 @@ Call run_service create#moqui.test.TestEntity with testId and testMedium.
             if (b) ec.transaction.commit()
         } catch (Throwable t) {
             if (b) ec.transaction.rollback("skill agent cleanup", t)
+            throw t
+        } finally {
+            if (!d) ec.artifactExecution.enableAuthz()
+        }
+    }
+
+    def "john.doe with authz enabled can persist and retrieve LlmSkill"() {
+        given:
+        ec.artifactExecution.enableAuthz()
+        if (!ec.user.userId) assert ec.user.loginUser("john.doe", "moqui")
+        String name = "authz-skill-" + System.currentTimeMillis()
+        def doc = SkillIndex.parseMarkdown("---\nname: ${name}\ndescription: authz check\nrisk: reversible\n---\nsteps", null)
+
+        when:
+        boolean began = ec.transaction.begin(null)
+        EntityValue persisted = SkillIndex.persistProposed(ec, doc, "steps")
+        EntityValue admitted = SkillIndex.admitWorldPass(ec, name)
+        if (began) ec.transaction.commit()
+        def docs = SkillIndex.retrieve(ec, name, 5)
+
+        then:
+        persisted != null
+        persisted.skillId
+        admitted.statusId == "LsksActive"
+        docs.any { it.name == name }
+
+        cleanup:
+        boolean d = ec.artifactExecution.disableAuthz()
+        boolean b = ec.transaction.begin(null)
+        try {
+            def sk = ec.entity.find("moqui.llm.LlmSkill").condition("name", name).useCache(false).one()
+            if (sk != null) {
+                ec.entity.find("moqui.llm.LlmSkillUse").condition("skillId", sk.skillId).deleteAll()
+                sk.delete()
+            }
+            if (b) ec.transaction.commit()
+        } catch (Throwable t) {
+            if (b) ec.transaction.rollback("authz skill cleanup", t)
             throw t
         } finally {
             if (!d) ec.artifactExecution.enableAuthz()

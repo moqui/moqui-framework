@@ -15,6 +15,8 @@ package org.moqui.impl.llm;
 
 import org.moqui.context.ArtifactAuthorizationException;
 import org.moqui.context.ArtifactTarpitException;
+import org.moqui.entity.EntityValue;
+import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.llm.LlmException;
 import org.moqui.llm.LlmFinishReason;
 import org.moqui.llm.LlmMessage;
@@ -180,6 +182,7 @@ final class LlmAgentLoop {
                 Object stored = client.truncateResult(executed);
                 roundResults.add(new LlmToolResult(call.id, call.name, stored));
                 appendTool(working, call.id, call.name, stored);
+                noteSkillLifecycle(call.name, call.arguments, stored);
                 if (listener != null) listener.onToolResult(call, stored, LlmTool.Execution.SERVER);
             }
 
@@ -314,6 +317,7 @@ final class LlmAgentLoop {
             String id = tr.toolCallId;
             conv.appendInternal(LlmMessage.tool(id, tr.name, contentText(tr.content)));
             if (id != null) seen.add(id);
+            noteSkillLifecycle(tr.name, null, tr.content);
         }
         for (LlmToolCall pendingCall : pending) {
             if (pendingCall == null || pendingCall.id == null || seen.contains(pendingCall.id)) continue;
@@ -328,7 +332,70 @@ final class LlmAgentLoop {
         for (LlmToolResult tr : client.resumeToolResults) {
             if (tr == null) continue;
             working.add(LlmMessage.tool(tr.toolCallId, tr.name, contentText(tr.content)));
+            noteSkillLifecycle(tr.name, null, tr.content);
         }
+    }
+
+    private void noteSkillLifecycle(String toolName, String argumentsJson, Object stored) {
+        if (stored instanceof Map) {
+            Map<?, ?> m = (Map<?, ?>) stored;
+            if ("enter_sim".equals(toolName)) {
+                Object n = m.get("proposedSkillName");
+                if (n != null && !n.toString().isBlank()) rememberProposed(n.toString());
+            }
+            if (isWorldWriteSuccess(toolName, argumentsJson, m)) maybeAdmit();
+        }
+    }
+
+    private void rememberProposed(String skillName) {
+        client.pendingProposedSkillName = skillName;
+        if (client.conversation != null) client.conversation.setAttribute("proposedSkillName", skillName);
+    }
+
+    private void maybeAdmit() {
+        String name = client.pendingProposedSkillName;
+        if ((name == null || name.isBlank()) && client.conversation != null) {
+            Object v = client.conversation.getAttributes().get("proposedSkillName");
+            if (v != null) name = v.toString();
+        }
+        if (name == null || name.isBlank()) return;
+        EntityValue admitted = SkillIndex.admitWorldPassInTx(client.ec, name);
+        if (admitted == null) return;
+        client.pendingProposedSkillName = null;
+        if (client.conversation != null) client.conversation.setAttribute("proposedSkillName", null);
+    }
+
+    private boolean isWorldWriteSuccess(String toolName, String argumentsJson, Map<?, ?> stored) {
+        if (client.ec instanceof ExecutionContextImpl && ((ExecutionContextImpl) client.ec).simSession)
+            return false;
+        if (stored == null || stored.get("error") != null) return false;
+        if ("run_service".equals(toolName)) return Boolean.TRUE.equals(stored.get("ok"));
+        if ("request".equals(toolName)) {
+            Map<String, Object> args = LlmJson.tryToMap(argumentsJson);
+            String method = args != null && args.get("method") != null ? args.get("method").toString() : null;
+            if (method != null) {
+                String m = method.trim().toUpperCase();
+                if ("GET".equals(m) || "HEAD".equals(m)) return false;
+            }
+            Object status = stored.get("status");
+            int s = status instanceof Number ? ((Number) status).intValue() : 0;
+            return s >= 200 && s < 300;
+        }
+        if ("write_ui".equals(toolName)) {
+            if (!Boolean.TRUE.equals(stored.get("submitted"))) return false;
+            Object ar = stored.get("actionResults");
+            if (!(ar instanceof List) || ((List<?>) ar).isEmpty()) return false;
+            for (Object row : (List<?>) ar) {
+                if (!(row instanceof Map)) continue;
+                Object st = ((Map<?, ?>) row).get("status");
+                int s = st instanceof Number ? ((Number) st).intValue() : 0;
+                if (s >= 400) return false;
+                if (Boolean.TRUE.equals(((Map<?, ?>) row).get("error"))
+                        || ((Map<?, ?>) row).get("error") instanceof String) return false;
+            }
+            return true;
+        }
+        return false;
     }
 
     private static String contentText(Object content) {

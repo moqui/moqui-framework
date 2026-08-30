@@ -13,6 +13,7 @@
  */
 package org.moqui.impl.llm;
 
+import org.moqui.context.ArtifactExecutionFacade;
 import org.moqui.context.ExecutionContext;
 import org.moqui.entity.EntityList;
 import org.moqui.entity.EntityValue;
@@ -20,6 +21,8 @@ import org.moqui.impl.context.ExecutionContextFactoryImpl;
 import org.moqui.resource.ResourceReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.function.Supplier;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -120,10 +123,10 @@ public class SkillIndex {
         }
         if (ec != null && ec.getEntity() != null) {
             try {
-                EntityList rows = ec.getEntity().find("moqui.llm.LlmSkill")
+                EntityList rows = withAuthzDisabled(ec, () -> ec.getEntity().find("moqui.llm.LlmSkill")
                         .condition("statusId", "LsksActive")
-                        .useCache(false).list();
-                int n = rows.size();
+                        .useCache(false).list());
+                int n = rows == null ? 0 : rows.size();
                 for (int i = 0; i < n; i++) {
                     EntityValue ev = rows.get(i);
                     SkillDoc doc = fromEntity(ev);
@@ -131,7 +134,7 @@ public class SkillIndex {
                     if (s > 0 || q.isEmpty()) scored.add(new Scored(s, doc));
                 }
             } catch (Throwable t) {
-                if (logger.isDebugEnabled()) logger.debug("LlmSkill retrieve: " + t.getMessage());
+                logger.warn("LlmSkill retrieve: {}", t.getMessage());
             }
         }
         scored.sort((a, b) -> Integer.compare(b.score, a.score));
@@ -199,53 +202,89 @@ public class SkillIndex {
 
     public static EntityValue persistProposed(ExecutionContext ec, SkillDoc doc, String rawBody) {
         if (ec == null || doc == null || doc.name == null || doc.name.isEmpty()) return null;
-        EntityValue existing = ec.getEntity().find("moqui.llm.LlmSkill")
-                .condition("name", doc.name).useCache(false).one();
-        if (existing != null) return existing;
-        EntityValue ev = ec.getEntity().makeValue("moqui.llm.LlmSkill")
-                .set("name", doc.name)
-                .set("title", doc.title)
-                .set("description", doc.description)
-                .set("body", doc.body != null && !doc.body.isEmpty() ? doc.body : rawBody)
-                .set("riskId", riskId(doc.risk))
-                .set("statusId", "LsksProposed")
-                .set("provenanceId", "LskpSim")
-                .set("speaker", "sim")
-                .set("version", 1)
-                .set("worldSuccessCount", 0)
-                .set("simSuccessCount", 0);
-        ev.setSequencedIdPrimary();
-        return ev.create();
+        return withAuthzDisabled(ec, () -> {
+            EntityValue existing = ec.getEntity().find("moqui.llm.LlmSkill")
+                    .condition("name", doc.name).useCache(false).one();
+            if (existing != null) return existing;
+            EntityValue ev = ec.getEntity().makeValue("moqui.llm.LlmSkill")
+                    .set("name", doc.name)
+                    .set("title", doc.title)
+                    .set("description", doc.description)
+                    .set("body", doc.body != null && !doc.body.isEmpty() ? doc.body : rawBody)
+                    .set("riskId", riskId(doc.risk))
+                    .set("statusId", "LsksProposed")
+                    .set("provenanceId", "LskpSim")
+                    .set("speaker", "sim")
+                    .set("version", 1)
+                    .set("worldSuccessCount", 0)
+                    .set("simSuccessCount", 0);
+            ev.setSequencedIdPrimary();
+            return ev.create();
+        });
     }
 
     /** Promote a sim-proposed skill after a successful world act. */
     public static EntityValue admitWorldPass(ExecutionContext ec, String skillName) {
         if (ec == null || skillName == null || skillName.isEmpty()) return null;
-        EntityValue sk = ec.getEntity().find("moqui.llm.LlmSkill")
-                .condition("name", skillName).useCache(false).one();
-        if (sk == null) return null;
-        Object worldObj = sk.get("worldSuccessCount");
-        long world = worldObj instanceof Number ? ((Number) worldObj).longValue() : 0L;
-        sk.set("worldSuccessCount", world + 1L);
-        if ("LsksProposed".equals(sk.getString("statusId"))) {
-            sk.set("statusId", "LsksActive");
-            if ("LskpSim".equals(sk.getString("provenanceId")) || "LskpInfer".equals(sk.getString("provenanceId")))
-                sk.set("provenanceId", "LskpMixed");
-        }
-        sk.set("lastUsedDate", ec.getUser().getNowTimestamp());
-        sk.update();
+        return withAuthzDisabled(ec, () -> {
+            EntityValue sk = ec.getEntity().find("moqui.llm.LlmSkill")
+                    .condition("name", skillName).useCache(false).one();
+            if (sk == null) return null;
+            Object worldObj = sk.get("worldSuccessCount");
+            long world = worldObj instanceof Number ? ((Number) worldObj).longValue() : 0L;
+            sk.set("worldSuccessCount", world + 1L);
+            if ("LsksProposed".equals(sk.getString("statusId"))) {
+                sk.set("statusId", "LsksActive");
+                if ("LskpSim".equals(sk.getString("provenanceId")) || "LskpInfer".equals(sk.getString("provenanceId")))
+                    sk.set("provenanceId", "LskpMixed");
+            }
+            sk.set("lastUsedDate", ec.getUser().getNowTimestamp());
+            sk.update();
+            try {
+                EntityValue use = ec.getEntity().makeValue("moqui.llm.LlmSkillUse")
+                        .set("skillId", sk.get("skillId"))
+                        .set("contact", "world")
+                        .set("outcome", "pass")
+                        .set("usedDate", ec.getUser().getNowTimestamp());
+                use.setSequencedIdPrimary();
+                use.create();
+            } catch (Throwable t) {
+                logger.warn("LlmSkillUse write: {}", t.getMessage());
+            }
+            return sk;
+        });
+    }
+
+    /** Same as {@link #admitWorldPass} but begins a short TX when the caller is not in one. */
+    public static EntityValue admitWorldPassInTx(ExecutionContext ec, String skillName) {
+        if (ec == null || ec.getTransaction() == null) return admitWorldPass(ec, skillName);
+        boolean began = false;
         try {
-            EntityValue use = ec.getEntity().makeValue("moqui.llm.LlmSkillUse")
-                    .set("skillId", sk.get("skillId"))
-                    .set("contact", "world")
-                    .set("outcome", "pass")
-                    .set("usedDate", ec.getUser().getNowTimestamp());
-            use.setSequencedIdPrimary();
-            use.create();
+            began = ec.getTransaction().begin(60);
+            EntityValue ev = admitWorldPass(ec, skillName);
+            ec.getTransaction().commit(began);
+            return ev;
         } catch (Throwable t) {
-            logger.debug("LlmSkillUse write: " + t.getMessage());
+            try { ec.getTransaction().rollback(began, "admit LlmSkill world pass", t); }
+            catch (Throwable ignored) { }
+            logger.warn("admitWorldPass: {}", t.getMessage());
+            return null;
         }
-        return sk;
+    }
+
+    /**
+     * LlmServlet is not a screen, so inheritAuthz from ASSIST_APP does not cover these rows.
+     * Same pattern as {@code LlmConversationImpl} persist.
+     */
+    static <T> T withAuthzDisabled(ExecutionContext ec, Supplier<T> work) {
+        if (work == null) return null;
+        ArtifactExecutionFacade aefi = ec != null ? ec.getArtifactExecution() : null;
+        boolean alreadyDisabled = aefi != null && aefi.disableAuthz();
+        try {
+            return work.get();
+        } finally {
+            if (aefi != null && !alreadyDisabled) aefi.enableAuthz();
+        }
     }
 
     static String riskId(String risk) {

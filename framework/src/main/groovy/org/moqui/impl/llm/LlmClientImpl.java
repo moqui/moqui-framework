@@ -74,6 +74,8 @@ public class LlmClientImpl implements LlmClient {
     private int toolResultMaxChars = DEFAULT_TOOL_RESULT_MAX_CHARS;
     private boolean streamingWasPersisted = false;
     private volatile RestClient.RestStream activeStream;
+    /** Set when enter_sim persists a proposed skill; cleared after a world-pass admit. */
+    String pendingProposedSkillName = null;
 
     public LlmClientImpl(ExecutionContext ec, LlmFacadeImpl.ProfileState profile) {
         this(ec, profile, null);
@@ -704,7 +706,7 @@ public class LlmClientImpl implements LlmClient {
     /** Nested sim agent: same profile/protocol, no write_ui / enter_sim / find_skill. */
     LlmClientImpl nestForSim(int maxIter) {
         LlmClientImpl nested = new LlmClientImpl(ec, profile, transactionInPlace);
-        nested.maxIterations(maxIter > 0 ? maxIter : 8);
+        nested.maxIterations(maxIter > 0 ? maxIter : 32);
         nested.tool(LlmTool.browse());
         nested.tool(LlmTool.runService());
         return nested;
