@@ -12,6 +12,10 @@
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
 
+import org.moqui.context.ArtifactExecutionFacade
+import org.moqui.context.ArtifactExecutionInfo
+import org.moqui.context.ExecutionContext
+import org.moqui.context.UserFacade
 import org.moqui.impl.llm.LlmClientImpl
 import org.moqui.impl.llm.LlmConversationImpl
 import org.moqui.impl.llm.LlmFacadeImpl
@@ -546,6 +550,93 @@ class LlmClientTests extends Specification {
         conv.history[1].role == LlmMessage.Role.USER
         conv.history[2].role == LlmMessage.Role.ASSISTANT
         proto.lastRequest.window[0].role == LlmMessage.Role.SYSTEM
+    }
+
+    def "persistIsolated restores in-memory status if work throws before commit"() {
+        given:
+        def conv = LlmConversationImpl.create(null, "default", null)
+        when:
+        Exception ex = null
+        try {
+            conv.persistIsolated({
+                conv.@statusId = LlmConversationImpl.STATUS_STREAMING
+                throw new RuntimeException("persist boom")
+            } as Runnable)
+        } catch (RuntimeException e) { ex = e }
+        then:
+        ex != null
+        conv.status == LlmConversationImpl.STATUS_ACTIVE
+    }
+
+    def "single-flight CAS throws 409 when already Streaming"() {
+        given:
+        def proto = new FakeLlmProtocol(failIfInvoked: true)
+        def conv = LlmConversationImpl.create(null, "default", null)
+        conv.@statusId = LlmConversationImpl.STATUS_STREAMING
+        when:
+        client(proto).conversation(conv).user("hi").call()
+        then:
+        LlmException e = thrown()
+        e.httpStatus == 409
+        proto.chatCount == 0
+        conv.status == LlmConversationImpl.STATUS_STREAMING
+    }
+
+    def "AT_LLM authz runs before Streaming persist"() {
+        given:
+        def proto = new FakeLlmProtocol(failIfInvoked: true)
+        def conv = LlmConversationImpl.create(null, "default", null)
+        ArtifactExecutionFacade aefi = Stub(ArtifactExecutionFacade) {
+            push(_ as String, _ as ArtifactExecutionInfo.ArtifactType, _ as ArtifactExecutionInfo.AuthzAction, _ as Boolean) >> {
+                throw new IllegalStateException("no LLM")
+            }
+        }
+        ExecutionContext eci = Stub(ExecutionContext) {
+            getArtifactExecution() >> aefi
+            getTransaction() >> null
+        }
+        def profile = LlmFacadeImpl.ProfileState.forTest("default", proto, "test-model", false, 2, 0f, 5)
+        def c = new LlmClientImpl(eci, profile, { false })
+        when:
+        c.conversation(conv).user("hi").call()
+        then:
+        thrown(IllegalStateException)
+        proto.chatCount == 0
+        conv.status == LlmConversationImpl.STATUS_ACTIVE
+        conv.history.find { it.role == LlmMessage.Role.USER } == null
+    }
+
+    def "K22 non-owner non-ADMIN cannot view"() {
+        given:
+        UserFacade user = Stub(UserFacade) {
+            getUserId() >> "B"
+            isInGroup("ADMIN") >> false
+        }
+        ExecutionContext eci = Stub(ExecutionContext) {
+            getUser() >> user
+        }
+        when:
+        LlmConversationImpl.checkCanView(eci, "A")
+        then:
+        LlmException e = thrown()
+        e.httpStatus == 403
+    }
+
+    def "K22 owner or ADMIN can view"() {
+        given:
+        UserFacade owner = Stub(UserFacade) {
+            getUserId() >> "A"
+            isInGroup("ADMIN") >> false
+        }
+        UserFacade admin = Stub(UserFacade) {
+            getUserId() >> "B"
+            isInGroup("ADMIN") >> true
+        }
+        when:
+        LlmConversationImpl.checkCanView(Stub(ExecutionContext) { getUser() >> owner }, "A")
+        LlmConversationImpl.checkCanView(Stub(ExecutionContext) { getUser() >> admin }, "A")
+        then:
+        notThrown(LlmException)
     }
 
     def "newConversation and windowPolicy do not throw"() {

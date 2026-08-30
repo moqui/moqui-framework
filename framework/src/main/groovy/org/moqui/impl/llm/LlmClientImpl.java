@@ -13,8 +13,10 @@
  */
 package org.moqui.impl.llm;
 
+import org.moqui.context.ArtifactAuthorizationException;
 import org.moqui.context.ArtifactExecutionFacade;
 import org.moqui.context.ArtifactExecutionInfo;
+import org.moqui.context.ArtifactTarpitException;
 import org.moqui.context.ExecutionContext;
 import org.moqui.llm.LlmClient;
 import org.moqui.llm.LlmConversation;
@@ -28,6 +30,8 @@ import org.moqui.llm.LlmStreamListener;
 import org.moqui.llm.LlmTool;
 import org.moqui.llm.LlmToolResult;
 import org.moqui.llm.WindowPolicy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -36,6 +40,7 @@ import java.util.Map;
 import java.util.function.BooleanSupplier;
 
 public class LlmClientImpl implements LlmClient {
+    private static final Logger logger = LoggerFactory.getLogger(LlmClientImpl.class);
     private final ExecutionContext ec;
     private final LlmFacadeImpl.ProfileState profile;
     private final BooleanSupplier transactionInPlace;
@@ -180,49 +185,43 @@ public class LlmClientImpl implements LlmClient {
                     null, LlmFinishReason.ERROR, 0, profile.name, convId());
         }
 
-        if (conversation != null) {
-            String st = conversation.getStatus();
-            if (LlmConversationImpl.STATUS_STREAMING.equals(st) || LlmConversationImpl.STATUS_YIELDED.equals(st)) {
-                throw new LlmException("Conversation is " + st + " (single-flight)",
-                        null, LlmFinishReason.ERROR, 409, profile.name, convId());
-            }
-        }
-
-        boolean streamingSet = false;
-        if (conversation != null) {
-            LlmConversationImpl.persistIsolated(ec, () -> {
-                if (systemContent != null) conversation.replaceSystemInternal(systemContent);
-                for (LlmMessage u : userMessages) conversation.appendInternal(u.copy());
-                conversation.setStatusInternal(LlmConversationImpl.STATUS_STREAMING);
-            });
-            streamingSet = true;
-        }
-
+        ArtifactExecutionFacade aefi = ec != null ? ec.getArtifactExecution() : null;
+        ArtifactExecutionInfo aei = null;
+        // True only after Streaming is committed (or in-memory persistIsolated returned).
+        boolean streamingWasPersisted = false;
+        boolean cancelled = false;
         int emptyAttempts = 0;
         int errorAttempts = 0;
         float waitSeconds = profile.retryInitialSeconds > 0 ? profile.retryInitialSeconds : 0;
         long start = System.currentTimeMillis();
         ProtocolResult lastResult = null;
         try {
+            // Authz/tarpit before any Streaming write so a 403/429 cannot wedge the row.
+            if (aefi != null) {
+                aei = aefi.push(profile.name, ArtifactExecutionInfo.AT_LLM,
+                        ArtifactExecutionInfo.AUTHZA_VIEW, true);
+            }
+            if (conversation != null) {
+                conversation.persistIsolated(() -> {
+                    conversation.beginTurnStreaming();
+                    if (systemContent != null) conversation.replaceSystemInternal(systemContent);
+                    for (LlmMessage u : userMessages) conversation.appendInternal(u.copy());
+                });
+                streamingWasPersisted = true;
+            }
             while (true) {
                 List<LlmMessage> window = buildWindow();
                 ProtocolRequest req = buildRequest(model, window);
                 ProtocolResult result;
-                ArtifactExecutionFacade aefi = ec != null ? ec.getArtifactExecution() : null;
-                ArtifactExecutionInfo aei = null;
                 try {
-                    if (aefi != null) {
-                        aei = aefi.push(profile.name, ArtifactExecutionInfo.AT_LLM,
-                                ArtifactExecutionInfo.AUTHZA_VIEW, true);
-                    }
                     result = profile.protocol.chat(req);
+                } catch (ArtifactAuthorizationException | ArtifactTarpitException e) {
+                    throw e;
                 } catch (LlmException e) {
                     throw e;
                 } catch (RuntimeException e) {
                     throw new LlmException("LLM protocol call failed: " + e.getMessage(), e,
                             LlmFinishReason.ERROR, 0, profile.name, convId());
-                } finally {
-                    if (aefi != null && aei != null) aefi.pop(aei);
                 }
                 if (result == null) {
                     throw new LlmException("LLM protocol returned no result",
@@ -265,28 +264,36 @@ public class LlmClientImpl implements LlmClient {
                         null, LlmFinishReason.ERROR, result.httpStatus, profile.name, convId());
             }
         } catch (Throwable t) {
-            if (streamingSet && conversation != null) {
+            cancelled = LlmConversationImpl.isCancelThrowable(t);
+            if (streamingWasPersisted && conversation != null) {
                 try { persistFailure(lastResult, start, t); }
-                catch (Throwable ignored) { }
+                catch (Throwable persistErr) {
+                    logger.error("Error persisting LLM Failed/Cancelled for conversation " + convId(), persistErr);
+                }
             }
+            if (t instanceof ArtifactAuthorizationException) throw (ArtifactAuthorizationException) t;
+            if (t instanceof ArtifactTarpitException) throw (ArtifactTarpitException) t;
             if (t instanceof LlmException) throw (LlmException) t;
             if (t instanceof RuntimeException) throw (RuntimeException) t;
             throw new LlmException("LLM call failed: " + t.getMessage(), t,
                     LlmFinishReason.ERROR, 0, profile.name, convId());
         } finally {
-            // Safety net: never leave LlmcsStreaming committed if this call is failing.
-            if (streamingSet && conversation != null
-                    && LlmConversationImpl.STATUS_STREAMING.equals(conversation.getStatus())) {
-                try {
-                    persistFailure(lastResult, start, null);
-                } catch (Throwable ignored) { }
+            // DB is source of truth: if this turn persisted Streaming and did not Complete, re-read
+            // the header and Failed/Cancelled if still Streaming (memory may already have been mutated).
+            if (streamingWasPersisted && conversation != null
+                    && !LlmConversationImpl.STATUS_COMPLETE.equals(conversation.getStatus())) {
+                try { conversation.repairTerminalIfStreaming(cancelled); }
+                catch (Throwable persistErr) {
+                    logger.error("Error repairing LLM Streaming status for conversation " + convId(), persistErr);
+                }
             }
+            if (aefi != null && aei != null) aefi.pop(aei);
         }
     }
 
     private void persistSuccess(List<LlmMessage> window, ProtocolResult result, LlmFinishReason fr, long start) {
         if (conversation == null) return;
-        LlmConversationImpl.persistIsolated(ec, () -> {
+        conversation.persistIsolated(() -> {
             LlmMessage asst = LlmMessage.assistant(result.content);
             asst.toolCalls = result.toolCalls;
             conversation.appendInternal(asst);
@@ -301,7 +308,7 @@ public class LlmClientImpl implements LlmClient {
         if (conversation == null) return;
         boolean cancelled = LlmConversationImpl.isCancelThrowable(t);
         String status = cancelled ? LlmConversationImpl.STATUS_CANCELLED : LlmConversationImpl.STATUS_FAILED;
-        LlmConversationImpl.persistIsolated(ec, () -> {
+        conversation.persistIsolated(() -> {
             if (result != null) {
                 conversation.writeCallLog(profile.name, profile.protocol != null ? profile.protocol.getName() : null,
                         result.model != null ? result.model : resolveModel(), profile.logContent,

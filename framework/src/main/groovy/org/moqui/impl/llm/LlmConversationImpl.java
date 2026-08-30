@@ -13,7 +13,6 @@
  */
 package org.moqui.impl.llm;
 
-import org.moqui.context.ArtifactAuthorizationException;
 import org.moqui.context.ArtifactExecutionFacade;
 import org.moqui.context.ExecutionContext;
 import org.moqui.context.TransactionFacade;
@@ -21,6 +20,7 @@ import org.moqui.entity.EntityList;
 import org.moqui.entity.EntityValue;
 import org.moqui.llm.LlmConversation;
 import org.moqui.llm.LlmException;
+import org.moqui.llm.LlmFinishReason;
 import org.moqui.llm.LlmMessage;
 import org.moqui.llm.LlmProtocol.ProtocolResult;
 import org.moqui.llm.LlmToolCall;
@@ -91,7 +91,7 @@ public class LlmConversationImpl implements LlmConversation {
                 conv.conversationId = ev.getString("conversationId");
                 conv.writeHeader(ev, true);
             }
-        });
+        }, conv);
         if (conv.conversationId == null) conv.conversationId = newInMemoryId();
         return conv;
     }
@@ -102,7 +102,7 @@ public class LlmConversationImpl implements LlmConversation {
         if (!hasEntity(ec))
             throw new LlmException("Cannot load conversation '" + conversationId + "' without EntityFacade");
         LlmConversationImpl conv = new LlmConversationImpl(ec, conversationId);
-        persistIsolated(ec, () -> conv.readFromStore());
+        persistIsolated(ec, () -> conv.readFromStore(), conv);
         if (conv.statusId == null)
             throw new LlmException("Conversation not found: " + conversationId);
         if (checkOwner) checkCanView(ec, conv.userId);
@@ -110,31 +110,48 @@ public class LlmConversationImpl implements LlmConversation {
     }
 
     /** Owner or ADMIN only (K22). No user on the EC is allowed only for conversations with no owner. */
-    static void checkCanView(ExecutionContext ec, String ownerUserId) {
+    public static void checkCanView(ExecutionContext ec, String ownerUserId) {
         if (ec == null || ec.getUser() == null) return;
         String current = ec.getUser().getUserId();
         if (current == null || current.isEmpty()) {
             if (ownerUserId == null || ownerUserId.isEmpty()) return;
-            throw new ArtifactAuthorizationException("User is not authorized to view LLM conversation");
+            throw new LlmException("User is not authorized to view LLM conversation",
+                    null, LlmFinishReason.ERROR, 403, null, null);
         }
         if (current.equals(ownerUserId)) return;
         if (ec.getUser().isInGroup("ADMIN")) return;
-        throw new ArtifactAuthorizationException("User is not authorized to view LLM conversation");
+        throw new LlmException("User is not authorized to view LLM conversation",
+                null, LlmFinishReason.ERROR, 403, null, null);
     }
 
     /**
      * Same-thread require-new TX (ServiceCallSync.requireNewTransaction pattern).
      * Reentrant: nested calls run in the already-isolated TX. Do not use runRequireNew (that starts a thread).
+     * On any failure before a successful commit, {@code conv} memory is restored so rollback cannot leave
+     * in-memory status ahead of the DB (K11).
      */
     public static void persistIsolated(ExecutionContext ec, Runnable work) {
+        persistIsolated(ec, work, null);
+    }
+    public void persistIsolated(Runnable work) {
+        persistIsolated(ec, work, this);
+    }
+    static void persistIsolated(ExecutionContext ec, Runnable work, LlmConversationImpl conv) {
         if (work == null) return;
         Integer depth = PERSIST_DEPTH.get();
         if (depth != null && depth > 0) {
             work.run();
             return;
         }
+        Snapshot snap = conv != null ? conv.snapshot() : null;
         if (ec == null || ec.getTransaction() == null) {
-            work.run();
+            try {
+                work.run();
+            } catch (Throwable t) {
+                if (snap != null) conv.restore(snap);
+                if (t instanceof RuntimeException) throw (RuntimeException) t;
+                throw new LlmException("Error persisting LLM data", t);
+            }
             return;
         }
         PERSIST_DEPTH.set(1);
@@ -147,12 +164,13 @@ public class LlmConversationImpl implements LlmConversation {
             boolean began = tf.begin(PERSIST_TIMEOUT_SECONDS);
             try {
                 work.run();
+                if (tf.isTransactionInPlace()) tf.commit(began);
             } catch (Throwable t) {
-                tf.rollback(began, "Error persisting LLM data", t);
+                if (snap != null) conv.restore(snap);
+                try { tf.rollback(began, "Error persisting LLM data", t); }
+                catch (Throwable rb) { logger.error("Error rolling back LLM persist", rb); }
                 if (t instanceof RuntimeException) throw (RuntimeException) t;
                 throw new LlmException("Error persisting LLM data", t);
-            } finally {
-                if (tf.isTransactionInPlace()) tf.commit(began);
             }
         } finally {
             if (suspended) {
@@ -180,7 +198,7 @@ public class LlmConversationImpl implements LlmConversation {
 
     @Override
     public void setTitle(String title) {
-        persistIsolated(ec, () -> {
+        persistIsolated(() -> {
             this.title = title;
             updateHeader();
         });
@@ -220,7 +238,7 @@ public class LlmConversationImpl implements LlmConversation {
     @Override
     public LlmConversation append(LlmMessage message) {
         if (message == null) return this;
-        persistIsolated(ec, () -> appendInternal(message.copy()));
+        persistIsolated(() -> appendInternal(message.copy()));
         return this;
     }
     @Override
@@ -242,20 +260,20 @@ public class LlmConversationImpl implements LlmConversation {
 
     @Override
     public LlmConversation replaceSystem(String content) {
-        persistIsolated(ec, () -> replaceSystemInternal(content));
+        persistIsolated(() -> replaceSystemInternal(content));
         return this;
     }
 
     @Override
     public LlmConversation injectContext(String source, String content) {
         LlmMessage ctx = LlmMessage.context(source, content);
-        persistIsolated(ec, () -> appendInternal(ctx));
+        persistIsolated(() -> appendInternal(ctx));
         return this;
     }
 
     @Override
     public LlmConversation removeContextBySource(String source) {
-        persistIsolated(ec, () -> {
+        persistIsolated(() -> {
             List<LlmMessage> removed = new ArrayList<>();
             for (LlmMessage m : messages) {
                 if (m.role == LlmMessage.Role.CONTEXT && sourceEquals(m, source)) removed.add(m);
@@ -267,7 +285,7 @@ public class LlmConversationImpl implements LlmConversation {
 
     @Override
     public LlmConversation clearContext() {
-        persistIsolated(ec, () -> {
+        persistIsolated(() -> {
             List<LlmMessage> removed = new ArrayList<>();
             for (LlmMessage m : messages) {
                 if (m.role == LlmMessage.Role.CONTEXT) removed.add(m);
@@ -280,7 +298,7 @@ public class LlmConversationImpl implements LlmConversation {
     @Override
     public LlmConversation replaceMessage(String messageId, LlmMessage replacement) {
         if (messageId == null || replacement == null) return this;
-        persistIsolated(ec, () -> {
+        persistIsolated(() -> {
             for (int i = 0; i < messages.size(); i++) {
                 LlmMessage cur = messages.get(i);
                 if (messageId.equals(cur.messageId)) {
@@ -291,6 +309,7 @@ public class LlmConversationImpl implements LlmConversation {
                     if (copy.role == null) copy.role = cur.role;
                     messages.set(i, copy);
                     if (copy.role == LlmMessage.Role.SYSTEM) systemText = copy.content;
+                    lastMessageDate = copy.sentDate;
                     writeMessage(copy, false);
                     updateHeader();
                     return;
@@ -304,7 +323,7 @@ public class LlmConversationImpl implements LlmConversation {
     @Override
     public LlmConversation removeMessage(String messageId) {
         if (messageId == null) return this;
-        persistIsolated(ec, () -> {
+        persistIsolated(() -> {
             LlmMessage found = null;
             for (LlmMessage m : messages) {
                 if (messageId.equals(m.messageId)) { found = m; break; }
@@ -316,7 +335,7 @@ public class LlmConversationImpl implements LlmConversation {
 
     @Override
     public LlmConversation setWindowPolicy(WindowPolicy policy) {
-        persistIsolated(ec, () -> {
+        persistIsolated(() -> {
             this.windowPolicy = policy != null ? policy : new WindowPolicy();
             updateHeader();
         });
@@ -333,7 +352,7 @@ public class LlmConversationImpl implements LlmConversation {
 
     @Override
     public void setAttribute(String name, Object value) {
-        persistIsolated(ec, () -> {
+        persistIsolated(() -> {
             if (name == null) return;
             if (value == null) attributes.remove(name);
             else attributes.put(name, value);
@@ -343,7 +362,7 @@ public class LlmConversationImpl implements LlmConversation {
 
     @Override
     public void cancel() {
-        persistIsolated(ec, () -> {
+        persistIsolated(() -> {
             if (STATUS_COMPLETE.equals(statusId) || STATUS_FAILED.equals(statusId)
                     || STATUS_CANCELLED.equals(statusId)) return;
             statusId = STATUS_CANCELLED;
@@ -354,7 +373,7 @@ public class LlmConversationImpl implements LlmConversation {
 
     @Override
     public void persist() {
-        persistIsolated(ec, () -> {
+        persistIsolated(() -> {
             updateHeader();
             for (LlmMessage m : messages) writeMessage(m, m.messageId == null);
         });
@@ -365,12 +384,59 @@ public class LlmConversationImpl implements LlmConversation {
         updateHeader();
     }
 
+    /**
+     * Single-flight CAS inside the isolated TX: re-read (FOR UPDATE) and only Active|Complete|Failed|Cancelled
+     * may become Streaming. Yielded is 409 on a new turn (resume is a later PR).
+     */
+    void beginTurnStreaming() {
+        if (hasEntity(ec) && conversationId != null) {
+            EntityValue ev = ec.getEntity().find("moqui.llm.LlmConversation")
+                    .condition("conversationId", conversationId).forUpdate(true).useCache(false).one();
+            if (ev == null) throw new LlmException("Conversation not found: " + conversationId);
+            String dbStatus = ev.getString("statusId");
+            if (STATUS_STREAMING.equals(dbStatus) || STATUS_YIELDED.equals(dbStatus)) {
+                throw new LlmException("Conversation is " + dbStatus + " (single-flight)",
+                        null, LlmFinishReason.ERROR, 409, profileName, conversationId);
+            }
+            statusId = STATUS_STREAMING;
+            writeHeader(ev, false);
+        } else {
+            if (STATUS_STREAMING.equals(statusId) || STATUS_YIELDED.equals(statusId)) {
+                throw new LlmException("Conversation is " + statusId + " (single-flight)",
+                        null, LlmFinishReason.ERROR, 409, profileName, conversationId);
+            }
+            statusId = STATUS_STREAMING;
+        }
+    }
+
+    /** Re-read DB (source of truth) and only then Failed/Cancelled if still Streaming. */
+    void repairTerminalIfStreaming(boolean cancelled) {
+        persistIsolated(() -> {
+            String dbStatus = statusId;
+            EntityValue ev = null;
+            if (hasEntity(ec) && conversationId != null) {
+                ev = ec.getEntity().find("moqui.llm.LlmConversation")
+                        .condition("conversationId", conversationId).forUpdate(true).useCache(false).one();
+                if (ev != null) dbStatus = ev.getString("statusId");
+            }
+            if (STATUS_STREAMING.equals(dbStatus)) {
+                statusId = cancelled ? STATUS_CANCELLED : STATUS_FAILED;
+                pendingToolCalls.clear();
+                if (ev != null) writeHeader(ev, false);
+                else updateHeader();
+            } else if (ev != null && dbStatus != null) {
+                statusId = dbStatus;
+            }
+        });
+    }
+
     void replaceSystemInternal(String content) {
         LlmMessage existing = findSystem();
         if (existing != null) {
             existing.content = content;
             existing.sentDate = now(ec);
             systemText = content;
+            lastMessageDate = existing.sentDate;
             writeMessage(existing, false);
             updateHeader();
         } else {
@@ -388,6 +454,7 @@ public class LlmConversationImpl implements LlmConversation {
                 existing.metadata = message.metadata;
                 existing.sentDate = now(ec);
                 systemText = message.content;
+                lastMessageDate = existing.sentDate;
                 writeMessage(existing, false);
                 updateHeader();
                 return;
@@ -472,7 +539,60 @@ public class LlmConversationImpl implements LlmConversation {
     private int nextOrdinal() {
         int next = 0;
         for (LlmMessage m : messages) if (m.ordinal >= next) next = m.ordinal + 1;
+        if (hasEntity(ec) && conversationId != null) {
+            EntityList el = ec.getEntity().find("moqui.llm.LlmMessage")
+                    .condition("conversationId", conversationId)
+                    .orderBy("-ordinal").limit(1).useCache(false).list();
+            if (el != null && el.size() > 0) {
+                Long o = el.getFirst().getLong("ordinal");
+                if (o != null && o.intValue() + 1 > next) next = o.intValue() + 1;
+            }
+        }
         return next;
+    }
+
+    private Snapshot snapshot() {
+        Snapshot s = new Snapshot();
+        s.conversationId = conversationId;
+        s.profileName = profileName;
+        s.userId = userId;
+        s.visitId = visitId;
+        s.statusId = statusId;
+        s.title = title;
+        s.systemText = systemText;
+        s.windowPolicy = windowPolicy != null ? windowPolicy.copy() : new WindowPolicy();
+        s.pendingToolCalls.addAll(pendingToolCalls);
+        s.attributes.putAll(attributes);
+        s.lastMessageDate = lastMessageDate;
+        for (LlmMessage m : messages) s.messages.add(m != null ? m.copy() : null);
+        return s;
+    }
+
+    private void restore(Snapshot s) {
+        conversationId = s.conversationId;
+        profileName = s.profileName;
+        userId = s.userId;
+        visitId = s.visitId;
+        statusId = s.statusId;
+        title = s.title;
+        systemText = s.systemText;
+        windowPolicy = s.windowPolicy != null ? s.windowPolicy : new WindowPolicy();
+        pendingToolCalls.clear();
+        pendingToolCalls.addAll(s.pendingToolCalls);
+        attributes.clear();
+        attributes.putAll(s.attributes);
+        lastMessageDate = s.lastMessageDate;
+        messages.clear();
+        messages.addAll(s.messages);
+    }
+
+    private static final class Snapshot {
+        String conversationId, profileName, userId, visitId, statusId, title, systemText;
+        WindowPolicy windowPolicy;
+        final List<LlmToolCall> pendingToolCalls = new ArrayList<>();
+        final Map<String, Object> attributes = new LinkedHashMap<>();
+        Timestamp lastMessageDate;
+        final List<LlmMessage> messages = new ArrayList<>();
     }
 
     private void readFromStore() {

@@ -28,14 +28,30 @@ along with this software (see the LICENSE.md file). If not, see
             Calendar basisCal = ec.user.getCalendarSafe()
             basisCal.add(Calendar.DAY_OF_YEAR, (int) -daysToKeep)
             basisTimestamp = new Timestamp(basisCal.getTimeInMillis())
-            callLogsRemoved = ec.entity.find("moqui.llm.LlmCallLog")
-                    .condition("startDate", EntityCondition.LESS_THAN, basisTimestamp)
-                    .disableAuthz().deleteAll()
-            messagesRemoved = ec.entity.find("moqui.llm.LlmMessage")
+            // Delete children of old conversations first so the LlmMessage FK cannot fail the job.
+            def oldConvs = ec.entity.find("moqui.llm.LlmConversation")
+                    .condition("lastMessageDate", EntityCondition.LESS_THAN, basisTimestamp)
+                    .disableAuthz().list()
+            def oldIds = oldConvs.collect { it.conversationId }.findAll { it }
+            callLogsRemoved = 0L
+            messagesRemoved = 0L
+            conversationsRemoved = 0L
+            if (oldIds) {
+                callLogsRemoved += ec.entity.find("moqui.llm.LlmCallLog")
+                        .condition("conversationId", EntityCondition.IN, oldIds)
+                        .disableAuthz().deleteAll()
+                messagesRemoved += ec.entity.find("moqui.llm.LlmMessage")
+                        .condition("conversationId", EntityCondition.IN, oldIds)
+                        .disableAuthz().deleteAll()
+                conversationsRemoved += ec.entity.find("moqui.llm.LlmConversation")
+                        .condition("conversationId", EntityCondition.IN, oldIds)
+                        .disableAuthz().deleteAll()
+            }
+            messagesRemoved += ec.entity.find("moqui.llm.LlmMessage")
                     .condition("sentDate", EntityCondition.LESS_THAN, basisTimestamp)
                     .disableAuthz().deleteAll()
-            conversationsRemoved = ec.entity.find("moqui.llm.LlmConversation")
-                    .condition("lastMessageDate", EntityCondition.LESS_THAN, basisTimestamp)
+            callLogsRemoved += ec.entity.find("moqui.llm.LlmCallLog")
+                    .condition("startDate", EntityCondition.LESS_THAN, basisTimestamp)
                     .disableAuthz().deleteAll()
             ec.logger.info("Removed ${callLogsRemoved} LlmCallLog, ${messagesRemoved} LlmMessage, ${conversationsRemoved} LlmConversation records more than ${daysToKeep} days old")
         </script></actions>
