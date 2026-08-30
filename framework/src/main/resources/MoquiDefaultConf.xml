@@ -80,7 +80,9 @@
     <default-property name="elasticsearch_password" value="" is-secret="true"/>
     <default-property name="elasticsearch_index_prefix" value=""/>
 
-    <!-- LLM Client settings -->
+    <!-- LLM Client settings (env vars / Java properties; see ReleaseNotes.md). url may be an origin
+         (default path /v1/chat/completions is appended) or a full chat/completions URL (Azure).
+         Blank api-key omits the auth header (Ollama). model is empty — set llm_openai_model. -->
     <default-property name="llm_openai_url" value="https://api.openai.com"/>
     <default-property name="llm_openai_api_key" value="" is-secret="true"/>
     <default-property name="llm_openai_model" value=""/>
@@ -446,7 +448,10 @@
     <llm-facade enabled="true" default-profile="default">
         <profile name="default" url="${llm_openai_url}" api-key="${llm_openai_api_key}"
                 model="${llm_openai_model}" log-content="${llm_log_content}"/>
-        <!-- No allowed-path: servlet does not attach request. Add prefixes in runtime conf. -->
+        <!-- No allowed-path: servlet does not attach the request tool. Add prefixes in runtime conf, e.g.:
+             <allowed-path prefix="/rest/s1/mantle/" methods="GET,POST,PUT,PATCH,DELETE"/>
+             <allowed-path prefix="/qapps/mantle/" methods="GET"/>
+             Universal Screen profiles should usually be GET-only on screen prefixes. -->
     </llm-facade>
 
     <entity-facade default-group-name="transactional" entity-eca-enabled="true" sequenced-id-prefix=""
