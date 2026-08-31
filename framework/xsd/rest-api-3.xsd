@@ -29,6 +29,10 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="description" type="xs:string"/>
             <xs:attribute name="version" type="xs:string"/>
             <xs:attribute name="require-authentication" type="authc-options" default="true"/>
+            <xs:attribute name="track-artifact-hit" type="xs:string" default="false">
+                <xs:annotation><xs:documentation>If set to true, ArtifactHit and ArtifactHitBin data will be kept for
+                    this rest path unless overridden by child node(s)</xs:documentation></xs:annotation>
+            </xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="id">
@@ -40,6 +44,10 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:sequence>
             <xs:attribute name="name" type="xs:string" use="required"/>
             <xs:attribute name="require-authentication" type="authc-options" default="true"/>
+            <xs:attribute name="track-artifact-hit" type="xs:string" default="false">
+                <xs:annotation><xs:documentation>If set to true, ArtifactHit and ArtifactHitBin data will be kept for
+                    this rest path unless overridden by child node(s)</xs:documentation></xs:annotation>
+            </xs:attribute>
             <xs:attribute name="allow-extra-path" type="boolean" default="false">
                 <xs:annotation><xs:documentation>If set to true arbitrary path elements following this screen's path are allowed.
                     Default is false and an exception will be thrown if there is an extra path element that does not match a
@@ -67,6 +75,10 @@ along with this software (see the LICENSE.md file). If not, see
                 </xs:simpleType>
             </xs:attribute>
             <xs:attribute name="require-authentication" type="authc-options" default="true"/>
+            <xs:attribute name="track-artifact-hit" type="xs:string" default="false">
+                <xs:annotation><xs:documentation>If set to true, ArtifactHit and ArtifactHitBin data will be kept for
+                    this rest path unless overridden by child node(s)</xs:documentation></xs:annotation>
+            </xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="service">
