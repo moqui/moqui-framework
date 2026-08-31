@@ -60,14 +60,11 @@ public class JdbcExtractor implements SimpleEtl.Extractor {
         this.etl = etl;
 
         XAConnection xacon = null;
-        Connection con = null;
-        Statement stmt = null;
-        ResultSet rs = null;
         try {
             xacon = eci.getEntityFacade().getConfConnection(confMap);
-            con = xacon.getConnection();
-            stmt = con.createStatement();
-            rs = stmt.executeQuery(selectSql);
+            try (Connection con = xacon.getConnection();
+                 Statement stmt = con.createStatement();
+                 ResultSet rs = stmt.executeQuery(selectSql)) {
             ResultSetMetaData rsmd = rs.getMetaData();
             int columnCount = rsmd.getColumnCount();
             String[] columnNames = new String[columnCount];
@@ -84,12 +81,10 @@ public class JdbcExtractor implements SimpleEtl.Extractor {
                     break;
                 }
             }
+            }
         } catch (Exception e) {
             throw new BaseException("Error in SQL query " + selectSql, e);
         } finally {
-            if (rs != null) rs.close();
-            if (stmt != null) stmt.close();
-            if (con != null) con.close();
             if (xacon != null) xacon.close();
         }
     }
