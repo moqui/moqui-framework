@@ -287,11 +287,10 @@ Given the upgrade to gradle, Java and bitronix, the following community componen
 - Upgrade docker infrastructure including opensearch, mysql, postgres to latest
 - Upgrade all dependencies to their latest versions
 - Switch from Thread.getId() to Thread.threadId() to work on both virtual and platform threads
-- RestClient.stream() and streamSse() for Jetty InputStream responses and Server-Sent Events (used by LlmClient)
 
 ## Release 3.9.9 - 25 Feb 2026
 
-Moqui Framework 3.9.9 is a minor new feature and bug fix release, but mostly a maintenance release for the Moqui Framework
+Moqui Framework 3.9.9 is a minor new feature and bug fix release, but mostly a maintenance release for the Moqui Framework 
 4.0.0 release series.
 
 For a complete list see the commit log:
@@ -309,14 +308,14 @@ Java 11 is now the minimum Java version required. For development and deployment
 and that JAVA_HOME is set to the Java 11 JDK install path (for openjdk-11-jdk on Linux: /usr/lib/jvm/java-11-openjdk-amd64).
 
 In this release the old moqui-elasticsearch component with embedded ElasticSearch is no longer supported. Instead, the new
-ElasticFacade is included in the framework as a client to an external OpenSearch or ElasticSearch instance which can be
+ElasticFacade is included in the framework as a client to an external OpenSearch or ElasticSearch instance which can be 
 installed in runtime/opensearch or runtime/elasticsearch and automatically started/stopped in a separate process by the
 MoquiStart class (executable WAR, not when WAR file dropped into Servlet container).
 
 For search the recommended versions for this release are OpenSearch 1.3.1 (https://opensearch.org/) or ElasticSearch 7.10.2.
 For ElasticSearch this is the last version released under the Apache 2.0 license).
 
-Now that JavaScript/CSS minify and certain other issues with tools have been resolved, Gradle 7+ is supported.
+Now that JavaScript/CSS minify and certain other issues with tools have been resolved, Gradle 7+ is supported.   
 
 This is a brief summary of the changes since the last release, for a complete list see the commit log:
 
@@ -326,7 +325,7 @@ https://github.com/moqui/moqui-framework/compare/v2.1.3...v3.0.0
 
 - Java 11 is now required, updated from Java 8
 - Updated Spock to 2.1 and with that update now using JUnit Platform and JUnit 5 (Jupiter); with this update old JUnit 4
-  test annotations and such are supported, but JUnit 4 TestSuite implementations need to be updated to use the new
+  test annotations and such are supported, but JUnit 4 TestSuite implementations need to be updated to use the new 
   JUnit Platform and Jupiter annotations
 - Library updates have been done that conflict with ElasticSearch making it impossible to run embedded
 - XMLRPC support had been partly removed years ago, is now completely removed
@@ -336,17 +335,17 @@ https://github.com/moqui/moqui-framework/compare/v2.1.3...v3.0.0
 - H2 has non-backward compatible changes, including VALUE now being a reserved word; the Moqui Conf XML file now supports
   per-database entity and field name substitution to handle this and similar future issues; the main issue this cannot
   solve is with older H2 database files that have columns named VALUE, these may need to be changes to THE_VALUE using
-  an older version of H2 before updating (this is less common as H2 databases are not generally retained long-term)
+  an older version of H2 before updating (this is less common as H2 databases are not generally retained long-term) 
 
 ### New Features
 
 - Recommended Gradle version is 7+ with updates to support the latest versions of Gradle
 - Updated Jetty to version 10 (which requires Java 11 or later)
-- MFA support for login and update password in screens and REST API with factors including authc code by email and SMS,
+- MFA support for login and update password in screens and REST API with factors including authc code by email and SMS, 
   TOTP code (via authenticator app), backup codes; can set a flag on UserGroup to require second factor for all users in
   the group, and if any user has any additional factor enable then a second factor will be required
-- Various security updates including vulnerabilities in 3rd party libraries (including Log4j, Jackson, Shiro, Jetty),
-  and some in Moqui itself including XSS vulnerabilities in certain error cases and other framework generated
+- Various security updates including vulnerabilities in 3rd party libraries (including Log4j, Jackson, Shiro, Jetty), 
+  and some in Moqui itself including XSS vulnerabilities in certain error cases and other framework generated 
   messages/responses based on testing with OWASP Zap and two commercial third party reviews (done by larger Moqui users)
 - Optimization for startup-add-missing to get meta data for all tables and columns instead of per entity for much faster startup
   when enabled; default for runtime-add-missing is now 'false' and startup-add-missing is now 'true' for all DBs including H2
@@ -357,15 +356,15 @@ https://github.com/moqui/moqui-framework/compare/v2.1.3...v3.0.0
   - entity find SQL improvements for view entities where a member entity links to another member-entity with a function on a join field
   - support entity-condition in view-entity used as a sub-select, was being ignored before
 - Improvements to DataDocument generation for a DataFeed to handle very large database tables to feed to ES or elsewhere,
-  including chunking and excluding service parameters from the per ExecutionContext instance service call history
+  including chunking and excluding service parameters from the per ExecutionContext instance service call history  
 - DataFeed and DataDocument support for manual delete of documents and automatic delete on primary entity record delete
-- Scheduled screen render to send regular reports to users by email (simple email with CSV or XSLT attachment) using
+- Scheduled screen render to send regular reports to users by email (simple email with CSV or XSLT attachment) using 
   saved finds on any form-list based screen
 - For entity field encryption default to PBEWithHmacSHA256AndAES_128 instead of PBEWithMD5AndDES, and add configuration
-  options for old field encrypt settings (algo, key, etc) to support changing settings, with a service to re-encrypt all
+  options for old field encrypt settings (algo, key, etc) to support changing settings, with a service to re-encrypt all 
   encrypted fields on all records, or can re-encrypt only when data is touched (as long as all old settings are retained,
   the framework will attempt decrypt with each)
-- Groovy Shell screen added to the Tools app (with special permission), an interactive Groovy Console for testing in
+- Groovy Shell screen added to the Tools app (with special permission), an interactive Groovy Console for testing in 
   various environments and for fixing certain production issues
 
 ### Bug Fixes
@@ -387,13 +386,13 @@ being replaced by the new ElasticFacade included in this release.
 
 - Java 11 now supported with some additional libraries (like javax.activation) included by default; some code changes
   to address deprecations in the Java 11 API but more needed to resolve all for better future compatibility
-  (in other words expect deprecation warnings when building with Java 11)
+  (in other words expect deprecation warnings when building with Java 11) 
 - Built-in ElasticSearch client in the new ElasticFacade that uses pooled HTTP connections with the Moqui RestClient
   for the ElasticSearch JSON REST API; this is most easily used with Groovy where you can use the inline Map and List
   syntax to build what becomes the JSON body for search and other requests; after this release it will replace the old
   moqui-elasticsearch component, now included in the framework because the large ES jar files are no longer required
 - RestClient improvements to support an externally managed RequestFactory to maintain a HttpClient across requests
-  for connection pooling, managing cookies, etc
+  for connection pooling, managing cookies, etc 
 - Support for binary render modes for screen with new ScreenWidgetRender interface and screen-facade.screen-output
   element in the Moqui Conf XML file; this was initially implemented to support an xlsx render mode implemented in
   the new moqui-poi tool component
@@ -435,11 +434,11 @@ https://github.com/moqui/moqui-framework/compare/v2.1.1...v2.1.2
 
 Moqui Framework 2.1.1 is a patch level new feature and bug fix release.
 
-While this release has new features maybe significant enough to warrant a 2.2.0 version bump it is mostly refinements and
-improvements to existing functionality or to address design limitations and generally make things easier and cleaner.
+While this release has new features maybe significant enough to warrant a 2.2.0 version bump it is mostly refinements and 
+improvements to existing functionality or to address design limitations and generally make things easier and cleaner. 
 
-There are various bug fixes and security improvements in this release. There are no known backward compatibility issues since the
-last release but there are minor cases where default behavior has changed (see detailed notes).
+There are various bug fixes and security improvements in this release. There are no known backward compatibility issues since the 
+last release but there are minor cases where default behavior has changed (see detailed notes). 
 
 ### New Features
 
@@ -453,7 +452,7 @@ last release but there are minor cases where default behavior has changed (see d
 
 - RestClient improvements for background requests with a Future, retry on 429 for velocity limited APIs, multipart requests, etc
 - In user preferences support override by Java system property (or env var if default-property declared in Moqui Conf XML)
-- Add WebFacade.getRequestBodyText() method, use to get body text more easily and now necessary as WebFacade reads the body for all
+- Add WebFacade.getRequestBodyText() method, use to get body text more easily and now necessary as WebFacade reads the body for all 
   requests with a text content type instead of just application/json or text/json types as before
 - Add email support for notifications with basic default template, enabled only per user for a specific NotificationTopic
 - Add NotificationTopic for web (screen) critical errors
@@ -462,15 +461,15 @@ last release but there are minor cases where default behavior has changed (see d
 
 ##### XML Screen and Form
 
-- Support for Vue component based XML Screens using a .js file and a .vuet file that gets merged into the Vue component as the
+- Support for Vue component based XML Screens using a .js file and a .vuet file that gets merged into the Vue component as the 
   template (template can be inline in the .js file); for an example see the DynamicExampleItems.xml screen in the example component
 - XML Screen and WebFacade response headers now configurable with webapp.response-header element in Moqui Conf XML
-- Add moqui-conf.screen-facade.screen and screen.subscreens-item elements that override screen.subscreens.subscreens-item elements
-  within a screen definition so that application root screens can be added under webroot and apps in a MoquiConf.xml file in a
+- Add moqui-conf.screen-facade.screen and screen.subscreens-item elements that override screen.subscreens.subscreens-item elements 
+  within a screen definition so that application root screens can be added under webroot and apps in a MoquiConf.xml file in a 
   component or in the active Moqui Conf XML file instead of using database records
-- Add support for 'no sub-path' subscreens to extend or override screens, transitions, and resources under the parent screen by
-  looking first in each no sub-path subscreen for a given screen path and if not found then look under the parent screen; for
-  example this is used in the moqui-org component for the moqui.org web-site so that /index.html is found in the moqui-org
+- Add support for 'no sub-path' subscreens to extend or override screens, transitions, and resources under the parent screen by 
+  looking first in each no sub-path subscreen for a given screen path and if not found then look under the parent screen; for 
+  example this is used in the moqui-org component for the moqui.org web-site so that /index.html is found in the moqui-org 
   component and so that /Login resolves to the Login.xml screen in the moqui-org component instead of the default one under webroot
 - Add screen path alias support configured with ScreenPathAlias entity records
 - Now uses URLDecoder for all screen path segments to match use of URLEncoder as default for URL encoding in output
@@ -493,17 +492,17 @@ last release but there are minor cases where default behavior has changed (see d
 ##### Entity Facade
 
 - Add eeca.set-results attribute to set results of actions in the fields for rules run before entity operation
-- Add entity.relationship.key-value element for constants on join conditions
-- Authorization based entity find filters are now applied after view entities are trimmed so constraints are only added for
+- Add entity.relationship.key-value element for constants on join conditions 
+- Authorization based entity find filters are now applied after view entities are trimmed so constraints are only added for 
   entities actually used in the query
 - EntityDataLoader now supports a create only mode (used in the improved Data Import screen in the Tools app, usable directly)
 - Add mysql8 database conf for new MySQL 8 JDBC driver
 
 ### Bug Fixes
 
-- Serious bug in MoquiAuthFilter where it did not destroy ExecutionContext leaving it in place for the next request using that
+- Serious bug in MoquiAuthFilter where it did not destroy ExecutionContext leaving it in place for the next request using that 
   thread; also changed MoquiServlet to better protect against existing ExecutionContext for thread; also changed WebFacade init
-  from HTTP request to remove current user if it doesn't match user authenticated in session with Shiro, or if no user is
+  from HTTP request to remove current user if it doesn't match user authenticated in session with Shiro, or if no user is 
   authenticated in session
 - MNode merge methods did not properly clear node by name internal cache when adding child nodes causing new children to show up
   in full child node list but not when getting first or all children by node name if they had been accessed by name before the merge
@@ -519,17 +518,17 @@ last release but there are minor cases where default behavior has changed (see d
 Moqui Framework 2.1.0 is a minor new feature and bug fix release.
 
 Most of the effort in the Moqui Ecosystem since the last release has been on the business artifact and application levels. Most of
-the framework changes have been for improved user interfaces but there have also been various lower level refinements and
-enhancements.
+the framework changes have been for improved user interfaces but there have also been various lower level refinements and 
+enhancements. 
 
-This release has a few bug fixes from the 2.0.0 release and has new features like DbResource and WikiPage version management,
-a simple tool for ETL, DataDocument based dynamic view entities, and various XML Screen and Form widget options and usability
-improvements. This release was originally planned to be a patch level release primarily for bug fixes but very soon after the 2.0.0
-release work start on the Vue based client rendering (SPA) functionality and various other new features that due to business deals
+This release has a few bug fixes from the 2.0.0 release and has new features like DbResource and WikiPage version management, 
+a simple tool for ETL, DataDocument based dynamic view entities, and various XML Screen and Form widget options and usability 
+improvements. This release was originally planned to be a patch level release primarily for bug fixes but very soon after the 2.0.0 
+release work start on the Vue based client rendering (SPA) functionality and various other new features that due to business deals 
 progressed quickly.
 
-The default moqui-runtime now has support for hybrid static/dynamic XML Screen rendering based on Vue JS. There are various changes
-for better server side handling but most changes are in moqui-runtime. See the moqui-runtime release notes for more details.
+The default moqui-runtime now has support for hybrid static/dynamic XML Screen rendering based on Vue JS. There are various changes 
+for better server side handling but most changes are in moqui-runtime. See the moqui-runtime release notes for more details. 
 Some of these changes may be useful for other client rendering purposes, ie for other client side tools and frameworks.
 
 ### Non Backward Compatible Changes
@@ -538,7 +537,7 @@ Some of these changes may be useful for other client rendering purposes, ie for 
 - DataDocument JSON generation no longer automatically adds all primary key fields of the primary entity to allow for aggregation
   by function in DataDocument based queries (where DataDocument is used to create a dynamic view entity); for ElasticSearch indexing
   a unique ID is required so all primary key fields of the primary entity should be defined
-- The DataDocumentField, DataDocumentCondition, and DataDocumentLink entities now have an artificial/sequenced secondary key instead
+- The DataDocumentField, DataDocumentCondition, and DataDocumentLink entities now have an artificial/sequenced secondary key instead 
   of using another field (fieldPath, fieldNameAlias, label); existing tables may work with some things but reloading seed data will
   fail if you have any DataDocument records in place; these are typically seed data records so the easiest way to update/migrate
   is to drop the tables for DataDocumentField/Link/Condition entities and then reload seed data as normal for a code update
@@ -561,7 +560,7 @@ Some of these changes may be useful for other client rendering purposes, ie for 
 - Service jobs may now have a lastRunTime parameter passed by the job scheduler; lastRunTime on lock and passed to service is now
   the last run time without an error
 - view-entity now supports member-entity with entity-condition and no key-map for more flexible join expressions
-- TransactionCache now handles more situations like using EntityListIterator.next() calls and not just getCompleteList(), and
+- TransactionCache now handles more situations like using EntityListIterator.next() calls and not just getCompleteList(), and 
   deletes through the tx cache are more cleanly handled for records created through the tx cache
 - ResourceReference support for versions in supported implementations (initially DbResourceReference)
 - ResourceFacade locations now support a version suffix following a hash
@@ -571,7 +570,7 @@ Some of these changes may be useful for other client rendering purposes, ie for 
 - Improvements for form-list aggregations and show-total now supports avg, count, min, max, first, and last in addition to sum
 - Improved SQLException handling with more useful messages and error codes from database
 - Added view-entity.member-relationship element as a simpler alternative to member-entity using existing relationships
-- DataDocumentField now has a functionName attribute for functions on fields in a DataDocument based query
+- DataDocumentField now has a functionName attribute for functions on fields in a DataDocument based query 
 - Any DataDocument can now be treated as an entity using the name pattern DataDocument.${dataDocumentId}
 - Sub-select (sub-query) is now supported for view-entity by a simple flag on member-entity (or member-relationship); this changes
   the query structure so the member entity is joined in a select clause with any conditions for fields on that member entity put
@@ -597,12 +596,12 @@ Some of these changes may be useful for other client rendering purposes, ie for 
 Moqui Framework 2.0.0 is a major new feature and bug fix release, with various non backward compatible API and other changes.
 
 This is the first release since 1.0.0 with significant and non backwards compatible changes to the framework API. Various deprecated
-methods have been removed. The Cache Facade now uses the standard javax.cache interfaces and the Service Facade now uses standard
-java.util.concurrent interfaces for async and scheduled services. Ehcache and Quartz Scheduler have been replaced by direct,
+methods have been removed. The Cache Facade now uses the standard javax.cache interfaces and the Service Facade now uses standard 
+java.util.concurrent interfaces for async and scheduled services. Ehcache and Quartz Scheduler have been replaced by direct, 
 efficient interfaces implementations.
 
 This release includes significant improvements in configuration and with the new ToolFactory functionality is more modular with
-more internals exposed through interfaces and extendable through components. Larger and less universally used tool are now in
+more internals exposed through interfaces and extendable through components. Larger and less universally used tool are now in 
 separate components including Apache Camel, Apache FOP, ElasticSearch, JBoss KIE and Drools, and OrientDB.
 
 Multi-server instances are far better supported by using Hazelcast for distributed entity cache invalidation, notifications,
@@ -610,34 +609,34 @@ caching, background service execution, and for web session replication. The moqu
 all of this functionality in its MoquiConf.xml file. To use add the component and add a hazelcast.xml file to the classpath with
 settings for your cluster (auto-discover details, etc).
 
-Moqui now scales up better with performance improvements, concurrency fixes, and Hazelcast support (through interfaces other
-distributed system libraries like Apache Ignite could also be used). Moqui also now scales down better with improved memory
+Moqui now scales up better with performance improvements, concurrency fixes, and Hazelcast support (through interfaces other 
+distributed system libraries like Apache Ignite could also be used). Moqui also now scales down better with improved memory 
 efficiency and through more modular tools much smaller runtime footprints are possible.
 
 The multi-tenant functionality has been removed and replaced with the multi-instance approach. There is now a Dockerfile included
 with the recommended approach to run Moqui in Docker containers and Docker Compose files for various scenarios including an
 automatic reverse proxy using nginx-proxy. There are now service interfaces and screens in the System application for managing
-multiple Moqui instances from a master instance. Instances with their own database can be automatically provisioned using
+multiple Moqui instances from a master instance. Instances with their own database can be automatically provisioned using 
 configurable services, with initial support for Docker containers and MySQL databases. Provisioning services will be added over time
 to support other instance hosts and databases, and you can write your own for whatever infrastructure you prefer to use.
 
-To support WebSocket a more recent Servlet API the embedded servlet container is now Jetty 9 instead of Winstone. When running
+To support WebSocket a more recent Servlet API the embedded servlet container is now Jetty 9 instead of Winstone. When running 
 behind a proxy such as nginx or httpd running in the embedded mode (executable WAR file) is now adequate for production use.
 
 If you are upgrading from an earlier version of Moqui Framework please read all notes about Non Backward Compatible Changes. Code,
 configuration, and database meta data changes may be necessary depending on which features of the framework you are using.
 
 In this version Moqui Framework starts and runs faster, uses less memory, is more flexible, configuration is easier, and there are
-new and better ways to deploy and manage multiple instances. A decent machine ($1800 USD Linux workstation, i7-6800K 6 core CPU)
-generated around 350 screens per second with an average response time under 200ms. This was running Moqui and MySQL on the same
-machine with a JMeter script running on a separate machine doing a 23 step order to ship/bill process that included 2 reports
-(one MySQL based, one ElasticSearch based) and all the GL posting, etc. The load simulated entering and shipping (by internal users)
-around 1000 orders/minute which would support thousands of concurrent internal or ecommerce users. On larger server hardware and
-with some lower level tuning (this was on stock/default Linux, Java 8, and MySQL 5.7 settings) a single machine could handle
-significantly more traffic.
+new and better ways to deploy and manage multiple instances. A decent machine ($1800 USD Linux workstation, i7-6800K 6 core CPU) 
+generated around 350 screens per second with an average response time under 200ms. This was running Moqui and MySQL on the same 
+machine with a JMeter script running on a separate machine doing a 23 step order to ship/bill process that included 2 reports 
+(one MySQL based, one ElasticSearch based) and all the GL posting, etc. The load simulated entering and shipping (by internal users) 
+around 1000 orders/minute which would support thousands of concurrent internal or ecommerce users. On larger server hardware and 
+with some lower level tuning (this was on stock/default Linux, Java 8, and MySQL 5.7 settings) a single machine could handle 
+significantly more traffic.  
 
-With the latest framework code and the new Hazelcast plugin Moqui supports high performance clusters to handle massive loads. The
-most significant limit is now database performance as we need a transactional SQL database for this sort of business process
+With the latest framework code and the new Hazelcast plugin Moqui supports high performance clusters to handle massive loads. The 
+most significant limit is now database performance as we need a transactional SQL database for this sort of business process 
 (with locking on inventory reservations and issuances, GL posting, etc as currently implemented in Mantle USL).
 
 Enjoy!
@@ -671,7 +670,7 @@ Enjoy!
   - Removed ServiceFacade.getScheduler() method
   - Removed ServiceCallSchedule interface, implementation, and ServiceFacade.schedule() factory method
   - Removed ServiceQuartzJob class (impl of Job interface)
-  - Removed EntityJobStore class (impl of JobStore interface); this is a huge and complicated class to handle the various
+  - Removed EntityJobStore class (impl of JobStore interface); this is a huge and complicated class to handle the various 
     complexities of Quartz and was never fully working, had some remaining issues in testing
   - Removed HistorySchedulerListener and HistoryTriggerListener classes
   - Removed all entities in the moqui.service.scheduler and moqui.service.quartz packages
@@ -686,10 +685,10 @@ Enjoy!
       index#DataDocuments, put#DataDocumentMappings, index#DataFeedDocuments, search#DataDocuments, search#CountBySource
     - Moved index#WikiSpacePages service from org.moqui.impl.WikiServices to org.moqui.search.SearchServices
     - ElasticSearch dependent REST API methods moved to the 'elasticsearch' REST API in the moqui-elasticsearch component
-  - Apache FOP is now in the moqui-fop tool component; everything in the framework, including the now poorly named MoquiFopServlet,
+  - Apache FOP is now in the moqui-fop tool component; everything in the framework, including the now poorly named MoquiFopServlet, 
     use generic interfaces but XML-FO files will not transform to PDF/etc without this component in place
   - OrientDB and Entity Facade interface implementations are now in the moqui-orientdb component, see its README.md for usage
-  - Apache Camel along with the CamelServiceRunner and MoquiServiceEndpoint are now in the moqui-camel component which has a
+  - Apache Camel along with the CamelServiceRunner and MoquiServiceEndpoint are now in the moqui-camel component which has a 
     MoquiConf.xml file so no additional configuration is needed
   - JBoss KIE and Drools are now in tool component moqui-kie, an optional component for mantle-usl; has MoquiConf to add ToolFactory
   - Atomikos TM moved to moqui-atomikos tool component
@@ -697,7 +696,7 @@ Enjoy!
   - Removed initComponent(), destroyComponent() methods; were never well supported (runtime component init/destroy caused issues)
   - Removed getCamelContext() from ExecutionContextFactory and ExecutionContext, use getTool("Camel", CamelContext.class)
   - Removed getElasticSearchClient() from ExecutionContextFactory and ExecutionContext, use getTool("ElasticSearch", Client.class)
-  - Removed getKieContainer, getKieSession, and getStatelessKieSession methods from ExecutionContextFactory and ExecutionContext,
+  - Removed getKieContainer, getKieSession, and getStatelessKieSession methods from ExecutionContextFactory and ExecutionContext, 
     use getTool("KIE", KieToolFactory.class) and use the corresponding methods there
   - See new feature notes under Tool Factory
 - Caching
@@ -705,7 +704,7 @@ Enjoy!
   - The org.moqui.context.Cache interface is replaced by javax.cache.Cache
   - Configuration options for caches changed (moqui-conf.cache-list.cache)
 - NotificationMessage
-  - NotificationMessage, NotificationMessageListener interfaces have various changes for more features and to better support
+  - NotificationMessage, NotificationMessageListener interfaces have various changes for more features and to better support 
     serialized messages for notification through a distributed topic
 - Async Services
   - Now uses more standard java.util.concurrent interfaces
@@ -720,7 +719,7 @@ Enjoy!
   - See related new features below
 - Service parameter.subtype element removed, use the much more flexible nested parameter element
 - JCR and Apache Jackrabbit
-  - The repository.@type, @location, and @conf-location attributes have been removed and the repository.parameter sub-element
+  - The repository.@type, @location, and @conf-location attributes have been removed and the repository.parameter sub-element 
     added for use with the javax.jcr.RepositoryFactory interface
   - See new configuration examples in MoquiDefaultConf.xml under the repository-list element
 - OWASP ESAPI and AntiSamy
@@ -730,12 +729,12 @@ Enjoy!
 - Deprecated methods
   - These methods were deprecated (by methods with shorter names) long ago and with other API changes now removing them
   - Removed getLocalizedMessage() and formatValue() from L10nFacade
-  - Removed renderTemplateInCurrentContext(), runScriptInCurrentContext(), evaluateCondition(), evaluateContextField(), and
+  - Removed renderTemplateInCurrentContext(), runScriptInCurrentContext(), evaluateCondition(), evaluateContextField(), and 
     evaluateStringExpand() from ResourceFacade
-  - Removed EntityFacade.makeFind()
+  - Removed EntityFacade.makeFind()   
 - ArtifactHit and ArtifactHitBin now use same artifact type enum as ArtifactAuthz, for efficiency and consistency; configuration of
   artifact-stats by sub-type no longer supported, had little value and caused performance overhead
-- Removed ArtifactAuthzRecord/Cond entities and support for them; this was never all that useful and is replaced by the
+- Removed ArtifactAuthzRecord/Cond entities and support for them; this was never all that useful and is replaced by the 
   ArtifactAuthzFilter and EntityFilter entities
 - The ContextStack class has moved to the org.moqui.util package
 - Replaced Apache HttpComponents client with jetty-client to get support for HTTP/2, cleaner API, better async support, etc
@@ -753,17 +752,17 @@ Enjoy!
     - looks for named fields in Java System properties and environment variables
     - used in default-property.@value and all xa-properties attributes
     - replaces the old explicit check for ${moqui.runtime}, which was a simple replacement hack
-    - because these are Groovy expressions the typical dots used in property names cannot be used in these strings, use an
-      underscore instead of a dot, ie ${moqui_runtime} instead of ${moqui.runtime}; if a property name contains underscores and
+    - because these are Groovy expressions the typical dots used in property names cannot be used in these strings, use an 
+      underscore instead of a dot, ie ${moqui_runtime} instead of ${moqui.runtime}; if a property name contains underscores and 
       no value is found with the literal name it replaces underscores with dots and looks again
 - Deployment and Docker
   - The MoquiStart class can now run from an expanded WAR file, i.e. from a directory with the contents of a Moqui executable WAR
-  - On startup DataSource (database) connections are retried 5 times, every 5 seconds, for situations where init of separate
+  - On startup DataSource (database) connections are retried 5 times, every 5 seconds, for situations where init of separate 
     containers is triggered at the same time like with Docker Compose
   - Added a MySQLConf.xml file where settings can come from Java system properties or system environment variables
   - The various webapp.@http* attributes can now be set as system properties or environment variables
   - Added a Dockerfile and docker-build.sh script to build a Docker image from moqui-plus-runtime.war or moqui.war and runtime
-  - Added sample Docker Compose files for moqui+mysql, and for moqui, mysql, and nginx-proxy for reverse proxy that supports
+  - Added sample Docker Compose files for moqui+mysql, and for moqui, mysql, and nginx-proxy for reverse proxy that supports 
     virtual hosts for multiple Docker containers running Moqui
   - Added script to run a Docker Compose file after copying configuration and data persistence runtime directories if needed
 - Multi-Instance Management
@@ -773,20 +772,20 @@ Enjoy!
   - Initially supports MySQL for instance databases (one DB per instance, just like in the past)
 - Tool Factory
   - Added org.moqui.context.ToolFactory interface used to initialize, destroy, and get instances of tools
-  - Added tools.tool-factory element in Moqui Conf XML file; has default tools in MoquiDefaultConf.xml and can be populated or
+  - Added tools.tool-factory element in Moqui Conf XML file; has default tools in MoquiDefaultConf.xml and can be populated or 
     modified in component and/or runtime conf XML files
-  - Use new ExecutionContextFactory.getToolFactory(), ExecutionContextFactory.getTool(), and ExecutionContext.getTool() methods
+  - Use new ExecutionContextFactory.getToolFactory(), ExecutionContextFactory.getTool(), and ExecutionContext.getTool() methods 
     to interact with tools
   - See non backward compatible change notes for ExecutionContextFactory
 - WebSocket Support
   - Now looks for javax.websocket.server.ServerContainer in ServletContext during init, available from ECFI.getServerContainer()
   - If ServletContainer found adds endpoints defined in the webapp.endpoint element in the Moqui Conf XML file
-  - Added MoquiAbstractEndpoint, extend this when implementing an Endpoint so that Moqui objects such as ExecutionContext/Factory
+  - Added MoquiAbstractEndpoint, extend this when implementing an Endpoint so that Moqui objects such as ExecutionContext/Factory 
     are available, UserFacade initialized from handshake (HTTP upgrade) request, etc
   - Added NotificationEndpoint which listens for NotificationMessage through ECFI and sends them over WebSocket to notify user
 - NotificationMessage
-  - Notifications can now be configured to send through a topic interface for distributed topics (implemented in the
-    moqui-hazelcast component); this handles the scenario where a notification is generated on one server but a user is connected
+  - Notifications can now be configured to send through a topic interface for distributed topics (implemented in the 
+    moqui-hazelcast component); this handles the scenario where a notification is generated on one server but a user is connected 
     (by WebSocket, etc) to another
   - Various additional fields for display in the JavaScript NotificationClient including type, title and link templates, etc
 - Caching
@@ -821,7 +820,7 @@ Enjoy!
   - Hazelcast can be used for distributed entity cache, web session replication, distributed execution, and OrientDB clustering
   - Implemented distributed entity cache invalidate using a Hazelcast Topic, enabled in Moqui Conf XML file with the
     @distributed-cache-invalidate attribute on the entity-facade element
-- XSL-FO rendering now supports a generic ToolFactory to create a org.xml.sax.ContentHandler object, with an implementation
+- XSL-FO rendering now supports a generic ToolFactory to create a org.xml.sax.ContentHandler object, with an implementation 
   using Apache FOP now in the moqui-fop component
 - JCR and Apache Jackrabbit
   - JCR support (for content:// locations in the ResourceFacade) now uses javax.jcr interfaces only, no dependencies on Jackrabbit
@@ -832,8 +831,8 @@ Enjoy!
   - configured in the webapp.error-screen element in Moqui Conf XML file
   - if error screen render fails sends original error response
   - this is custom content that avoids sending an error response
-- A component may now have a MoquiConf.xml file that overrides the default configuration file (MoquiDefaultConf.xml from the
-  classpath) but is overridden by the runtime configuration file; the MoquiConf.xml file in each component is merged into the main
+- A component may now have a MoquiConf.xml file that overrides the default configuration file (MoquiDefaultConf.xml from the 
+  classpath) but is overridden by the runtime configuration file; the MoquiConf.xml file in each component is merged into the main 
   conf based on the component dependency order (logged on startup)
 - Added ExecutionContext.runAsync method to run a closure in a worker thread with an ExecutionContext like the current (user, etc)
 - Added configuration for worker thread pool parameters, used for local async services, EC.runAsync, etc
@@ -842,19 +841,19 @@ Enjoy!
   - Added service.@no-tx-cache attribute which flushes and disables write through transaction cache for the rest of the transaction
   - Added flushAndDisableTransactionCache() method to flush/disable the write through cache like service.@no-tx-cache
 - Entity Facade
-  - In view-entity.alias.complex-alias the expression attribute is now expanded so context fields may be inserted or other Groovy
+  - In view-entity.alias.complex-alias the expression attribute is now expanded so context fields may be inserted or other Groovy 
     expressions evaluated using dollar-sign curly-brace (${}) syntax
-  - Added view-entity.alias.case element with when and else sub-elements that contain complex-alias elements; these can be used for
+  - Added view-entity.alias.case element with when and else sub-elements that contain complex-alias elements; these can be used for 
     CASE, CASE WHEN, etc SQL expressions
   - EntityFind.searchFormMap() now has a defaultParameters argument, used when no conditions added from the input fields Map
-  - EntityDataWriter now supports export with a entity master definition name, applied only to entities exported that have a master
+  - EntityDataWriter now supports export with a entity master definition name, applied only to entities exported that have a master 
     definition with the given master name
 - XML Screen and Form
   - screen path URLs that don't exist are now by default disabled instead of throwing an exception
   - form-list now supports @header-dialog to put header-field widgets in a dialog instead of in the header
   - form-list now supports @select-columns to allow users to select which fields are displayed in which columns, or not displayed
   - added search-form-inputs.default-parameters element whose attributes are used as defaultParameters in searchFormMap()
-  - ArtifactAuthzFailure records are only created when a user tries to use an artifact, not when simply checking to see if use is
+  - ArtifactAuthzFailure records are only created when a user tries to use an artifact, not when simply checking to see if use is 
     permitted (such as in menus, links, etc)
   - significant macro cleanups and improvements
   - csv render macros now improved to support more screen elements, more intelligently handle links (only include anchor/text), etc
@@ -877,10 +876,10 @@ Enjoy!
 - Fixed NPE in EntityFind.oneMaster() when the master value isn't found, returns null with no error; fixes moqui-runtime issue #18
 - Fixed ElFinder rm (moqui-runtime GitHub issue #23), response for upload
 - Screen sub-content directories treated as not found so directory entries not listed (GitHub moqui-framework issue #47)
-- In entity cache auto clear for list of view-entity fixed mapping of member entity fields to view entity alias, and partial match
+- In entity cache auto clear for list of view-entity fixed mapping of member entity fields to view entity alias, and partial match 
   when only some view entity fields are on a member entity
 - Cache clear fix for view-entity list cache, fixes adding a permission on the fly
-- Fixed issue with Entity/DataEdit screens in the Tools application where the parameter and form field name 'entityName' conflicted
+- Fixed issue with Entity/DataEdit screens in the Tools application where the parameter and form field name 'entityName' conflicted 
   with certain entities that have a field named entityName
 - Concurrency Issues
   - Fixed concurrent update errors in EntityCache RA (reverse association) using Collections.synchronizedList()
@@ -1032,8 +1031,8 @@ database support and transaction management, and so on.
 
 Moqui Framework 1.6.1 is a minor new feature and bug fix release.
 
-This is the first release after the repository reorganization in Moqui
-Ecosystem. The runtime directory is now in a separate repository. The
+This is the first release after the repository reorganization in Moqui 
+Ecosystem. The runtime directory is now in a separate repository. The 
 framework build now gets JAR files from Bintray JCenter instead of having
 them in the framework/lib directory. Overall the result is a small
 foundation with additional libraries, components, etc added as needed using
