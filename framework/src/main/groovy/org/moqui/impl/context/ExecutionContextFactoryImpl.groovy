@@ -1643,6 +1643,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         if (overrideNode.hasChild("user-facade")) {
             MNode ufBaseNode = baseNode.first("user-facade")
             MNode ufOverrideNode = overrideNode.first("user-facade")
+            ufBaseNode.attributes.putAll(ufOverrideNode.attributes)
             ufBaseNode.mergeSingleChild(ufOverrideNode, "password")
             ufBaseNode.mergeSingleChild(ufOverrideNode, "login-key")
             ufBaseNode.mergeSingleChild(ufOverrideNode, "login")
