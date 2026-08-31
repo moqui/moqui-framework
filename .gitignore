@@ -61,6 +61,25 @@ nb-configuration.xml
 # Emacs files
 .projectile
 
+# Zed IDE
+.zed/
+
+# Local agent workspaces
+.opencode/
+.claude/
+.pi/
+.codex/
+.cursor/
+.windsurf/
+.cline/
+.roo/
+.aider/
+
+# Env style secrets
+.env
+.env.*
+.env.local
+
 # Version managers (sdkman, mise, asdf)
 mise.toml
 .tool-versions
@@ -78,3 +97,4 @@ Desktop.ini
 
 # Linux auto files
 *~
+
