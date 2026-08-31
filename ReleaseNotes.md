@@ -2,6 +2,115 @@
 
 ## Release 4.1.0 - Not Yet Released
 
+### New Features
+
+- LlmClient / LlmFacade OpenAI-compatible LLM client (see details below)
+
+#### LlmClient and LlmFacade
+
+The framework now includes an OpenAI-compatible LLM client, similar in shape to ElasticFacade: named profiles
+intern the HTTP pool and protocol, and `ec.llm.getDefault()`, `ec.llm.getClient(name)`, and the Groovy alias
+`ec.llm.client(name)` each return a new fluent `LlmClient` builder. The builder is not thread-safe; do not intern
+it or store it in a singleton or service field.
+
+```
+def result = ec.llm.getDefault()
+        .system("You are a helpful assistant.")
+        .user("Summarize this order")
+        .call()
+```
+
+- OpenAI-compatible protocol (`/v1/chat/completions`) for OpenAI, Azure OpenAI, Ollama, and other compatible
+  servers. Sync `call()` and streaming `stream(LlmStreamListener)` via RestClient.streamSse.
+- Conversations persist as `LlmConversation` / `LlmMessage` / `LlmCallLog`. History is durable; the prompt window
+  is a view of it. `injectContext` is untrusted CONTEXT, never SYSTEM.
+- Artifact type `AT_LLM` (authz and tarpit enabled). Seed grants ADMIN `AUTHZT_ALWAYS` on group `LlmProfiles`
+  with `inheritAuthz=N` so that does not skip later service/screen/entity checks. Servlet access is permission
+  `LlmGateway` (ADMIN by default).
+- Agent loop: server tool `request` (method + path through ScreenRender on the same thread, authz and tarpit ON)
+  and client tool `write_ui` (schemaVersion 3 form or vue-sfc yield; the server never submits). Optional typed
+  `LlmTool.service()`. Servlet may also attach `browse` (authz-filtered catalog) and `run_service`
+  (generic service call) when the profile allows them.
+- Managed servlet at `/llm/*`. Not a provider-key proxy (keys stay on the profile). Service REST wrappers at
+  `/rest/s1/moqui/llm/...` for sync JSON only; do not SSE through Service REST.
+
+Servlet endpoints:
+
+- `POST /llm/v1/chat` — SSE if `Accept: text/event-stream` or `body.stream`; otherwise JSON (202 if yielded)
+- `POST /llm/v1/chat/{id}/resume`
+- `POST /llm/v1/chat/{id}/cancel` (alias `POST /llm/v1/conversations/{id}/cancel`)
+- `GET /llm/v1/conversations` — list (owner; ADMIN may see all). Query `profile`, `purpose`
+- `GET /llm/v1/conversations/{id}` — owner and ADMIN only
+- `GET /llm/v1/profiles` — names, model, allow-* flags; no API keys
+
+#### LLM Operator Notes
+
+Environment variables / Java properties (also `default-property` in Moqui Conf XML; underscores or dots):
+
+- `llm_openai_url` — default `https://api.openai.com`. An origin (no path, or `/` only) gets
+  `/v1/chat/completions` appended. A full URL (path other than `/`, or any `?query`) is used as the endpoint
+  and the default path is not appended.
+- `llm_openai_api_key` — secret. Blank omits the auth header (Ollama and other local servers). `getClient()`
+  does not throw for an empty key; hosted OpenAI/Azure then fail on HTTP 401.
+- `llm_openai_model` — default empty. Set this or `LlmClient.model()`; `call()` throws if neither is set
+  (no dated default model is shipped).
+- `llm_log_content` — default false. If true, `LlmCallLog` stores request and response JSON (PII). Keep false
+  in production unless you have a retention and access plan.
+
+URL examples:
+
+- OpenAI origin: `url="https://api.openai.com"` becomes `https://api.openai.com/v1/chat/completions`
+- Ollama with no API key: `url="http://127.0.0.1:11434"` and blank `api-key` (auth header omitted)
+- Azure origin + path + query, raw `api-key` header (no Bearer):
+
+```
+<profile name="azure" url="https://myres.openai.azure.com"
+        path="/openai/deployments/gpt4o/chat/completions"
+        api-key="${AZURE_OPENAI_KEY}" auth-header-name="api-key" auth-header-pattern="${api-key}"
+        model="gpt-4o">
+    <query name="api-version" value="2024-10-21"/>
+</profile>
+```
+
+  Equivalent full URL (default path is not appended):
+  `url="https://myres.openai.azure.com/openai/deployments/gpt4o/chat/completions?api-version=2024-10-21"`
+
+Other production notes:
+
+- Tarpit seed: 30 `AT_LLM` hits per profile name per 60 seconds, then 5 minutes blocked (`ALL_USERS` ×
+  `LlmProfiles` in `LlmTypeData.xml`). Tighten or loosen in the DB.
+- `allow-tx-over-http` defaults false. `call()` / `stream()` throw if a JTA transaction is in place (default
+  TX timeout 60s vs LLM timeout 120s). Service jobs hold a TX for the job service — commit (or suspend)
+  before the LLM call; do not set `allow-tx-over-http=true` to paper over a job TX. Service REST wrappers
+  already suspend the `/rest/s1` screen TX around the call.
+- Servlet `allowed-path` is fail-closed on the **default** profile: with no prefixes the servlet does not
+  attach the `request` tool. Internal `LlmTool.request()` with no prefixes still means any path the user
+  is authorized to hit. Profile `allow-unprefixed-request="true"` (Assist) attaches that unprefixed tool;
+  operators may still add `allowed-path` prefixes to **narrow** it.
+- Assist Universal Screen (`/qapps/assist`, tools component): chat + generated canvas. Profile
+  `assist` uses a server-owned SYSTEM file (`system-location`), ignores client `system`, and enables
+  `write_ui`, `browse`, `run_service`, and unprefixed `request`. `browse` lists screens/REST/services/entities
+  the current user can VIEW (depth 1 default). Screen listings include parameters and forms; transition
+  children include `method`, parameters, form fields, and `serviceName` when the transition is a single
+  `service-call`. `match` searches those as well as name/title. Prefer `run_service` or `request` POST to
+  that transition over `/rest/e1`. Entity rows include `createService` (`create#EntityName`). `write_ui` schemaVersion 3 is
+  `kind=form` (xml-form widgets, list columns/rows) or `kind=vue-sfc` (Vue 2 SFC parsed with
+  `httpVueLoader.parse` and mounted as a sub-component of Assist.qvue). `actions[]` and `writeThrough`
+  apply to both kinds (SFC source is replaced as a unit; omitted source is kept). Script mode runs
+  `actions[]` in the browser as the user; Agent mode resumes and the model calls tools. `kind=screen-xml`
+  is still not implemented.
+- `write_ui` on the servlet requires profile `allow-write-ui="true"`. Client `tools` may only subset
+  `{request, write_ui, browse, run_service}`. POST `/llm/v1/chat` may pass `extraBody` (merged into the
+  provider JSON) for vendor knobs such as Qwen `chat_template_kwargs` / `tool_choice`.
+- Purge old rows with `org.moqui.impl.LlmServices.clean#LlmData` (`daysToKeep` default 90). Schedule a
+  ServiceJob like `clean_ArtifactData_daily`.
+- Browser clients: `fetch` POST + `ReadableStream`, not `EventSource` (`EventSource` is GET-only and cannot
+  send JSON, CSRF, or Authorization). CSRF on servlet POST (`X-CSRF-Token` / `moquiSessionToken`) unless
+  `moqui.request.authenticated` (successful Basic / `login_key`).
+- `/cancel` while Streaming or Yielded returns 200 and aborts the in-flight RestStream; other statuses 409.
+  `POST /chat` or `/resume` while Streaming is 409 (Yielded must resume). SSE pings every
+  `sse-ping-seconds` (default 15).
+- Blank `api-key` omits auth. RestClient redacts `Authorization`, `api-key`, and `x-api-key` on LLM calls.
 
 ## Release 4.0.0 - 27 Feb 2026
 
@@ -179,109 +288,6 @@ Given the upgrade to gradle, Java and bitronix, the following community componen
 - Upgrade all dependencies to their latest versions
 - Switch from Thread.getId() to Thread.threadId() to work on both virtual and platform threads
 - RestClient.stream() and streamSse() for Jetty InputStream responses and Server-Sent Events (used by LlmClient)
-- LlmClient / LlmFacade OpenAI-compatible LLM client (see details below)
-
-#### LlmClient and LlmFacade
-
-The framework now includes an OpenAI-compatible LLM client, similar in shape to ElasticFacade: named profiles
-intern the HTTP pool and protocol, and `ec.llm.getDefault()`, `ec.llm.getClient(name)`, and the Groovy alias
-`ec.llm.client(name)` each return a new fluent `LlmClient` builder. The builder is not thread-safe; do not intern
-it or store it in a singleton or service field.
-
-```
-def result = ec.llm.getDefault()
-        .system("You are a helpful assistant.")
-        .user("Summarize this order")
-        .call()
-```
-
-- OpenAI-compatible protocol (`/v1/chat/completions`) for OpenAI, Azure OpenAI, Ollama, and other compatible
-  servers. Sync `call()` and streaming `stream(LlmStreamListener)` via RestClient.streamSse.
-- Conversations persist as `LlmConversation` / `LlmMessage` / `LlmCallLog`. History is durable; the prompt window
-  is a view of it. `injectContext` is untrusted CONTEXT, never SYSTEM.
-- Artifact type `AT_LLM` (authz and tarpit enabled). Seed grants ADMIN `AUTHZT_ALWAYS` on group `LlmProfiles`
-  with `inheritAuthz=N` so that does not skip later service/screen/entity checks. Servlet access is permission
-  `LlmGateway` (ADMIN by default).
-- Agent loop: server tool `request` (method + path through ScreenRender on the same thread, authz and tarpit ON)
-  and client tool `write_ui` (schemaVersion 3 form or vue-sfc yield; the server never submits). Optional typed
-  `LlmTool.service()`. Servlet may also attach `browse` (authz-filtered catalog) and `run_service`
-  (generic service call) when the profile allows them.
-- Managed servlet at `/llm/*`. Not a provider-key proxy (keys stay on the profile). Service REST wrappers at
-  `/rest/s1/moqui/llm/...` for sync JSON only; do not SSE through Service REST.
-
-Servlet endpoints:
-
-- `POST /llm/v1/chat` — SSE if `Accept: text/event-stream` or `body.stream`; otherwise JSON (202 if yielded)
-- `POST /llm/v1/chat/{id}/resume`
-- `POST /llm/v1/chat/{id}/cancel` (alias `POST /llm/v1/conversations/{id}/cancel`)
-- `GET /llm/v1/conversations` — list (owner; ADMIN may see all). Query `profile`, `purpose`
-- `GET /llm/v1/conversations/{id}` — owner and ADMIN only
-- `GET /llm/v1/profiles` — names, model, allow-* flags; no API keys
-
-#### LLM Operator Notes
-
-Environment variables / Java properties (also `default-property` in Moqui Conf XML; underscores or dots):
-
-- `llm_openai_url` — default `https://api.openai.com`. An origin (no path, or `/` only) gets
-  `/v1/chat/completions` appended. A full URL (path other than `/`, or any `?query`) is used as the endpoint
-  and the default path is not appended.
-- `llm_openai_api_key` — secret. Blank omits the auth header (Ollama and other local servers). `getClient()`
-  does not throw for an empty key; hosted OpenAI/Azure then fail on HTTP 401.
-- `llm_openai_model` — default empty. Set this or `LlmClient.model()`; `call()` throws if neither is set
-  (no dated default model is shipped).
-- `llm_log_content` — default false. If true, `LlmCallLog` stores request and response JSON (PII). Keep false
-  in production unless you have a retention and access plan.
-
-URL examples:
-
-- OpenAI origin: `url="https://api.openai.com"` becomes `https://api.openai.com/v1/chat/completions`
-- Ollama with no API key: `url="http://127.0.0.1:11434"` and blank `api-key` (auth header omitted)
-- Azure origin + path + query, raw `api-key` header (no Bearer):
-
-```
-<profile name="azure" url="https://myres.openai.azure.com"
-        path="/openai/deployments/gpt4o/chat/completions"
-        api-key="${AZURE_OPENAI_KEY}" auth-header-name="api-key" auth-header-pattern="${api-key}"
-        model="gpt-4o">
-    <query name="api-version" value="2024-10-21"/>
-</profile>
-```
-
-  Equivalent full URL (default path is not appended):
-  `url="https://myres.openai.azure.com/openai/deployments/gpt4o/chat/completions?api-version=2024-10-21"`
-
-Other production notes:
-
-- Tarpit seed: 30 `AT_LLM` hits per profile name per 60 seconds, then 5 minutes blocked (`ALL_USERS` ×
-  `LlmProfiles` in `LlmTypeData.xml`). Tighten or loosen in the DB.
-- `allow-tx-over-http` defaults false. `call()` / `stream()` throw if a JTA transaction is in place (default
-  TX timeout 60s vs LLM timeout 120s). Service jobs hold a TX for the job service — commit (or suspend)
-  before the LLM call; do not set `allow-tx-over-http=true` to paper over a job TX. Service REST wrappers
-  already suspend the `/rest/s1` screen TX around the call.
-- Servlet `allowed-path` is fail-closed on the **default** profile: with no prefixes the servlet does not
-  attach the `request` tool. Internal `LlmTool.request()` with no prefixes still means any path the user
-  is authorized to hit. Profile `allow-unprefixed-request="true"` (Assist) attaches that unprefixed tool;
-  operators may still add `allowed-path` prefixes to **narrow** it.
-- Assist Universal Screen (`/qapps/assist`, tools component): chat + generated canvas. Profile
-  `assist` uses a server-owned SYSTEM file (`system-location`), ignores client `system`, and enables
-  `write_ui`, `browse`, `run_service`, and unprefixed `request`. `browse` lists screens/REST/services/entities
-  the current user can VIEW (depth 1 default). `write_ui` schemaVersion 3 is `kind=form` (xml-form widgets,
-  list columns/rows) or `kind=vue-sfc` (Vue 2 SFC parsed with `httpVueLoader.parse` and mounted as a
-  sub-component of Assist.qvue). `actions[]` and `writeThrough` apply to both kinds (SFC source is replaced
-  as a unit; omitted source is kept). Script mode runs `actions[]` in the browser as the user; Agent mode
-  resumes and the model calls tools. `kind=screen-xml` is still not implemented.
-- `write_ui` on the servlet requires profile `allow-write-ui="true"`. Client `tools` may only subset
-  `{request, write_ui, browse, run_service}`. POST `/llm/v1/chat` may pass `extraBody` (merged into the
-  provider JSON) for vendor knobs such as Qwen `chat_template_kwargs` / `tool_choice`.
-- Purge old rows with `org.moqui.impl.LlmServices.clean#LlmData` (`daysToKeep` default 90). Schedule a
-  ServiceJob like `clean_ArtifactData_daily`.
-- Browser clients: `fetch` POST + `ReadableStream`, not `EventSource` (`EventSource` is GET-only and cannot
-  send JSON, CSRF, or Authorization). CSRF on servlet POST (`X-CSRF-Token` / `moquiSessionToken`) unless
-  `moqui.request.authenticated` (successful Basic / `login_key`).
-- `/cancel` while Streaming or Yielded returns 200 and aborts the in-flight RestStream; other statuses 409.
-  `POST /chat` or `/resume` while Streaming is 409 (Yielded must resume). SSE pings every
-  `sse-ping-seconds` (default 15).
-- Blank `api-key` omits auth. RestClient redacts `Authorization`, `api-key`, and `x-api-key` on LLM calls.
 
 ## Release 3.9.9 - 25 Feb 2026
 
