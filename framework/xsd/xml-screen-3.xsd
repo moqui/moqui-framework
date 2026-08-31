@@ -323,8 +323,14 @@ along with this software (see the LICENSE.md file). If not, see
 
                 The transition name is used in link and other elements in place of URLs when going to another
                 screen within this application. The transition name will appear briefly as the URL before the
-                redirect is done for the transition response.
-            </xs:documentation></xs:annotation>
+                redirect is done for the transition response. A name may also start with a
+                dot to support special URL paths such as .well-known. </xs:documentation>
+            </xs:annotation>
+            <xs:simpleType>
+                <xs:restriction base="xs:token">
+                    <xs:pattern value="[\-\.a-zA-Z][\-_\.a-zA-Z0-9]*" />
+                </xs:restriction>
+            </xs:simpleType>
         </xs:attribute>
         <xs:attribute name="method" default="any">
             <xs:simpleType>
