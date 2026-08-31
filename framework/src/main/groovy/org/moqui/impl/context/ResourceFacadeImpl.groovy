@@ -611,8 +611,7 @@ class ResourceFacadeImpl implements ResourceFacade {
             try { transformer.transform(xslFoSrc, new SAXResult(contentHandler)) }
             catch (Throwable t) { transformException = new BaseArtifactException("Error transforming XSL-FO to ${contentType}", t) }
         })
-        Thread transThread = new Thread(runnable)
-        transThread.start()
+        Thread transThread = Thread.ofVirtual().name("XslFoTransform").start(runnable)
         transThread.join()
         if (transformException != null) throw transformException
 

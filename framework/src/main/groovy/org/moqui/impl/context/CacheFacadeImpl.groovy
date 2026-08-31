@@ -54,6 +54,7 @@ public class CacheFacadeImpl implements CacheFacade {
     protected CacheManager distCacheManagerInternal = (CacheManager) null
 
     final ConcurrentMap<String, Cache> localCacheMap = new ConcurrentHashMap<>()
+    private final java.util.concurrent.locks.ReentrantLock initCacheLock = new java.util.concurrent.locks.ReentrantLock()
 
     CacheFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
@@ -189,7 +190,12 @@ public class CacheFacadeImpl implements CacheFacade {
         return cacheElement
     }
 
-    protected synchronized Cache initCache(String cacheName, String defaultCacheType) {
+    protected Cache initCache(String cacheName, String defaultCacheType) {
+        initCacheLock.lock()
+        try { return initCacheLocked(cacheName, defaultCacheType) }
+        finally { initCacheLock.unlock() }
+    }
+    private Cache initCacheLocked(String cacheName, String defaultCacheType) {
         if (localCacheMap.containsKey(cacheName)) return localCacheMap.get(cacheName)
 
         if (!defaultCacheType) defaultCacheType = "local"

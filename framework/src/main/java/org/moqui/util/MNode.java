@@ -35,6 +35,7 @@ import java.io.*;
 import java.nio.file.Files;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -890,7 +891,8 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     private static final BeansWrapper wrapper = new BeansWrapperBuilder(FTL_VERSION).build();
     private static final FtlNodeListWrapper emptyNodeListWrapper = new FtlNodeListWrapper(new ArrayList<>(), null);
     private FtlNodeListWrapper allChildren = null;
-    private ConcurrentHashMap<String, TemplateModel> ftlAttrAndChildren = null;
+    private volatile ConcurrentHashMap<String, TemplateModel> ftlAttrAndChildren = null;
+    private final ReentrantLock ftlAttrAndChildrenLock = new ReentrantLock();
     private ConcurrentHashMap<String, Boolean> knownNullAttributes = null;
 
     public Object getAdaptedObject(Class aClass) { return this; }
@@ -937,9 +939,12 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
             }
         }
     }
-    private synchronized ConcurrentHashMap<String, TemplateModel> makeAttrAndChildrenByName() {
-        if (ftlAttrAndChildren == null) ftlAttrAndChildren = new ConcurrentHashMap<>();
-        return ftlAttrAndChildren;
+    private ConcurrentHashMap<String, TemplateModel> makeAttrAndChildrenByName() {
+        ftlAttrAndChildrenLock.lock();
+        try {
+            if (ftlAttrAndChildren == null) ftlAttrAndChildren = new ConcurrentHashMap<>();
+            return ftlAttrAndChildren;
+        } finally { ftlAttrAndChildrenLock.unlock(); }
     }
     @Override public boolean isEmpty() {
         return attributeMap.isEmpty() && (childList == null || childList.isEmpty()) && (childText == null || childText.length() == 0);

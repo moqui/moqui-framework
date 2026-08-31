@@ -51,6 +51,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class ContextJavaUtil {
     protected final static Logger logger = LoggerFactory.getLogger(ContextJavaUtil.class);
@@ -114,6 +115,7 @@ public class ContextJavaUtil {
         private String artifactSubType;
         private String artifactName;
         public ArtifactBinInfo curHitBin = null;
+        public final ReentrantLock hitBinLock = new ReentrantLock();
         private long hitCount = 0L; // slowHitCount = 0L;
         private double totalTimeMillis = 0, totalSquaredTime = 0;
 
@@ -367,6 +369,13 @@ public class ContextJavaUtil {
             txConByGroup.clear();
         }
     }
+    /** Container for the per-key list and its ReentrantLock, used by EntityRecordLock.register/clear to avoid
+     *  synchronized(list) which pins virtual thread carrier threads. */
+    public static class ErlListEntry {
+        public final ArrayList<EntityRecordLock> list = new ArrayList<>();
+        public final ReentrantLock lock = new ReentrantLock();
+    }
+
     public static class EntityRecordLock {
         // TODO enum for operation? create, update, delete, find-for-update
         String entityName, pkString, entityPlusPk, threadName;
@@ -389,14 +398,16 @@ public class ContextJavaUtil {
             return this;
         }
 
-        void register(ConcurrentHashMap<String, ArrayList<EntityRecordLock>> recordLockByEntityPk, TxStackInfo txStackInfo) {
+        void register(ConcurrentHashMap<String, ErlListEntry> recordLockByEntityPk, TxStackInfo txStackInfo) {
             if (txStackInfo != null) {
                 moquiTxId = txStackInfo.moquiTxId;
                 txBeginTime = txStackInfo.transactionBeginStartTime != null ? txStackInfo.transactionBeginStartTime : -1;
             }
 
-            ArrayList<EntityRecordLock> curErlList = recordLockByEntityPk.computeIfAbsent(entityPlusPk, k -> new ArrayList<>());
-            synchronized (curErlList) {
+            ErlListEntry entry = recordLockByEntityPk.computeIfAbsent(entityPlusPk, k -> new ErlListEntry());
+            entry.lock.lock();
+            try {
+                ArrayList<EntityRecordLock> curErlList = entry.list;
                 // is this another lock in the same transaction?
                 if (curErlList.size() > 0) {
                     for (int i = 0; i < curErlList.size(); i++) {
@@ -438,24 +449,29 @@ public class ContextJavaUtil {
                 } else {
                     logger.warn("In EntityRecordLock register no TxStackInfo so not registering lock because won't be able to clear for entity " + entityName + " pk " + pkString + " thread " + threadName);
                 }
+            } finally {
+                entry.lock.unlock();
             }
         }
-        void clear(ConcurrentHashMap<String, ArrayList<EntityRecordLock>> recordLockByEntityPk) {
-            ArrayList<EntityRecordLock> curErlList = recordLockByEntityPk.get(entityPlusPk);
-            if (curErlList == null) {
+        void clear(ConcurrentHashMap<String, ErlListEntry> recordLockByEntityPk) {
+            ErlListEntry entry = recordLockByEntityPk.get(entityPlusPk);
+            if (entry == null) {
                 logger.warn("In EntityRecordLock clear no locks found for " + entityPlusPk);
                 return;
             }
-            synchronized (curErlList) {
+            entry.lock.lock();
+            try {
                 boolean haveRemoved = false;
-                for (int i = 0; i < curErlList.size(); i++) {
-                    EntityRecordLock otherErl = curErlList.get(i);
+                for (int i = 0; i < entry.list.size(); i++) {
+                    EntityRecordLock otherErl = entry.list.get(i);
                     if (moquiTxId == otherErl.moquiTxId) {
-                        curErlList.remove(i);
+                        entry.list.remove(i);
                         haveRemoved = true;
                     }
                 }
                 if (!haveRemoved) logger.warn("In EntityRecordLock clear no locks found for " + entityPlusPk);
+            } finally {
+                entry.lock.unlock();
             }
         }
     }
@@ -649,42 +665,43 @@ public class ContextJavaUtil {
         }
     }
 
-    // NOTE: using unbound LinkedBlockingQueue, so max pool size in ThreadPoolExecutor has no effect
-    public static class WorkerThreadFactory implements ThreadFactory {
-        private final ThreadGroup workerGroup = new ThreadGroup("MoquiWorkers");
-        private final AtomicInteger threadNumber = new AtomicInteger(1);
-        public Thread newThread(Runnable r) { return new Thread(workerGroup, r, "MoquiWorker-" + threadNumber.getAndIncrement()); }
-    }
-    public static class JobThreadFactory implements ThreadFactory {
-        private final ThreadGroup workerGroup = new ThreadGroup("MoquiJobs");
-        private final AtomicInteger threadNumber = new AtomicInteger(1);
-        public Thread newThread(Runnable r) { return new Thread(workerGroup, r, "MoquiJob-" + threadNumber.getAndIncrement()); }
-    }
-    public static class WorkerThreadPoolExecutor extends ThreadPoolExecutor {
-        private ExecutionContextFactoryImpl ecfi;
-        public WorkerThreadPoolExecutor(ExecutionContextFactoryImpl ecfi, int coreSize, int maxSize, long aliveTime,
-                                        TimeUnit timeUnit, BlockingQueue<Runnable> blockingQueue, ThreadFactory threadFactory) {
-            super(coreSize, maxSize, aliveTime, timeUnit, blockingQueue, threadFactory);
+    /**
+     * Virtual thread-based ThreadPoolExecutor with safety-net ExecutionContext cleanup,
+     * with pool and queue sizing semantics.
+     */
+    public static class VirtualThreadExecutorService extends ThreadPoolExecutor {
+        private final ExecutionContextFactoryImpl ecfi;
+        private final String poolName;
+
+        public VirtualThreadExecutorService(ExecutionContextFactoryImpl ecfi, String poolName, int coreSize, int maxSize,
+                                            long aliveTime, @NotNull TimeUnit timeUnit, @NotNull BlockingQueue<Runnable> blockingQueue) {
+            super(coreSize, maxSize, aliveTime, timeUnit, blockingQueue,
+                    Thread.ofVirtual().name(poolName + "-", 1).factory());
+            // Virtual threads should not be pooled: allow core threads to terminate when idle
+            // so each task gets a fresh virtual thread rather than reusing a pooled one.
+            allowCoreThreadTimeOut(true);
             this.ecfi = ecfi;
+            this.poolName = poolName;
         }
 
         @Override protected void afterExecute(Runnable runnable, Throwable throwable) {
             ExecutionContextImpl activeEc = ecfi.activeContext.get();
             if (activeEc != null) {
-                logger.warn("In WorkerThreadPoolExecutor.afterExecute() there is still an ExecutionContext for runnable " + runnable.getClass().getName() + " in thread (" + Thread.currentThread().threadId() + ":" + Thread.currentThread().getName() + "), destroying");
+                logger.warn("EC leaked in " + poolName + " virtual thread (" +
+                        Thread.currentThread().threadId() + ":" + Thread.currentThread().getName() +
+                        ") for runnable " + runnable.getClass().getName() + ", destroying as safety net");
                 try {
                     activeEc.destroy();
                 } catch (Throwable t) {
-                    logger.error("Error destroying ExecutionContext in WorkerThreadPoolExecutor.afterExecute()", t);
+                    logger.error("Error in EC safety-net cleanup", t);
                 }
-            } else {
-                if (ecfi.transactionFacade.isTransactionInPlace()) {
-                    logger.error("In WorkerThreadPoolExecutor a transaction is in place for thread " + Thread.currentThread().getName() + ", trying to commit");
-                    try {
-                        ecfi.transactionFacade.destroyAllInThread();
-                    } catch (Exception e) {
-                        logger.error("WorkerThreadPoolExecutor commit in place transaction failed in thread " + Thread.currentThread().getName(), e);
-                    }
+            } else if (ecfi.transactionFacade != null && ecfi.transactionFacade.isTransactionInPlace()) {
+                logger.error("Transaction leaked in " + poolName + " virtual thread " +
+                        Thread.currentThread().getName() + ", trying to commit");
+                try {
+                    ecfi.transactionFacade.destroyAllInThread();
+                } catch (Exception e) {
+                    logger.error("Failed to commit leaked transaction in " + poolName, e);
                 }
             }
 
@@ -751,6 +768,44 @@ public class ContextJavaUtil {
         protected <V> RunnableScheduledFuture<V> decorateTask(Callable<V> c, RunnableScheduledFuture<V> task) {
             return new CustomScheduledTask<V>(c, task);
         }
+    }
+    // Used in delegation pattern for implementing distributed scheduled executor service
+    public static interface CustomDistributedScheduledExecutor {
+        /**
+         * Decorate any Callable with a task name to provide naming information to scheduler.
+         * For Hazelcast-backed implementations this should generally map to NamedTask/TaskUtils.named(...)
+         * so task identity is stable cluster-wide.
+         */
+        <V> Callable<V> decorateTask(String taskName, Callable<V> callable);
+        /**
+         * Decorate any Runnable with a task name to provide naming information to scheduler.
+         * For Hazelcast-backed implementations this should generally map to NamedTask/TaskUtils.named(...)
+         * so task identity is stable cluster-wide.
+         */
+        Runnable decorateTask(String taskName, Runnable runnable);
+        /** Submits a one-shot task that becomes enabled after the given delay. */
+        ScheduledFuture<?> schedule(Runnable command, long delay, TimeUnit unit);
+        /** Submits a value-returning one-shot task that becomes enabled after the given delay. */
+        <V> ScheduledFuture<V> schedule(Callable<V> callable, long delay, TimeUnit unit);
+        /** Submits a periodic action that becomes enabled first after the given initial delay, and subsequently with the given period; that is, executions will commence after initialDelay, then initialDelay + period, then initialDelay + 2 * period, and so on. */        
+        ScheduledFuture<?> scheduleAtFixedRate(Runnable command, long initialDelay, long period, TimeUnit unit);
+        /**
+         * Submits a periodic action that becomes enabled first after the given initial delay, and subsequently
+         * with the given delay between the termination of one execution and the commencement of the next.
+         *
+         * Hazelcast IScheduledExecutorService (5.6) does not provide an equivalent of
+         * ScheduledExecutorService.scheduleWithFixedDelay(...), so implementations backed by Hazelcast
+         * may leave this unsupported and throw UnsupportedOperationException.
+         */
+        default ScheduledFuture<?> scheduleWithFixedDelay(Runnable command, long initialDelay, long delay, TimeUnit unit) {
+            throw new UnsupportedOperationException("scheduleWithFixedDelay is not supported by this distributed scheduled executor");
+        }
+        /** Initiates an orderly shutdown in which previously submitted tasks are executed, but no new tasks will be accepted. */
+        void shutdown();
+        /** Get a ScheduledFuture from the given taskName, if it exists. */
+        ScheduledFuture<?> getScheduledFuture(String taskName);
+        /** Used to destroy the instance of the ScheduledFuture in the distributed scheduled executor service. */
+        void dispose(ScheduledFuture<?> scheduledFuture);
     }
     static class ScheduledRunnableInfo {
         public final Runnable command;
