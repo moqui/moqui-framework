@@ -41,3 +41,9 @@ For comprehensive documentation of Moqui Framework see moqui.org, or the moqui-s
 <https://moqui.org/docs/framework>
 
 <https://github.com/moqui/moqui-site/tree/master/docs/md/framework>
+
+**AI/LLM Policy**
+
+LLMs are considered tools used by people. The person using the tool is just as responsible as with a text editor and keyboard. LLMs are the functional and moral equivalent of a hammer: they do not shake themselves, and are not a substitute or replacement for a responsible party.
+
+Don't trust, verify. Use AI to help verify, but remember who is responsible, and who is a who.
