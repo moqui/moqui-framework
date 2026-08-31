@@ -38,6 +38,6 @@ Get started with Moqui development quickly using the Tutorial at:
 
 For comprehensive documentation of Moqui Framework see moqui.org, or the moqui-site repository where documentation is maintained:
 
-<https://moqui.org/m/docs/framework>
+<https://moqui.org/docs/framework>
 
 <https://github.com/moqui/moqui-site/tree/master/docs/md/framework>
