@@ -97,7 +97,7 @@ class ServiceFacadeImpl implements ServiceFacade {
             logger.info("Setting Service Job worker pool size to ${availableProcessorsSize} based on available processors * 2")
             maxSize = availableProcessorsSize
         }
-        long aliveTime = (serviceFacadeNode.attribute("worker-pool-alive") ?: "120") as long
+        long aliveTime = (serviceFacadeNode.attribute("job-pool-alive") ?: "120") as long
 
         logger.info("Initializing Service Job ThreadPoolExecutor: queue limit ${jobQueueMax}, pool-core ${coreSize}, pool-max ${maxSize}, pool-alive ${aliveTime}s")
         // make the actual queue at least maxSize to allow for stuffing the queue to get it to add threads to the pool
