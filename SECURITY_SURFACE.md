@@ -33,7 +33,7 @@ There is no `/rest/api_key` minting transition and no `/rest/moquiSessionToken` 
 
 ### Authorization in one paragraph
 
-Screens use `require-authentication`: `true` (default), `false`, `anonymous-view`, or `anonymous-all`. Artifact authz (`ArtifactAuthz` / `ArtifactGroup`) is checked as each screen, transition, service, REST path, and entity is pushed on the execution stack. **Inheritable** allow/always records authorize children on that stack (sub-screens, transitions, services, entities) unless a more specific DENY wins. A few tools also check `UserPermission` (`GROOVY_SHELL_WEB`, `SQL_RUNNER_WEB`, `SERVICE_LOAD_RUNNER`, `ADMIN_LOGIN_AS`, `ADMIN_PASSWORD`, `ElasticRemote`, `KibanaRemote`). Details: [Security — Artifact-Aware Authorization](https://www.moqui.org/m/docs/framework/Security).
+Screens use `require-authentication`: `true` (default), `false`, `anonymous-view`, or `anonymous-all`. Artifact authz (`ArtifactAuthz` / `ArtifactGroup`) is checked as each screen, transition, service, REST path, and entity is pushed on the execution stack. **Inheritable** allow/always records authorize children on that stack (sub-screens, transitions, services, entities) unless a more specific DENY wins. Screen transitions use `authz-action` (`view` / `create` / `update` / `delete` / `all`): explicit, else from a transition-level `service-call`, else `view` if `read-only`, else `update` if the transition has actions, else `view`. A VIEW-only inheritable authz does **not** run mutating Tools/System transitions (cache clear, Service Run, instance start, and similar). A few tools also check `UserPermission` (`GROOVY_SHELL_WEB`, `SQL_RUNNER_WEB`, `SERVICE_LOAD_RUNNER`, `ADMIN_LOGIN_AS`, `ADMIN_PASSWORD`, `ElasticRemote`, `KibanaRemote`). Details: [Security — Artifact-Aware Authorization](https://www.moqui.org/m/docs/framework/Security).
 
 Seed (runtime `ToolsSecurityData.xml`, framework `SecurityTypeData.xml`): `ADMIN` has `AUTHZT_ALWAYS` + `AUTHZA_ALL` + `inheritAuthz=Y` on the Tools app root, System app root, and `/moqui` Service REST root (`MOQUI_API`). `ADMIN_ADV` has the extra permissions above. `ALL_USERS` can view Screen Tree / App List.
 
@@ -172,14 +172,19 @@ A **public demo with known passwords** is a different goal from production (prod
 
 Live example: the [`moqui-demo`](https://github.com/moqui/moqui-demo) component on [demo.moqui.org](https://demo.moqui.org) (`MoquiConf.xml`, `data/MoquiDemoServerData.xml`, `screen/Disabled.xml`). That component is not part of framework/runtime; copy the *ideas*, not the demo users.
 
-### What demo actually does (two layers)
+### What demo actually does
 
-1. **Replace sharp screens** in a component `MoquiConf.xml` `screen-facade` so the named subscreen points at a stub (`Disabled.xml`: “This screen is disabled.”, `menu-include="false"`):
-   - Tools: `GroovyShell`, `DataImport`, `DataSnapshot`, `SpeedTest`, `SqlRunner`, `SqlScriptRunner`, `ServiceLoadRunner`
-   - System: `Resource/ElFinder`
-2. **Narrow inherit-all admin authz** in demo-type data (same `artifactAuthzId` as seed, so a later load overwrites):
-   - `TOOLS_APP_ADMIN`, `SYSTEM_APP_ADMIN`, `MOQUI_API_ADMIN`: `AUTHZA_ALL` → `AUTHZA_VIEW` (read-only Tools, System, and `/rest/s1/moqui`)
-   - Thru-date `john.doe` out of `ADMIN_ADV` (that group holds `GROOVY_SHELL_WEB`, `SQL_RUNNER_WEB`, `SERVICE_LOAD_RUNNER`, `ADMIN_LOGIN_AS`)
+Framework/runtime already treat mutating transitions as `update`/`all` (not VIEW), so VIEW-only Tools/System **blocks** cache clear, Service Run, instance start/stop, ElFinder commands, and similar even when those screens are still mounted.
+
+The `moqui-demo` component then:
+
+1. **Disables** `/groovysh` (`webapp.endpoint` `enabled="false"`). `/notws` stays on.
+2. **Replaces sharp screens** with `Disabled.xml` (`menu-include="false"`): GroovyShell, DataImport, DataExport, DataSnapshot, SpeedTest, SqlRunner, SqlScriptRunner, ServiceRun, ServiceLoadRunner, ElFinder.
+3. **Narrows inherit-all admin authz** in demo-type data (same `artifactAuthzId` as seed):
+   - `TOOLS_APP_ADMIN`, `SYSTEM_APP_ADMIN`, `MOQUI_API_ADMIN`: `AUTHZA_ALL` → `AUTHZA_VIEW`
+   - `EntitySyncServicesADMIN`, `SystemMessageServicesADMIN`: `AUTHZA_ALL` → `AUTHZA_VIEW` (JSON-RPC put/receive)
+   - Thru-date `john.doe` out of `ADMIN_ADV`
+   - Thru-date `ADMIN` `ElasticRemote` / `KibanaRemote` permissions
 
 Screen override example:
 
@@ -206,7 +211,7 @@ Authz overwrite example (same primary key as seed):
 | Screen override | Component `screen-facade` / `subscreens-item` → stub screen | URL + UI for that tool; WebSocket/API siblings may remain |
 | VIEW-only app authz | Overwrite seed `ArtifactAuthz` `AUTHZA_ALL` → `AUTHZA_VIEW` (or add `AUTHZT_DENY`) | Mutations under Tools / System / `MOQUI_API` inherit |
 | Strip `ADMIN_ADV` | No `UserGroupMember`, or thru-date it | Permission-gated tools even if the screen is still mounted |
-| Disable WS endpoint | Merge `webapp.endpoint` `path="/groovysh"` `enabled="false"` (and `/notws` if unused) | Demo does **not** do this; the Groovy Shell *screen* is stubbed but `/groovysh` stays registered in default conf and is gated only by `GROOVY_SHELL_WEB` |
+| Disable WS endpoint | Merge `webapp.endpoint` `path="/groovysh"` `enabled="false"` (and `/notws` if unused) | Demo **does** disable `/groovysh`. The endpoint also requires `GROOVY_SHELL_WEB` and AUTHZA_ALL on the Tools app |
 | Proxy permissions | Do not grant `ElasticRemote` / `KibanaRemote`; keep OS/Kibana private | Full cluster HTTP API through Moqui |
 | Disable tool factories | `tool-factory.@disabled="true"` (SubEtha, H2 server, Jackrabbit) | Extra listen ports |
 | Don’t use H2 in production | Postgres/MySQL; no `start-server-args` / disable H2 factory | H2 TCP 9092 |
@@ -217,9 +222,9 @@ Authz overwrite example (same primary key as seed):
 
 ### Gaps in the demo recipe (review notes, not a dunk)
 
-- `/groovysh` is not disabled in conf; lock-down relies on no `GROOVY_SHELL_WEB` plus VIEW-only Tools
-- Entity REST `/rest/e1` is **not** the `MOQUI_API` group; it is generic entity authz. VIEW-only Tools/System does not by itself turn off entity CRUD over REST
-- `/fop/*`, `/notws`, `/elastic/*` remain
+- Entity REST `/rest/e1` is **not** the `MOQUI_API` group; it is generic entity authz. VIEW-only Tools/System does not by itself turn off entity CRUD over REST (there is no seed catch-all entity allow, so this is 403 unless an app grants entity inherit)
+- `/fop/*` and `/notws` remain (needed for PDF and SPA notifications)
+- `/elastic/*` servlet remains; demo thru-dates `ElasticRemote` so ADMIN cannot use the proxy
 - Demo still loads demo users and passwords; that is the opposite of production data policy
 
 **Production lock-down** is usually: edge WAF + no demo data + no `ADMIN` on internet-facing users + disable unused factories/endpoints + keep Tools off the public hostname.

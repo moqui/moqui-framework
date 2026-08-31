@@ -1,5 +1,23 @@
 # Moqui Framework Release Notes
 
+## Release 4.1.0 - Not Yet Released
+
+### XML Screen transition authorization
+
+- Added `transition.@authz-action` (`view`, `create`, `update`, `delete`, `all`).
+  Transitions are authorized for that action when they run and when links check
+  whether they are permitted. They are no longer always treated as VIEW.
+  - Default if omitted: a transition-level `service-call` uses that service's
+    authz-action (or verb); `read-only` transitions default to view; other
+    transitions with actions default to update; redirect-only transitions default
+    to view. `read-only` is still about insecure URL parameters, not authz.
+- Reviewed Tools/System transitions so privileged ones set `authz-action`
+  explicitly (`update` or `all`): Service Run, cache clear, entity data export,
+  ElFinder commands, instance start/stop, and similar. A VIEW-only inheritable
+  ArtifactAuthz no longer runs those operations.
+- Groovy Shell WebSocket now also requires AUTHZA_ALL on the Tools app (in
+  addition to the `GROOVY_SHELL_WEB` permission).
+
 ## Release 4.0.0 - 27 Feb 2026
 
 Moqui framework v4.0.0 is a major new release with massive changes some of which
@@ -1161,4 +1179,3 @@ Gradle tasks.
   screen; see BonitaSoft.com Open Source BPM for similar concept; generally
   workflow without requiring implementation of an entire app once the
   workflow itself is defined
-
