@@ -66,8 +66,9 @@ class EntityFindTests extends Specification {
         where:
         fieldName | value
         "testId" | "EXTST1"
-        // fails on some DBs without pre-JDBC type conversion: "testNumberInteger" | "4321"
         "testNumberInteger" | 4321
+        // now handled via pre-JDBC numeric type conversion in FieldInfo.setPreparedStatementValue()
+        "testNumberInteger" | "4321"
         // fails on some DBs without pre-JDBC type conversion: "testDateTime" | ec.l10n.format(timestamp, "yyyy-MM-dd HH:mm:ss.SSS")
         "testDateTime" | timestamp
     }
@@ -207,6 +208,11 @@ class EntityFindTests extends Specification {
         // afterList will have 2 more records because SCREEN_TREE artifact group has 2 records
         afterList.size() == beforeList.size() + 2
         afterList.filterByAnd([artifactGroupId:"SCREEN_TREE"]).size() == 2
+
+        // NOTE: the ArtifactAuthz record created above is intentionally NOT cleaned up here; the next test
+        // ('auto cache clear for view list on create of related record not included') depends on it still
+        // being present (it was written assuming these two tests always run back-to-back in this order).
+        // It is cleaned up at the end of that next test instead.
     }
     def "auto cache clear for view list on create of related record not included"() {
         // this is similar to what happens with authz checking with changes after startup
@@ -224,6 +230,10 @@ class EntityFindTests extends Specification {
         then:
         afterList.size() == beforeList.size() + 1
         afterList.filterByAnd([artifactGroupId:"SCREEN_TREE"]).size() == 3
+
+        cleanup:
+        // remove the record created by the previous test so this pair of tests is repeatable against a persistent DB
+        ec.entity.find("moqui.security.ArtifactAuthz").condition("artifactAuthzId", "SCREEN_TREE_ADMIN").deleteAll()
     }
 
     def "auto cache clear for view one after update of member"() {

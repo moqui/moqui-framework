@@ -420,8 +420,13 @@
 
     <elastic-facade>
         <!-- NOTE: elasticsearch_host1 used from moqui-elasticsearch with elasticsearch_mode=rest for compatibility until moqui-elasticsearch deprecated -->
+        <!-- Default: ElasticSearch/OpenSearch backend (type="elastic" is the default when type attribute is omitted) -->
         <cluster name="default" url="${elasticsearch_host1 ?: elasticsearch_url}" user="${elasticsearch_user}" password="${elasticsearch_password}"
                 index-prefix="${elasticsearch_index_prefix}" pool-max="64" queue-size="1024"/>
+        <!-- PostgreSQL backend: set type="postgres" and url to the datasource group-name (or omit url for transactional group).
+             To use this, override in MoquiConf.xml:
+             <cluster name="default" type="postgres" url="transactional" index-prefix="${elasticsearch_index_prefix}"/>
+        -->
     </elastic-facade>
 
     <entity-facade default-group-name="transactional" entity-eca-enabled="true" sequenced-id-prefix=""
@@ -492,7 +497,15 @@
             </inline-jdbc>
         </datasource>
 
-        <!-- The logging group and datasource uses the elastic-facade.cluster configuration to talk to Elastic/OpenSearch -->
+        <!-- The logging group uses elastic-facade.cluster (via ElasticDatasourceFactory) to write log/HTTP-log
+             documents. This works automatically no matter which ElasticFacade.ElasticClient implementation the
+             "default" cluster resolves to — including a type="postgres" cluster (PostgresElasticClient) — since
+             ElasticDatasourceFactory.getElasticClient() resolves purely through the ElasticClient interface
+             (see ElasticDatasourceFactory.groovy). No override is needed when the default cluster is postgres;
+             logging simply flows into the moqui_logs/moqui_http_log tables that backend manages. Override this
+             only if you want the logging group to use a *different* datasource/cluster than "default", e.g.:
+             <datasource group-name="logging" runtime-add-missing="true" startup-add-missing="false"/>
+             to write logs straight into the standard transactional database instead. -->
         <datasource group-name="logging" runtime-add-missing="true" startup-add-missing="false"
                 object-factory="org.moqui.impl.entity.elastic.ElasticDatasourceFactory">
             <inline-other index-prefix="logging-" cluster-name="default"/>
@@ -523,6 +536,7 @@
         <load-entity location="classpath://entity/ScreenEntities.xml"/>
         <load-entity location="classpath://entity/Screen.eecas.xml"/>
         <load-entity location="classpath://entity/SecurityEntities.xml"/>
+        <load-entity location="classpath://entity/SearchEntities.xml"/>
         <load-entity location="classpath://entity/ServerEntities.xml"/>
         <load-entity location="classpath://entity/ServiceEntities.xml"/>
         <load-entity location="classpath://entity/TestEntities.xml"/>

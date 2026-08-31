@@ -40,6 +40,18 @@ class ToolsScreenRenderTests extends Specification {
         long totalTime = System.currentTimeMillis() - screenTest.startTime
         logger.info("Rendered ${screenTest.renderCount} screens (${screenTest.errorCount} errors) in ${ec.l10n.format(totalTime/1000, "0.000")}s, output ${ec.l10n.format(screenTest.renderTotalChars/1000, "#,##0")}k chars")
 
+        // remove records created by these tests so the suite is repeatable against a persistent DB
+        ec.artifactExecution.disableAuthz()
+        ec.transaction.begin(null)
+        ec.entity.find("moqui.test.TestEntity").condition("testId", "TEST_SCR").deleteAll()
+        ec.entity.find("moqui.security.UserAccount").condition("username", "ScreenTest").deleteAll()
+        ec.entity.find("moqui.entity.view.DbViewEntityAlias").condition("dbViewEntityName", "UomDbView").deleteAll()
+        ec.entity.find("moqui.entity.view.DbViewEntityKeyMap").condition("dbViewEntityName", "UomDbView").deleteAll()
+        ec.entity.find("moqui.entity.view.DbViewEntityMember").condition("dbViewEntityName", "UomDbView").deleteAll()
+        ec.entity.find("moqui.entity.view.DbViewEntity").condition("dbViewEntityName", "UomDbView").deleteAll()
+        ec.transaction.commit()
+        ec.artifactExecution.enableAuthz()
+
         ec.destroy()
     }
 
