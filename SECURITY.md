@@ -17,3 +17,7 @@ To report security issues that should not be disclosed publicly before they are 
 ## Issues and Pull Requests
 
 For more information on submitting issues and pull requests please see the [Issue and Pull Request Guide](https://moqui.org/m/docs/moqui/Issue+and+Pull+Request+Guide) on moqui.org.
+
+## Attack surface
+
+A map of HTTP, screen, REST/RPC, WebSocket, and optional listeners in moqui-framework and moqui-runtime is in [SECURITY_SURFACE.md](SECURITY_SURFACE.md). That file also covers production notices and heavy lock-down options (including the demo.moqui.org pattern). Operator checklist: [Run and Deploy — Production security](https://www.moqui.org/m/docs/framework/Run+and+Deploy). Authn/authz model: [Security](https://www.moqui.org/m/docs/framework/Security).
