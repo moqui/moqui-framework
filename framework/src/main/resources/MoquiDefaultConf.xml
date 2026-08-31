@@ -755,7 +755,7 @@
                     databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
         </database>
         <database name="mysql8" lb-name="mysql" join-style="ansi-no-parenthesis" offset-style="limit" from-lateral-style="lateral"
-                never-nulls="true" table-engine="InnoDB" character-set="utf8" collate="utf8_general_ci" fk-style="name_fk"
+                never-nulls="true" table-engine="InnoDB" character-set="utf8mb4" collate="utf8mb4_0900_ai_ci" fk-style="name_fk"
                 constraint-name-clip-length="60"
                 default-isolation-level="ReadCommitted" default-test-query="SELECT 1"
                 default-startup-add-missing="true" default-runtime-add-missing="false"
