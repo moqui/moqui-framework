@@ -160,7 +160,13 @@ class ScheduledJobRunner implements Runnable {
                         if (lastRunDt.isBefore(lockCheckTime)) {
                             // recover failed job without lock reset, run it if schedule says to
                             logger.warn("Lock expired: found lock for job ${jobName} from ${lastRunDt}, more than ${expireLockTime} minutes old, ignoring lock")
-                            serviceJobRunLock.set("jobRunId", null).update()
+                            // treat expired lock as a failed jobRun and set lastRunTime to last successful run
+                            EntityValue lastSuccessfulJobRun = efi.find("moqui.service.job.ServiceJobRun").condition("jobName", jobName)
+                                    .condition("hasError", "N").orderBy("-startTime").limit(1).useCache(false).list().getFirst()
+                            lastRunTime = (Timestamp) lastSuccessfulJobRun?.startTime
+                            lastRunDt = (lastRunTime != (Timestamp) null) ?
+                                    ZonedDateTime.ofInstant(Instant.ofEpochMilli(lastRunTime.getTime()), now.getZone()) : null
+                            serviceJobRunLock.set("jobRunId", null).set("lastRunTime", lastRunTime).update()
                         } else {
                             // normal lock, skip this job
                             logger.info("Lock found for job ${jobName} from ${lastRunDt} run ID ${serviceJobRunLock.jobRunId}, not running")
