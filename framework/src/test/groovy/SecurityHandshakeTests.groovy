@@ -71,11 +71,31 @@ class SecurityHandshakeTests extends Specification {
     }
 
     def "notification listener ignores endpoints with no userId"() {
+        // registerEndpoint is void, so Spock would skip it as a condition; assert the endpoint was not stored.
         when:
         def listener = new NotificationWebSocketListener()
         def ep = new NotificationEndpoint()
+        listener.registerEndpoint(ep)
         then:
         ep.userId == null
+        listener.@endpointsByUser.isEmpty()
+    }
+
+    def "notification listener registers an endpoint that has a userId"() {
+        // positive control for the case above; without it, "never registers anything" would pass
+        given:
+        def listener = new NotificationWebSocketListener()
+        def ep = new NotificationEndpoint()
+        ep.@userId = SecurityTestSupport.ALL_USER_ID
+        ep.@session = Stub(jakarta.websocket.Session) { getId() >> "sec-test-session" }
+        when:
         listener.registerEndpoint(ep)
+        then:
+        listener.@endpointsByUser.size() == 1
+        listener.@endpointsByUser.get(SecurityTestSupport.ALL_USER_ID)?.get("sec-test-session")?.is(ep)
+        when:
+        listener.deregisterEndpoint(ep)
+        then:
+        listener.@endpointsByUser.isEmpty()
     }
 }

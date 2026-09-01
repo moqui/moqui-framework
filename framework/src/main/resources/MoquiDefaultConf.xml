@@ -161,6 +161,7 @@
 
         <!-- this is a count of all artifact hits, expire once idle for over 15 minutes -->
         <cache name="artifact.tarpit.hits" expire-time-idle="900" max-elements="10000" value-type="ArrayList"/>
+        <cache name="moqui.security.hmac.replay" expire-time-live="300" max-elements="10000" value-type="Boolean"/>
     </cache-list>
     <server-stats bin-length-seconds="900" visit-enabled="true" visit-ip-info-on-login="true" visitor-enabled="true">
         <!-- these are meant to be good production settings -->

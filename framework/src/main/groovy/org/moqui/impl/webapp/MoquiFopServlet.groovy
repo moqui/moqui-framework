@@ -92,10 +92,12 @@ class MoquiFopServlet extends HttpServlet {
             if (logger.traceEnabled) logger.trace("XSL-FO content:\n${xslFoText}")
 
             String contentType = (String) ec.web.requestParameters."contentType" ?: "application/pdf"
+            if (contentType != "application/pdf" && contentType != "application/postscript") contentType = "application/pdf"
             response.setContentType(contentType)
 
             String filename = (ec.web.parameters.get("filename") as String) ?: (ec.web.parameters.get("saveFilename") as String)
             if (filename) {
+                filename = filename.replaceAll('[\r\n\"]', '')
                 String utfFilename = StringUtilities.encodeAsciiFilename(filename)
                 response.setHeader("Content-Disposition", "attachment; filename=\"${filename}\"; filename*=utf-8''${utfFilename}")
             } else {

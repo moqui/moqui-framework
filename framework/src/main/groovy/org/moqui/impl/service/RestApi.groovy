@@ -399,7 +399,15 @@ class RestApi {
                     Map<String, Object> headers = ['X-Total-Count':count] as Map<String, Object>
                     return new RestResult([count:count], headers)
                 } else if (operation in ['create', 'update', 'store', 'delete']) {
-                    Map result = ec.getService().sync().name(operation, entityName).parameters(ec.context).call()
+                    Map parms = new LinkedHashMap(ec.context)
+                    if (operation != 'delete' && isUserAccountEntity(entityName)) {
+                        parms.remove('currentPassword')
+                        parms.remove('resetPassword')
+                        parms.remove('passwordSalt')
+                        parms.remove('passwordHashType')
+                        parms.remove('passwordBase64')
+                    }
+                    Map result = ec.getService().sync().name(operation, entityName).parameters(parms).call()
                     return new RestResult(result, null)
                 } else {
                     throw new IllegalArgumentException("Entity operation ${operation} not supported, must be one of: one, list, count, create, update, store, delete")
@@ -407,6 +415,10 @@ class RestApi {
             } finally {
                 if (loggedInAnonymous) ((UserFacadeImpl) ec.getUser()).logoutAnonymousOnly()
             }
+        }
+        static boolean isUserAccountEntity(String entityName) {
+            return entityName == "moqui.security.UserAccount" || entityName == "users" ||
+                    entityName?.endsWith(".UserAccount")
         }
 
         void addToSwaggerMap(Map<String, Object> swaggerMap, Map<String, Map<String, Object>> resourceMap) {
@@ -628,7 +640,8 @@ class RestApi {
             if (mh == null) throw new MethodNotSupportedException("Method ${method} not supported at ${pathList}")
             return mh.run(pathList, ec)
         }
-        private String getCurrentMethod(ExecutionContext ec) {
+        private String getCurrentMethod(ExecutionContext ec) { return effectiveRequestMethod(ec) }
+        static String effectiveRequestMethod(ExecutionContext ec) {
             HttpServletRequest request = ec.web.getRequest()
             String method = request.getMethod().toLowerCase()
             if ("post".equals(method)) {
@@ -721,8 +734,7 @@ class RestApi {
                 post:ArtifactExecutionInfo.AUTHZA_CREATE, delete:ArtifactExecutionInfo.AUTHZA_DELETE,
                 options:ArtifactExecutionInfo.AUTHZA_VIEW, head:ArtifactExecutionInfo.AUTHZA_VIEW]
         static ArtifactExecutionInfo.AuthzAction getActionFromMethod(ExecutionContext ec) {
-            String method = ec.web.getRequest().getMethod().toLowerCase()
-            return actionByMethodMap.get(method)
+            return actionByMethodMap.get(effectiveRequestMethod(ec))
         }
 
         Map getRamlChildrenMap(Map<String, Object> typesMap) {

@@ -115,7 +115,7 @@ class UserFacadeImpl implements UserFacade {
             EntityValue userAccount = (EntityValue) null
             if (sesUsername != null && !sesUsername.isEmpty()) {
                 EntityCondition usernameCond = eci.entityFacade.getConditionFactory()
-                        .makeCondition("username", EntityCondition.ComparisonOperator.EQUALS, username).ignoreCase()
+                        .makeCondition("username", EntityCondition.ComparisonOperator.EQUALS, sesUsername).ignoreCase()
                 userAccount = eci.getEntity().find("moqui.security.UserAccount")
                         .condition(usernameCond).useCache(false).disableAuthz().one()
             }

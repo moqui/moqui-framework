@@ -1,6 +1,16 @@
 # Moqui Framework Release Notes
 
-## Release 4.1.0 - Not Yet Released
+## Release 4.0.1 - Not Yet Released
+
+Moqui Framework 4.0.1 is a patch follow-up to 4.0.0. It includes a more
+thorough AI-assisted security review with SECURITY_SURFACE.md documentation
+and two new test suites (Spock and external Python; see SECURITY_TESTS.md).
+
+Please update to this release or backport changes. If backporting, contact a
+Board Member for more information to ensure full coverage.
+
+To help with review of deployments, the SECURITY_SURFACE.md doc consolidates
+and clarifies security details that have been more scattered and less formal.
 
 ### XML Screen transition authorization
 
@@ -37,6 +47,27 @@
   (run with `./gradlew :framework:test`).
 - HTTP proofs against a running server in `framework/test/` (pytest + requests,
   not Gradle). Start Moqui, then `pytest`.
+
+### Other web and REST hardening
+
+- Entity Data Snapshot download takes a single path segment and requires update
+  authz (same as delete). Parent-segment names are not found.
+- `/fop` sanitizes `Content-Disposition` filenames and restricts `contentType`
+  to PDF/PostScript.
+- `hasLoggedOut` is applied from the session username on the next request.
+- `POST /rest/login` returns 401 when credentials are not valid (HTML Login is
+  unchanged).
+- Post-login redirects compare absolute URLs to the configured webapp host, not
+  the request `Host` header. With the default empty host, only relative paths
+  are accepted, and the `Location` header is path-only so the container does
+  not rewrite it from `Host`.
+- Service REST authorizes `X-HTTP-Method-Override` using the override method.
+- Generic entity REST update/create/store drops UserAccount password hash
+  fields (`currentPassword`, `resetPassword`, salt, hash type).
+- REST schema dumps (`entity.json` / swagger / raml) require the `REST_SCHEMA`
+  permission (seeded on ADMIN). Swagger no longer sets `Access-Control-Allow-Origin: *`.
+- Timestamped system-message HMAC rejects a repeated signature inside the
+  window.
 
 ## Release 4.0.0 - 27 Feb 2026
 

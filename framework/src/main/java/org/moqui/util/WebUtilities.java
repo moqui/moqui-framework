@@ -310,9 +310,19 @@ public class WebUtilities {
 
     /**
      * True if url is a same-origin path or absolute URL safe to use as a post-login redirect.
-     * Relative paths must start with a single slash (not //). Absolute http(s) URLs must match the request host.
+     * Relative paths must start with a single slash (not //). Absolute http(s) URLs must match configuredHost
+     * (webapp http-host / https-host). If configuredHost is empty, absolute URLs are rejected.
      */
     public static boolean isSameOriginRedirect(String url, HttpServletRequest request) {
+        String configured = null;
+        if (request != null) {
+            Object attr = request.getAttribute("moqui.webapp.httpHost");
+            if (attr instanceof CharSequence) configured = attr.toString();
+        }
+        return isSameOriginRedirect(url, request, configured);
+    }
+
+    public static boolean isSameOriginRedirect(String url, HttpServletRequest request, String configuredHost) {
         if (url == null || request == null) return false;
         String p = url.trim();
         if (p.isEmpty()) return false;
@@ -322,13 +332,13 @@ public class WebUtilities {
         if (p.startsWith("//")) return false;
         if (p.startsWith("/")) return true;
         if (!lower.startsWith("http://") && !lower.startsWith("https://")) return false;
+        if (configuredHost == null || configuredHost.isEmpty()) return false;
         try {
             URI uri = URI.create(p);
             if (uri.getUserInfo() != null) return false;
             String host = uri.getHost();
             if (host == null || host.isEmpty()) return false;
-            String serverName = request.getServerName();
-            return serverName != null && host.equalsIgnoreCase(serverName);
+            return host.equalsIgnoreCase(configuredHost);
         } catch (Exception e) {
             return false;
         }

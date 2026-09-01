@@ -56,6 +56,8 @@ import org.moqui.util.WebUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import java.net.URI
+
 @CompileStatic
 class ScreenRenderImpl implements ScreenRender {
     protected final static Logger logger = LoggerFactory.getLogger(ScreenRenderImpl.class)
@@ -215,11 +217,38 @@ class ScreenRenderImpl implements ScreenRender {
                 if (logger.isInfoEnabled()) logger.info("Redirecting to ${redirectUrl} instead of rendering ${this.getScreenUrlInfo().getFullPathNameList()}")
                 // add Cache-Control: no-store header since this is often in actions after screen render has started and a Cache-Control header has been set, so replace it here
                 response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate, private")
-                response.sendRedirect(redirectUrl)
+                sendHttpRedirect(redirectUrl)
             }
             dontDoRender = true
         }
     }
+
+    /** sendRedirect() turns a relative path into an absolute URL using the request Host header.
+     * When webapp http-host is not configured, send a path-only Location instead. */
+    void sendHttpRedirect(String location) {
+        if (response == null || location == null) return
+        ExecutionContextFactoryImpl.WebappInfo wi = webappName ? ec.ecfi.getWebappInfo(webappName) : null
+        String configured = wi?.httpHost
+        if ((configured == null || configured.isEmpty()) &&
+                (location.startsWith("http://") || location.startsWith("https://"))) {
+            try {
+                URI u = URI.create(location)
+                String rel = (u.getRawPath() != null && u.getRawPath().length() > 0) ? u.getRawPath() : "/"
+                if (u.getRawQuery() != null) rel = rel + "?" + u.getRawQuery()
+                location = rel
+            } catch (Exception e) {
+                logger.warn("Could not make Host-safe redirect from ${location}: ${e.toString()}")
+                location = "/"
+            }
+        }
+        if (location.startsWith("/") && !location.startsWith("//")) {
+            response.setStatus(HttpServletResponse.SC_FOUND)
+            response.setHeader("Location", location)
+        } else {
+            response.sendRedirect(location)
+        }
+    }
+
     boolean sendJsonRedirect(UrlInstance fullUrl, Long renderStartTime) {
         if ("json".equals(screenUrlInfo.targetTransitionExtension) || request?.getHeader("Accept")?.contains("application/json")) {
             String pathWithParams = fullUrl.getPathWithParams()
@@ -565,7 +594,7 @@ class ScreenRenderImpl implements ScreenRender {
                     // NOTE: even if transition extension is json still send redirect when we just have a plain url
                     if (logger.isInfoEnabled()) logger.info("Transition ${screenUrlInfo.getFullPathNameList().join("/")} in ${System.currentTimeMillis() - renderStartTime}ms, redirecting to plain URL: ${fullUrl}")
                     if (!sendJsonRedirect(fullUrl)) {
-                        response.sendRedirect(fullUrl)
+                        sendHttpRedirect(fullUrl)
                     }
                 } else {
                     // default is screen-path
@@ -602,7 +631,7 @@ class ScreenRenderImpl implements ScreenRender {
                     if (!sendJsonRedirect(fullUrl, renderStartTime)) {
                         String fullUrlString = fullUrl.getUrlWithParams(screenUrlInfo.targetTransitionExtension)
                         if (logger.isInfoEnabled()) logger.info("Transition ${screenUrlInfo.getFullPathNameList().join("/")} in ${System.currentTimeMillis() - renderStartTime}ms, redirecting to screen path URL: ${fullUrlString}")
-                        response.sendRedirect(fullUrlString)
+                        sendHttpRedirect(fullUrlString)
                     }
                 }
             } else {
@@ -1058,7 +1087,7 @@ class ScreenRenderImpl implements ScreenRender {
                 // now prepare and send the redirect
                 ScreenUrlInfo suInfo = ScreenUrlInfo.getScreenUrlInfo(this, rootScreenDef, new ArrayList<String>(), loginPath, 0)
                 UrlInstance urlInstance = suInfo.getInstance(this, false)
-                response.sendRedirect(urlInstance.url)
+                sendHttpRedirect(urlInstance.url)
                 return false
             }
         }

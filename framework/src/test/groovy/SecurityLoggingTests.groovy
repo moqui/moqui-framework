@@ -32,12 +32,15 @@ class SecurityLoggingTests extends Specification {
 
     def "successful login writes UserLoginHistory without passwordUsed"() {
         given:
-        String userId = SecurityTestSupport.userIdForUsername(ec, SecurityTestSupport.ALL_USERNAME)
+        // dedicated user: no other spec logs in as this, so the row below cannot be a de-duplicated leftover
+        String userId = SecurityTestSupport.userIdForUsername(ec, SecurityTestSupport.HIST_USERNAME)
+        long watermark = SecurityTestSupport.loginHistoryWatermark(ec, userId)
         when:
-        boolean ok = SecurityTestSupport.login(ec, SecurityTestSupport.ALL_USERNAME, SecurityTestSupport.ALL_PASSWORD)
-        EntityValue hist = SecurityTestSupport.waitForLoginHistory(ec, userId)
+        boolean ok = SecurityTestSupport.login(ec, SecurityTestSupport.HIST_USERNAME, SecurityTestSupport.HIST_PASSWORD)
+        EntityValue hist = SecurityTestSupport.waitForLoginHistoryAfter(ec, userId, watermark)
         then:
         ok
+        // fails if no NEW row was written (history-store off, or swallowed by the 60s de-dup)
         hist != null
         hist.successfulLogin == "Y"
         hist.passwordUsed == null
@@ -45,16 +48,15 @@ class SecurityLoggingTests extends Specification {
 
     def "failed login history does not store the password used"() {
         given:
-        String userId = SecurityTestSupport.userIdForUsername(ec, SecurityTestSupport.LOCK_USERNAME)
-        SecurityTestSupport.resetLockAccount(ec)
+        String userId = SecurityTestSupport.userIdForUsername(ec, SecurityTestSupport.HIST_FAIL_USERNAME)
+        long watermark = SecurityTestSupport.loginHistoryWatermark(ec, userId)
         when:
-        SecurityTestSupport.login(ec, SecurityTestSupport.LOCK_USERNAME, "definitely-wrong-password")
-        EntityValue hist = SecurityTestSupport.waitForLoginHistory(ec, userId)
+        boolean ok = SecurityTestSupport.login(ec, SecurityTestSupport.HIST_FAIL_USERNAME, "definitely-wrong-password")
+        EntityValue hist = SecurityTestSupport.waitForLoginHistoryAfter(ec, userId, watermark)
         then:
+        !ok
         hist != null
         hist.successfulLogin == "N"
         hist.passwordUsed == null
-        cleanup:
-        SecurityTestSupport.resetLockAccount(ec)
     }
 }

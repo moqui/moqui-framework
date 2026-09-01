@@ -250,6 +250,8 @@ along with this software (see the LICENSE.md file). If not, see
             <description>NOTE: not an encrypted field because one way hash encryption used for it</description></field>
         <field name="resetPassword" type="text-medium">
             <description>Set to random password for password reset, can be used only to update password</description></field>
+        <field name="resetPasswordSetDate" type="date-time">
+            <description>When resetPassword was last set; used with password.@email-expire-hours</description></field>
         <field name="passwordSalt" type="text-medium"/>
         <field name="passwordHashType" type="text-short"/>
         <field name="passwordBase64" type="text-indicator">

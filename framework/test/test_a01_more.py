@@ -265,3 +265,96 @@ def test_menu_data_tools_without_login_is_not_the_menu(http, base_url, require_s
     body = (r.text or "").lower()
     assert r.status_code in (401, 403, 302) or "auto screens" not in body
     assert "groovyshell" not in body or r.status_code != 200
+
+
+def test_elastic_proxy_basic_auth_without_permission_is_403(http, base_url, require_server):
+    """MoquiAuthFilter takes credentials from the request, not just the session cookie."""
+    require_sec_user(base_url, "sec.none.only", "SecNone1!!")
+    r = http.get(
+        base_url + "/elastic/",
+        auth=("sec.none.only", "SecNone1!!"),
+        timeout=15,
+        allow_redirects=False,
+    )
+    assert r.status_code == 403
+
+
+def test_elastic_proxy_bad_basic_auth_is_401(http, base_url, require_server):
+    require_sec_user(base_url, "sec.none.only", "SecNone1!!")
+    r = http.get(
+        base_url + "/elastic/",
+        auth=("sec.none.only", "definitely-wrong-password"),
+        timeout=15,
+        allow_redirects=False,
+    )
+    assert r.status_code == 401
+
+
+def test_elastic_proxy_api_key_header_garbage_is_401(http, base_url, require_server):
+    r = http.get(
+        base_url + "/elastic/",
+        headers={"api_key": "not-a-real-key"},
+        timeout=15,
+        allow_redirects=False,
+    )
+    assert r.status_code in (401, 403)
+
+
+def test_elastic_proxy_basic_auth_with_permission_reaches_the_cluster(http, base_url, require_server,
+                                                                     username, password):
+    """Designed exposure: ElasticRemote is the full cluster HTTP API. Pins that the gate is the
+    permission and nothing else, so a change to the filter or the seed permission is noticed."""
+    r = http.get(
+        base_url + "/elastic/",
+        auth=(username, password),
+        timeout=15,
+        allow_redirects=False,
+    )
+    if r.status_code == 403:
+        pytest.skip(f"{username} does not have ElasticRemote; cannot prove the positive case")
+    if r.status_code != 200:
+        pytest.skip(f"Elastic/OpenSearch not reachable (status {r.status_code})")
+    assert "cluster_name" in (r.text or "") or "version" in (r.text or "")
+
+
+def test_fop_filename_quote_stays_in_one_content_disposition(http, base_url, require_server, username, password):
+    require_screen_login(http, base_url, username, password)
+    r = http.get(
+        base_url + "/fop/apps/tools/dashboard",
+        params={"filename": 'a"; x=y'},
+        timeout=20,
+        allow_redirects=False,
+    )
+    if r.status_code in (401, 403):
+        pytest.skip("user cannot render /fop/apps/tools/dashboard")
+    cd = r.headers.get("Content-Disposition") or ""
+    assert '"; x=' not in cd
+    assert "\r" not in cd and "\n" not in cd
+
+
+def test_datasnapshot_view_cannot_download(http, base_url, require_server):
+    require_sec_user(base_url, "sec.view.only", "SecView1!!")
+    require_screen_login(http, base_url, "sec.view.only", "SecView1!!")
+    r = http.get(
+        base_url + "/apps/tools/Entity/DataSnapshot/downloadSnapshot",
+        params={"filename": "anything.zip"},
+        timeout=15,
+        allow_redirects=False,
+    )
+    assert r.status_code in (401, 403)
+
+
+def test_datasnapshot_parent_segment_filename_is_not_found(http, base_url, require_server, username, password):
+    require_screen_login(http, base_url, username, password)
+    r = http.get(
+        base_url + "/apps/tools/Entity/DataSnapshot/downloadSnapshot",
+        params={"filename": "../../conf/MoquiProductionConf.xml"},
+        timeout=15,
+        allow_redirects=False,
+    )
+    if r.status_code in (401, 403):
+        pytest.skip("user cannot open DataSnapshot")
+    assert r.status_code in (400, 404)
+    body = (r.text or "").lower()
+    assert "moqui-conf" not in body
+    assert "crypt-pass" not in body

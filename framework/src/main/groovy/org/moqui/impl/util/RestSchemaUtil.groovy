@@ -567,16 +567,23 @@ class RestSchemaUtil {
     // ========== Web Request Schema Methods ==========
     // ================================================
 
+    static boolean requireSchemaAccess(ExecutionContextImpl eci) {
+        if (!eci.getUser().getUsername()) {
+            String errorMessage = eci.message.errorsString
+            if (!errorMessage) errorMessage = "Authentication required for REST schema"
+            eci.webImpl.sendJsonError(HttpServletResponse.SC_UNAUTHORIZED, errorMessage, null)
+            return false
+        }
+        if (!eci.userFacade.hasPermission("REST_SCHEMA")) {
+            eci.webImpl.sendJsonError(HttpServletResponse.SC_FORBIDDEN, "Not authorized for REST schema", null)
+            return false
+        }
+        return true
+    }
+
     static void handleEntityRestSchema(ExecutionContextImpl eci, List<String> extraPathNameList, String schemaUri, String linkPrefix,
                                        String schemaLinkPrefix, boolean getMaster) {
-        // make sure a user is logged in, screen/etc that calls will generally be configured to not require auth
-        if (!eci.getUser().getUsername()) {
-            // if there was a login error there will be a MessageFacade error message
-            String errorMessage = eci.message.errorsString
-            if (!errorMessage) errorMessage = "Authentication required for entity REST schema"
-            eci.webImpl.sendJsonError(HttpServletResponse.SC_UNAUTHORIZED, errorMessage, null)
-            return
-        }
+        if (!requireSchemaAccess(eci)) return
 
         EntityFacadeImpl efi = eci.entityFacade
 
@@ -656,14 +663,7 @@ class RestSchemaUtil {
     }
 
     static void handleEntityRestRaml(ExecutionContextImpl eci, List<String> extraPathNameList, String linkPrefix, String schemaLinkPrefix, boolean getMaster) {
-        // make sure a user is logged in, screen/etc that calls will generally be configured to not require auth
-        if (!eci.getUser().getUsername()) {
-            // if there was a login error there will be a MessageFacade error message
-            String errorMessage = eci.message.errorsString
-            if (!errorMessage) errorMessage = "Authentication required for entity REST schema"
-            eci.webImpl.sendJsonError(HttpServletResponse.SC_UNAUTHORIZED, errorMessage, null)
-            return
-        }
+        if (!requireSchemaAccess(eci)) return
 
         EntityFacadeImpl efi = eci.entityFacade
 
@@ -731,6 +731,7 @@ class RestSchemaUtil {
     }
 
     static void handleEntityRestSwagger(ExecutionContextImpl eci, List<String> extraPathNameList, String basePath, boolean getMaster) {
+        if (!requireSchemaAccess(eci)) return
         if (extraPathNameList.size() == 0) {
             eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "No entity name specified in path (for all entities use 'all')", null)
             return
@@ -755,7 +756,6 @@ class RestSchemaUtil {
         String filename = entityName ?: "Entities"
         if (masterName) filename = filename + "." + masterName
 
-        eci.webImpl.response.setHeader("Access-Control-Allow-Origin", "*")
         eci.webImpl.response.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, PUT, PATCH, OPTIONS")
         eci.webImpl.response.setHeader("Access-Control-Allow-Headers", "Content-Type, api_key, Authorization")
 
@@ -820,6 +820,7 @@ class RestSchemaUtil {
     }
 
     static void handleServiceRestSwagger(ExecutionContextImpl eci, List<String> extraPathNameList, String basePath) {
+        if (!requireSchemaAccess(eci)) return
         if (extraPathNameList.size() == 0) {
             eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "No root resource name specified in path", null)
             return
@@ -836,7 +837,6 @@ class RestSchemaUtil {
             filenameBase.append(pathName).append('.')
         }
 
-        eci.webImpl.response.setHeader("Access-Control-Allow-Origin", "*")
         eci.webImpl.response.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, PUT, PATCH, OPTIONS")
         eci.webImpl.response.setHeader("Access-Control-Allow-Headers", "Content-Type, api_key, Authorization")
 
@@ -864,6 +864,7 @@ class RestSchemaUtil {
     }
 
     static void handleServiceRestRaml(ExecutionContextImpl eci, List<String> extraPathNameList, String linkPrefix) {
+        if (!requireSchemaAccess(eci)) return
         if (extraPathNameList.size() == 0) {
             eci.webImpl.sendJsonError(HttpServletResponse.SC_BAD_REQUEST, "No root resource name specified in path", null)
             return

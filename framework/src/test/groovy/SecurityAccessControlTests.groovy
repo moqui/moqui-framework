@@ -38,7 +38,7 @@ class SecurityAccessControlTests extends Specification {
         when:
         SecurityTestSupport.login(ec, SecurityTestSupport.VIEW_USERNAME, SecurityTestSupport.VIEW_PASSWORD)
         ScreenTestRender str = tools.render("Service/ServiceRun/run",
-                SecurityTestSupport.csrfParams([serviceName: "org.moqui.impl.BasicServices.get#GeoRegionsForDropDown"]),
+                SecurityTestSupport.csrfParams(ec, [serviceName: "org.moqui.impl.BasicServices.get#GeoRegionsForDropDown"]),
                 "post")
         then:
         SecurityTestSupport.looksLikeAuthzFailure(str)
@@ -58,7 +58,7 @@ class SecurityAccessControlTests extends Specification {
         when:
         SecurityTestSupport.login(ec, SecurityTestSupport.VIEW_USERNAME, SecurityTestSupport.VIEW_PASSWORD)
         ScreenTestRender str = system.render("Cache/CacheList/clearAllCaches",
-                SecurityTestSupport.csrfParams(), "post")
+                SecurityTestSupport.csrfParams(ec), "post")
         then:
         SecurityTestSupport.looksLikeAuthzFailure(str)
     }
@@ -67,7 +67,7 @@ class SecurityAccessControlTests extends Specification {
         when:
         SecurityTestSupport.login(ec, SecurityTestSupport.VIEW_USERNAME, SecurityTestSupport.VIEW_PASSWORD)
         ScreenTestRender str = tools.render("dashboard/reloadEcfi",
-                SecurityTestSupport.csrfParams(), "post")
+                SecurityTestSupport.csrfParams(ec), "post")
         then:
         SecurityTestSupport.looksLikeAuthzFailure(str)
     }
@@ -121,7 +121,7 @@ class SecurityAccessControlTests extends Specification {
         when:
         SecurityTestSupport.login(ec, SecurityTestSupport.VIEW_USERNAME, SecurityTestSupport.VIEW_PASSWORD)
         ScreenTestRender str = tools.render("Entity/DataImport/load",
-                SecurityTestSupport.csrfParams([location: "http://127.0.0.1:9/"]), "post")
+                SecurityTestSupport.csrfParams(ec, [location: "http://127.0.0.1:9/"]), "post")
         then:
         SecurityTestSupport.looksLikeAuthzFailure(str)
     }
@@ -130,7 +130,7 @@ class SecurityAccessControlTests extends Specification {
         when:
         SecurityTestSupport.login(ec, SecurityTestSupport.VIEW_USERNAME, SecurityTestSupport.VIEW_PASSWORD)
         ScreenTestRender str = tools.render("Entity/DataExport/EntityExport",
-                SecurityTestSupport.csrfParams([entityNames: "moqui.basic.Enumeration"]), "post")
+                SecurityTestSupport.csrfParams(ec, [entityNames: "moqui.basic.Enumeration"]), "post")
         then:
         SecurityTestSupport.looksLikeAuthzFailure(str)
     }
@@ -139,7 +139,7 @@ class SecurityAccessControlTests extends Specification {
         when:
         SecurityTestSupport.login(ec, SecurityTestSupport.VIEW_USERNAME, SecurityTestSupport.VIEW_PASSWORD)
         ScreenTestRender str = system.render("Resource/ElFinder/command",
-                SecurityTestSupport.csrfParams([cmd: "open"]), "post")
+                SecurityTestSupport.csrfParams(ec, [cmd: "open"]), "post")
         then:
         SecurityTestSupport.looksLikeAuthzFailure(str)
     }
@@ -185,10 +185,12 @@ class SecurityAccessControlTests extends Specification {
         when:
         ScreenTestRender str = rest.render("login",
                 [username: SecurityTestSupport.ALL_USERNAME, password: SecurityTestSupport.ALL_PASSWORD], "post")
-        String all = ((str.errorMessages ?: []) + [str.output ?: ""]).join("\n").toLowerCase()
+        String out = ((str.output ?: "") + (str.jsonObject ?: "")).toLowerCase()
         then:
-        !all.contains("session token required")
-        (str.output ?: "").contains("loggedIn") || !SecurityTestSupport.looksLikeAuthnFailure(str)
+        !out.contains("session token required")
+        // Must actually log in. An empty or error render is a failure, not a pass.
+        out.contains("loggedin")
+        out.contains("true")
     }
 
     def "setPreference with a valid session token executes and stores the preference"() {
@@ -196,7 +198,7 @@ class SecurityAccessControlTests extends Specification {
         SecurityTestSupport.login(ec, SecurityTestSupport.ALL_USERNAME, SecurityTestSupport.ALL_PASSWORD)
         ScreenTest apps = ec.screen.makeTest().baseScreenPath("apps")
         ScreenTestRender str = apps.render("setPreference",
-                SecurityTestSupport.csrfParams([preferenceKey: "secCsrfPositive", preferenceValue: "csrf-ran-ok"]), "post")
+                SecurityTestSupport.csrfParams(ec, [preferenceKey: "secCsrfPositive", preferenceValue: "csrf-ran-ok"]), "post")
         String all = ((str.errorMessages ?: []) + [str.output ?: ""]).join("\n").toLowerCase()
         ScreenTestRender getStr = apps.render("getPreferences", [keyRegexp: "secCsrfPositive"], "get")
         String getOut = (getStr.output ?: "") + (getStr.jsonObject ?: "")

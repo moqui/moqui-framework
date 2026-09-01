@@ -98,6 +98,8 @@ class WebFacadeImpl implements WebFacade {
 
         MNode webappNode = eci.ecfi.getWebappNode(webappMoquiName)
         boolean uploadExecutableAllow = "true".equals(webappNode.attribute("upload-executable-allow"))
+        WebappInfo wi = eci.ecfi.getWebappInfo(webappMoquiName)
+        if (wi != null && wi.httpHost) request.setAttribute("moqui.webapp.httpHost", wi.httpHost)
 
         // NOTE: the Visit is not setup here but rather in the MoquiSessionListener (for init and destroy)
         // don't set 'ec' in request attributes, not serializable: request.setAttribute("ec", eci)
@@ -1283,6 +1285,15 @@ class WebFacadeImpl implements WebFacade {
                     response.sendError(HttpServletResponse.SC_FORBIDDEN, "HMAC timestamp verification failed")
                     return
                 }
+
+                String replayKey = systemMessageRemoteId + ":" + timestamp + ":" + incomingSignature
+                def replayCache = eci.cacheFacade.getCache("moqui.security.hmac.replay")
+                if (replayCache.containsKey(replayKey)) {
+                    logger.warn("System message receive HMAC replay for remote ${systemMessageRemoteId}")
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "HMAC replay rejected")
+                    return
+                }
+                replayCache.put(replayKey, Boolean.TRUE)
 
                 // login anonymous if not logged in
                 eci.userFacade.loginAnonymousIfNoUser()

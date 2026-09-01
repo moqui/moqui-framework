@@ -41,10 +41,11 @@ class SecurityMisconfigTests extends Specification {
     }
 
     def "upload-executable-allow is false by default"() {
+        // Read the default-property, not the webapp attribute: the attribute is the literal
+        // ${webapp_upload_executable_allow} until something expands the conf (a screen render in an earlier spec),
+        // so asserting on it made this test pass or fail depending on what ran before it.
         expect:
-        webapp.attribute("upload-executable-allow") == "false" ||
-                webapp.attribute("upload-executable-allow") == "" ||
-                webapp.attribute("upload-executable-allow") == null
+        SecurityTestSupport.defaultProperty("webapp_upload_executable_allow") in [null, "", "false"]
     }
 
     def "default screen-render CSP and frame options are set"() {
@@ -149,7 +150,7 @@ class SecurityMisconfigTests extends Specification {
         given:
         def stub = new WebFacadeStub(ecfi, [:], [:], "get")
         expect:
-        WebUtilities.isSameOriginRedirect(url, stub.request) == allowed
+        WebUtilities.isSameOriginRedirect(url, stub.request, "localhost") == allowed
         where:
         label                         | url                                  | allowed
         "relative /apps"              | "/apps"                              | true
@@ -164,14 +165,35 @@ class SecurityMisconfigTests extends Specification {
         "empty"                       | ""                                   | false
     }
 
-    def "session cookie is HttpOnly and SameSite Lax in web.xml"() {
+    def "isSameOriginRedirect rejects absolute URLs when configured host is empty"() {
+        given:
+        def stub = new WebFacadeStub(ecfi, [:], [:], "get")
+        expect:
+        WebUtilities.isSameOriginRedirect("/apps", stub.request, null)
+        !WebUtilities.isSameOriginRedirect("https://localhost/apps", stub.request, null)
+        !WebUtilities.isSameOriginRedirect("https://evil.example/phish", stub.request, "")
+    }
+
+    def "session cookie is HttpOnly in web.xml"() {
+        // NOTE: SameSite=Lax is NOT proven here. web.xml still carries the legacy __SAME_SITE_LAX__ comment but
+        // Jetty 12 ignores it; the real control is MoquiContextListener calling
+        // SessionCookieConfig.setAttribute("SameSite", "Lax"). That only shows up on a live container, so the
+        // SameSite proof is test_a02_headers.py (HTTP).
         when:
         File webXml = new File("src/main/webapp/WEB-INF/web.xml")
         String text = webXml.getText("UTF-8")
         then:
         webXml.exists()
         text.contains("<http-only>true</http-only>")
-        text.contains("__SAME_SITE_LAX__")
+    }
+
+    def "ScreenTest WebFacadeStub session token matches the CSRF fixture token"() {
+        // The CSRF positive controls build their token from this value; if WebFacadeStub.getSessionToken() changes
+        // the positive control would quietly become a negative test. Fail here instead.
+        given:
+        def stub = new WebFacadeStub(ecfi, [:], [:], "get")
+        expect:
+        stub.sessionToken == SecurityTestSupport.sessionToken(ec)
     }
 
     def "demo data includes ALL_SCREENS tarpit example"() {
@@ -196,6 +218,25 @@ class SecurityMisconfigTests extends Specification {
         }
         expect:
         UserFacadeImpl.getClientIp(req, null, ecfi) == "203.0.113.9"
+    }
+
+    /** Pins current getClientIp address shapes (used for /status allow-lists, ipAllowed, visit, request log).
+     * IPv6 values after the last colon are the implementation today, not a claim that /status matching is correct. */
+    @Unroll
+    def "getClientIp remoteAddr #label is #expected"() {
+        given:
+        def sc = Stub(ServletContext) { getInitParameter("moqui-name") >> "webroot" }
+        def req = Stub(HttpServletRequest) {
+            getServletContext() >> sc
+            getRemoteAddr() >> remoteAddr
+        }
+        expect:
+        UserFacadeImpl.getClientIp(req, null, ecfi) == expected
+        where:
+        label                    | remoteAddr            || expected
+        "IPv4"                   | "203.0.113.9"         || "203.0.113.9"
+        "IPv6 loopback literal"  | "0:0:0:0:0:0:0:1"     || "1"
+        "IPv6 full"              | "2001:db8::1"         || "1"
     }
 
     def "simplifyRequestParameters bodyOnly drops query-string keys"() {

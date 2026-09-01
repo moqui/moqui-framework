@@ -47,6 +47,11 @@ public class ServiceJsonRpcDispatcher {
         Map callMap = eci.web.getRequestParameters()
         if (callMap._requestBodyJsonList) {
             List callList = (List) callMap._requestBodyJsonList
+            if (callList.size() > 50) {
+                eci.getWeb().sendJsonResponse([jsonrpc:"2.0", id:null,
+                        error:[code:INVALID_REQUEST, message:"Batch too large, maximum 50 calls"]])
+                return
+            }
             List<Map> jsonRespList = []
             for (Object callSingleObj in callList) {
                 if (callSingleObj instanceof Map) {
@@ -56,6 +61,7 @@ public class ServiceJsonRpcDispatcher {
                     jsonRespList.add(callSingle(null, callSingleObj, null))
                 }
             }
+            eci.getWeb().sendJsonResponse(jsonRespList)
         } else {
             // logger.info("========= JSON-RPC request with map: ${callMap}")
             Map jsonResp = callSingle(callMap.method as String, callMap.params, callMap.id ?: null)

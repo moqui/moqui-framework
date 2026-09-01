@@ -3,6 +3,29 @@ import pytest
 from conftest import require_sec_user, rest_login
 
 
+def test_rest_login_wrong_password_is_401(http, base_url, require_server, username):
+    r = http.post(
+        base_url + "/rest/login",
+        json={"username": username, "password": "definitely-wrong-password"},
+        timeout=10,
+    )
+    assert r.status_code == 401
+    body = (r.text or "").lower()
+    assert "username or password is not valid" in body
+    assert '"loggedin":true' not in body.replace(" ", "")
+
+
+def test_rest_login_unknown_user_is_401(http, base_url, require_server):
+    r = http.post(
+        base_url + "/rest/login",
+        json={"username": "sec.no.such.user.zzz", "password": "wrong"},
+        timeout=10,
+    )
+    assert r.status_code == 401
+    body = (r.text or "").lower()
+    assert "username or password is not valid" in body
+
+
 def test_sendOtp_without_preauth_is_rejected(http, base_url, require_server):
     r = http.post(
         base_url + "/rest/sendOtp",
