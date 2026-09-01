@@ -10,6 +10,7 @@ import spock.lang.Specification
 class SecurityAuthnTests extends Specification {
     @Shared ExecutionContext ec
     @Shared int maxFailures
+    @Shared int disableMinutes
 
     def setupSpec() {
         ec = Moqui.getExecutionContext()
@@ -17,6 +18,7 @@ class SecurityAuthnTests extends Specification {
         def loginNode = ((org.moqui.impl.context.ExecutionContextImpl) ec).ecfi.getConfXmlRoot()
                 .first("user-facade")?.first("login")
         maxFailures = (loginNode?.attribute("max-failures") ?: "3") as int
+        disableMinutes = (loginNode?.attribute("disable-minutes") ?: "5") as int
     }
     def cleanupSpec() { SecurityTestSupport.logout(ec); ec.destroy() }
     def setup() { SecurityTestSupport.logout(ec) }
@@ -154,6 +156,53 @@ class SecurityAuthnTests extends Specification {
         ec.message.hasError()
         cleanup:
         ec.message.clearAll()
+    }
+
+    static void lockLockUser(ExecutionContext ec, int maxFailures) {
+        SecurityTestSupport.resetLockAccount(ec)
+        for (int i = 0; i < maxFailures + 1; i++) {
+            ec.message.clearErrors()
+            ec.user.loginUser(SecurityTestSupport.LOCK_USERNAME, "definitely-wrong-password")
+            Thread.sleep(25)
+        }
+    }
+
+    static void setDisabledDateTime(ExecutionContext ec, java.sql.Timestamp when) {
+        String userId = SecurityTestSupport.userIdForUsername(ec, SecurityTestSupport.LOCK_USERNAME)
+        SecurityTestSupport.withAuthzDisabled(ec) {
+            ec.message.clearErrors()
+            ec.service.sync().name("update", "moqui.security.UserAccount")
+                    .parameters([userId: userId, disabled: "Y", disabledDateTime: when])
+                    .disableAuthz().requireNewTransaction(true).call()
+        }
+    }
+
+    def "locked account re-enables after the disable window"() {
+        when:
+        lockLockUser(ec, maxFailures)
+        // move disabledDateTime back so disabledDateTime + disable-minutes is in the past
+        long pastMs = System.currentTimeMillis() - ((disableMinutes + 1L) * 60L * 1000L)
+        setDisabledDateTime(ec, new java.sql.Timestamp(pastMs))
+        ec.message.clearErrors()
+        boolean reEnabled = ec.user.loginUser(SecurityTestSupport.LOCK_USERNAME, SecurityTestSupport.LOCK_PASSWORD)
+        then:
+        reEnabled
+        ec.user.username == SecurityTestSupport.LOCK_USERNAME
+        cleanup:
+        SecurityTestSupport.resetLockAccount(ec)
+    }
+
+    def "locked account stays locked inside the disable window"() {
+        when:
+        lockLockUser(ec, maxFailures)
+        // disabledDateTime in the recent past: re-enable time is still in the future
+        setDisabledDateTime(ec, new java.sql.Timestamp(System.currentTimeMillis() - 1000L))
+        ec.message.clearErrors()
+        boolean stillLocked = ec.user.loginUser(SecurityTestSupport.LOCK_USERNAME, SecurityTestSupport.LOCK_PASSWORD)
+        then:
+        !stillLocked
+        cleanup:
+        SecurityTestSupport.resetLockAccount(ec)
     }
 
 }

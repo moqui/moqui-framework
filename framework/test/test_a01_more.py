@@ -113,6 +113,24 @@ def test_elastic_proxy_without_login_is_401(http, base_url, require_server):
     assert r.status_code in (401, 403, 302)
 
 
+def test_elastic_proxy_logged_in_without_permission_is_denied(http, base_url, require_server):
+    require_sec_user(base_url, "sec.none.only", "SecNone1!!")
+    require_screen_login(http, base_url, "sec.none.only", "SecNone1!!")
+    probe = http.get(
+        base_url + "/apps/getPreferences",
+        params={"keyRegexp": "x"},
+        timeout=10,
+        allow_redirects=False,
+    )
+    loc = (probe.headers.get("Location") or "").lower()
+    assert probe.status_code != 401
+    assert probe.status_code not in (302, 303) or "login" not in loc
+    r = http.get(base_url + "/elastic/", timeout=10, allow_redirects=False)
+    body = (r.text or "").lower()
+    assert r.status_code == 403
+    assert "elasticremote" in body or "permission" in body
+
+
 def test_kibana_proxy_without_login_is_401(http, base_url, require_server):
     r = http.get(base_url + "/kibana/", timeout=10, allow_redirects=False)
     assert r.status_code in (401, 403, 302)
@@ -203,6 +221,12 @@ def test_groovysh_http_get_is_not_a_shell(http, base_url, require_server):
     body = (r.text or "").lower()
     assert "groovyshell" not in body or r.status_code in (400, 401, 403, 404, 405)
     assert r.status_code != 200 or "eval" not in body
+
+
+def test_notws_http_get_is_not_a_websocket_handshake(http, base_url, require_server):
+    r = http.get(base_url + "/notws", timeout=10, allow_redirects=False)
+    assert r.status_code != 101
+    assert "upgrade" not in (r.headers.get("Connection") or "").lower()
 
 
 def test_sql_runner_query_string_sql_is_not_executed(http, base_url, require_server, username, password):

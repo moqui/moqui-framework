@@ -80,6 +80,20 @@ def test_x_http_method_override_without_auth_is_401(http, base_url, require_serv
     assert r.status_code == 401
 
 
+def test_x_http_method_override_still_requires_csrf(http, base_url, require_server, username, password):
+    """Override is honored on POST; CSRF is keyed off the raw method, so this must still 401."""
+    require_rest_login(http, base_url, username, password)
+    r = http.post(
+        base_url + "/rest/e1/moqui.basic.Enumeration",
+        headers={"X-HTTP-Method-Override": "DELETE"},
+        json={"enumId": "SEC_OVERRIDE_NOPE", "description": "sec override"},
+        timeout=10,
+    )
+    body = (r.text or "").lower()
+    assert r.status_code == 401
+    assert "session token required" in body or "token does not match" in body
+
+
 def test_entity_rest_post_without_csrf_does_not_create(http, base_url, require_server, username, password):
     require_rest_login(http, base_url, username, password)
     r = http.post(

@@ -30,7 +30,7 @@ Python `sec.*` users (`sec.view.only`, `sec.all.only`, `sec.none.only`, `sec.loc
 | Login unknown vs wrong password public text | A07 | `SecurityAuthnTests` | `test_a07_more.py` |
 | `/apps` getPreferences / qzSign without login | A01 | N/A (HTTP) | `test_a01_more.py` |
 | Unknown path `/htmlr` does not leak a Java stack (not a servlet) | A10 | N/A (HTTP) | `test_a01_more.py` |
-| JSON-RPC does not run `allow-remote=false` services | A01 | `SecurityIntegrityTests` (`create#UserAccount`) | `test_api_rest.py` |
+| JSON-RPC does not run `allow-remote=false` services | A01 | `SecurityIntegrityTests` (ServiceDefinition `allowRemote` flag) | `test_api_rest.py` |
 | Default CSP / X-Frame-Options / nosniff | A02 | `SecurityMisconfigTests` (conf) | `test_a02_headers.py` |
 | CORS: no Origin → no ACAO; unknown Origin is 401 (including OPTIONS preflight) | A02 | `SecurityMisconfigTests` (DefaultConf empty `allow-origins`) | `test_a02_headers.py` (ProductionConf required) |
 | Session cookie HttpOnly / SameSite Lax | A02 | `SecurityMisconfigTests` (web.xml) | `test_a02_headers.py` |
@@ -50,14 +50,14 @@ Python `sec.*` users (`sec.view.only`, `sec.all.only`, `sec.none.only`, `sec.loc
 | Short password rejected | A07 | `SecurityAuthnTests` | `test_a07_more.py` |
 | `POST /rest/login` without CSRF | A07 | `SecurityAccessControlTests` | `test_a07_authn.py` |
 | Other POST without CSRF token rejected; with token is not a CSRF error | A01 | `SecurityAccessControlTests` | `test_a07_authn.py` |
-| HTTP `api_key` in query string does not log in (header/body is the intended API; minting transition removed) | A07 | `loginUserKey` in `SecurityAuthnTests` | `test_a07_authn.py` |
+| HTTP `api_key` in query string does not log in (header/body is the intended API; minting transition removed) | A07 | `SecurityHandshakeTests` (WS query-string api_key) | `test_a07_authn.py` |
 | WebSocket handshake: `api_key` header logs in; query `api_key` / `authUsername` do not | A07 | `SecurityHandshakeTests` | N/A |
 | Anonymous has no `GROOVY_SHELL_WEB`; `/notws` ignores `userId == null` | A01 | `SecurityHandshakeTests` | `test_a01_more.py` (HTTP GET is not a handshake) |
 | `loginUserKey` round-trip (hashed at rest) | A07 | `SecurityAuthnTests`, `SecurityCryptoTests` | N/A |
 | Login issues a new session id (no fixation) | A07 | N/A | `test_a07_authn.py` |
 | `sendOtp` / `verifyOtp` without pre-auth rejected | A07 | `SecurityAuthnTests` | `test_a07_more.py` |
-| Password reset unknown user does not succeed | A07 | `SecurityAuthnTests` | `test_a07_more.py` |
-| Password reset unknown vs existing messages | A07 | `SecurityAuthnTests` | `test_a07_more.py` |
+| Password reset unknown user returns the generic shared message (no account enumeration) | A07 | `SecurityAuthnTests` | `test_a07_more.py` |
+| Password reset unknown vs existing messages are indistinguishable | A07 | `SecurityAuthnTests` | `test_a07_more.py` |
 | Component zip-slip rejected | A08 | `SecurityIntegrityTests` | N/A |
 | XML external entity expansion in `MNode.parse` | A05 | `SecurityIntegrityTests` | N/A |
 | Login history stored; failed-login does not store password | A09 | `SecurityLoggingTests` | N/A |
@@ -87,6 +87,24 @@ Python `sec.*` users (`sec.view.only`, `sec.all.only`, `sec.none.only`, `sec.loc
 | `/WEB-INF/web.xml` is not served | A01 | N/A | `test_a01_more.py` |
 | `/menuData` Tools without login is not the menu | A01 | N/A | `test_a01_more.py` |
 | HTTP Basic auth: wrong password 401; valid is not unauthenticated | A07 | N/A | `test_api_rest.py` |
+| CSRF positive control: POST with a valid token actually runs the transition (setPreference round-trip) | A01 | `SecurityAccessControlTests` | `test_a07_authn.py` |
+| POST without a token does not store the preference (negative companion) | A01 | `SecurityAccessControlTests` | `test_a07_authn.py` |
+| CORS same-origin request gets `Access-Control-Allow-Origin` + credentials; preflight is allowed | A02 | N/A | `test_a02_headers.py` |
+| `/elastic` logged in without `ElasticRemote` is denied (not just anonymous 401) | A01 | N/A | `test_a01_more.py` |
+| Authenticated POST with `X-HTTP-Method-Override` still requires CSRF (override does not skip the token) | A01 | N/A | `test_api_rest.py` |
+| Failed-login lockout re-enables after `disable-minutes`; stays locked inside the window | A07 | `SecurityAuthnTests` | N/A |
+| H2 TCP server default args: `-ifExists`, no `-tcpAllowOthers` | A02 | `SecurityMisconfigTests` | N/A |
+| `screen-secure` HSTS header in DefaultConf (applied only when the request is HTTPS) | A02 | `SecurityMisconfigTests` (conf) | N/A |
+
+### Proof strength notes
+
+- Rows with `SecurityMisconfigTests` / `SecurityCryptoTests` are **config-flag or unit proofs**: they parse `MoquiDefaultConf.xml`, `web.xml`, or call a utility. They prove the default is what is claimed, not that runtime enforcement can't be overridden. Where a behavior proof exists it is in the Python column.
+- Spock screen proofs use in-process `ScreenTest`/`WebFacadeStub`, not the servlet filter chain. Entity REST (`/rest/e1`), servlet filters (`MoquiAuthFilter`), and WebSocket upgrades are HTTP-only in the Python column.
+- `SecurityErrorTests` pass `showErrorDetail` as a **screen parameter**; the servlet-level gate (non-production and logged-in) is not exercised end-to-end.
+- The `/status` XFF test connects from loopback, so it can only prove sensitive keys stay omitted, not that a non-allow-listed IP is rejected.
+- The `/notws` `userId == null` Spock test only asserts `registerEndpoint` does not throw; topic/ACL semantics are untested.
+- Positive controls (token actually runs the transition, same-origin CORS allowed, re-enable window) are the companion assertions to the negative rows above.
+- HSTS is a `screen-secure` conf header; `ScreenRenderImpl` adds it only when `request.isSecure()`. There is no HTTP proof on the ProductionConf HTTP listener.
 
 ## Future work
 
@@ -98,3 +116,10 @@ Still open; not public failing PoCs:
 - **Jetty `ForwardedRequestCustomizer`** can still rewrite `remoteAddr` from `X-Forwarded-For`. Moqui `getClientIp` ignores XFF unless `webapp_client_ip_header` is set. Operators must overwrite XFF at the proxy. See the TODO in `MoquiStart`.
 - **Live WebSocket upgrade** (`/groovysh`, `/notws`) without a session cookie. Handshake credential rules and the `userId == null` register-endpoint guard are covered in Spock; HTTP GET is not an upgrade.
 - **Positive HTTP `api_key` header** with a minted key. There is no minting transition; Spock covers `getLoginKey` / handshake header login.
+- **MFA positive flow** (sendOtp → verifyOtp → login with code); only the no-pre-auth rejection is covered.
+- **Tarpit velocity for services and transitions**; only conf flags plus the demo ALL_SCREENS 429 are covered.
+- **`allow-html="safe"`** Jsoup cleaning positive test (only the default `none` rejection is covered).
+- **Screen render-mode data dumps** (`.csv` / `.xml` extensions on authorized screens).
+- **Upload end-to-end** (multipart to `runtime/tmp`, `upload-executable-allow`); only magic-byte detection is unit-tested.
+- **WebSocket Origin / cross-site WebSocket hijacking** (no Origin allow-list test exists).
+- **`api_key` / `login_key` in the request body** login path, and HTTP Basic on screens (REST-only today).

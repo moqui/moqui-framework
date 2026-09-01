@@ -89,6 +89,31 @@ class SecurityMisconfigTests extends Specification {
         jr.attribute("disabled") == "true"
     }
 
+    def "H2 default-start-server-args do not allow remote TCP connections"() {
+        when:
+        MNode db = SecurityTestSupport.defaultConfRoot().first("database-list")?.children("database")
+                ?.find { it.attribute("name") == "h2" }
+        String args = db?.attribute("default-start-server-args")
+        then:
+        db != null
+        args != null
+        args.contains("-tcpPort") && args.contains("-ifExists")
+        !args.contains("tcpAllowOthers")
+    }
+
+    def "screen-secure HSTS response-header is set by default"() {
+        when:
+        MNode webappNode = SecurityTestSupport.defaultConfRoot().first("webapp-list")?.children("webapp")
+                ?.find { it.attribute("name") == "webroot" }
+        String hsts = webappNode?.children("response-header")
+                ?.find { it.attribute("type") == "screen-secure" && it.attribute("name") == "Strict-Transport-Security" }
+                ?.attribute("value")
+        then:
+        webappNode != null
+        hsts != null
+        hsts.contains("max-age=")
+    }
+
     def "log4j core is not a Log4Shell-era 2.14 through 2.16 release"() {
         when:
         String ver = org.apache.logging.log4j.LogManager.class.package.implementationVersion

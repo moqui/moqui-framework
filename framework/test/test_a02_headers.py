@@ -36,6 +36,24 @@ def test_cors_unknown_origin_is_401(http, base_url, require_server):
     assert not r.headers.get("Access-Control-Allow-Origin")
 
 
+def test_cors_same_origin_returns_allow_origin(http, base_url, require_server):
+    origin = base_url.lower()
+    r = http.get(base_url + "/Login", headers={"Origin": origin}, timeout=10)
+    assert (r.headers.get("Access-Control-Allow-Origin") or "").lower() == origin
+    assert (r.headers.get("Access-Control-Allow-Credentials") or "").lower() == "true"
+
+
+def test_cors_preflight_same_origin_is_allowed(http, base_url, require_server):
+    origin = base_url.lower()
+    r = http.options(
+        base_url + "/Login",
+        headers={"Origin": origin, "Access-Control-Request-Method": "POST"},
+        timeout=10,
+    )
+    assert r.status_code == 200
+    assert (r.headers.get("Access-Control-Allow-Origin") or "").lower() == origin
+
+
 def test_h2_console_is_not_mounted(http, base_url, require_server):
     r = http.get(base_url + "/h2/", timeout=10, allow_redirects=False)
     body = (r.text or "").lower()

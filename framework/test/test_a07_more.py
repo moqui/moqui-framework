@@ -139,9 +139,7 @@ def test_password_reset_unknown_user_shows_shared_message(http, base_url, requir
 
 def test_password_reset_unknown_and_existing_share_public_text(http, base_url, require_server):
     common = "If an account exists for that username or email, a reset password was sent"
-    http.get(base_url + "/Login", timeout=10)
-    token = None
-    # session token from GET /Login response headers
+    # session token is created on the first GET /Login and returned in that response's headers
     r0 = http.get(base_url + "/Login", timeout=10)
     token = r0.headers.get("X-CSRF-Token") or r0.headers.get("moquiSessionToken")
     def post_reset(name):

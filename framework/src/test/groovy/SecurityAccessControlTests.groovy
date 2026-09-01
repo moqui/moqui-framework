@@ -190,4 +190,43 @@ class SecurityAccessControlTests extends Specification {
         !all.contains("session token required")
         (str.output ?: "").contains("loggedIn") || !SecurityTestSupport.looksLikeAuthnFailure(str)
     }
+
+    def "setPreference with a valid session token executes and stores the preference"() {
+        when:
+        SecurityTestSupport.login(ec, SecurityTestSupport.ALL_USERNAME, SecurityTestSupport.ALL_PASSWORD)
+        ScreenTest apps = ec.screen.makeTest().baseScreenPath("apps")
+        ScreenTestRender str = apps.render("setPreference",
+                SecurityTestSupport.csrfParams([preferenceKey: "secCsrfPositive", preferenceValue: "csrf-ran-ok"]), "post")
+        String all = ((str.errorMessages ?: []) + [str.output ?: ""]).join("\n").toLowerCase()
+        ScreenTestRender getStr = apps.render("getPreferences", [keyRegexp: "secCsrfPositive"], "get")
+        String getOut = (getStr.output ?: "") + (getStr.jsonObject ?: "")
+        then:
+        !SecurityTestSupport.looksLikeAuthnFailure(str)
+        !SecurityTestSupport.looksLikeAuthzFailure(str)
+        !all.contains("session token required")
+        !all.contains("token does not match")
+        (getStr.errorMessages ?: []).isEmpty()
+        getOut.contains("csrf-ran-ok")
+        ec.user.getPreference("secCsrfPositive") == "csrf-ran-ok"
+        cleanup:
+        SecurityTestSupport.withAuthzDisabled(ec) { ec.user.setPreference("secCsrfPositive", "") }
+    }
+
+    def "setPreference without a session token is rejected and not stored"() {
+        when:
+        SecurityTestSupport.login(ec, SecurityTestSupport.ALL_USERNAME, SecurityTestSupport.ALL_PASSWORD)
+        ScreenTest apps = ec.screen.makeTest().baseScreenPath("apps")
+        ScreenTestRender str = apps.render("setPreference",
+                [preferenceKey: "secCsrfNegative", preferenceValue: "must-not-store"], "post")
+        String all = ((str.errorMessages ?: []) + [str.output ?: ""]).join("\n").toLowerCase()
+        ScreenTestRender getStr = apps.render("getPreferences", [keyRegexp: "secCsrfNegative"], "get")
+        String getOut = (getStr.output ?: "") + (getStr.jsonObject ?: "")
+        then:
+        all.contains("session token required") || SecurityTestSupport.looksLikeAuthnFailure(str)
+        (getStr.errorMessages ?: []).isEmpty()
+        !getOut.contains("must-not-store")
+        !(ec.user.getPreference("secCsrfNegative"))
+        cleanup:
+        SecurityTestSupport.withAuthzDisabled(ec) { ec.user.setPreference("secCsrfNegative", "") }
+    }
 }

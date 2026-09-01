@@ -1,5 +1,18 @@
 """A07 Authentication — HTTP proofs. Uses local demo users; do not point at a real production system."""
+import uuid
 from conftest import csrf_token, require_rest_login, require_screen_login, rest_login
+
+
+def _blank_preference(http, base_url, tok, key):
+    if not tok:
+        return
+    http.post(
+        base_url + "/apps/setPreference",
+        data={"preferenceKey": key, "preferenceValue": "", "moquiSessionToken": tok},
+        headers={"X-CSRF-Token": tok},
+        timeout=10,
+        allow_redirects=False,
+    )
 
 
 def test_rest_login_succeeds_without_csrf_token(http, base_url, require_server, username, password):
@@ -50,6 +63,52 @@ def test_api_key_in_query_string_does_not_authenticate(http, base_url, require_s
         timeout=10,
     )
     assert r.status_code == 401
+
+
+def test_post_with_csrf_token_executes_preference_round_trip(http, base_url, require_server, username, password):
+    """Positive control: the same token that passes CSRF must also run the transition."""
+    r = require_rest_login(http, base_url, username, password)
+    tok = csrf_token(r)
+    assert tok, "login response did not include a session token header"
+    key, value = "secCsrfPosHttp-" + uuid.uuid4().hex, "csrf-positive-ran"
+    try:
+        r2 = http.post(
+            base_url + "/apps/setPreference",
+            data={"preferenceKey": key, "preferenceValue": value, "moquiSessionToken": tok},
+            headers={"X-CSRF-Token": tok},
+            timeout=10,
+            allow_redirects=False,
+        )
+        body = (r2.text or "").lower()
+        assert r2.status_code == 200
+        assert "session token required" not in body
+        assert "token does not match" not in body
+        r3 = http.get(base_url + "/apps/getPreferences", params={"keyRegexp": key}, timeout=10)
+        assert r3.status_code == 200
+        assert value in (r3.text or ""), "preference round-trip failed after CSRF-positive POST"
+    finally:
+        _blank_preference(http, base_url, tok, key)
+
+
+def test_post_without_csrf_does_not_store_preference(http, base_url, require_server, username, password):
+    r = require_rest_login(http, base_url, username, password)
+    tok = csrf_token(r)
+    key, value = "secCsrfNegHttp-" + uuid.uuid4().hex, "must-not-store"
+    try:
+        r2 = http.post(
+            base_url + "/apps/setPreference",
+            data={"preferenceKey": key, "preferenceValue": value},
+            timeout=10,
+            allow_redirects=False,
+        )
+        body = (r2.text or "").lower()
+        assert r2.status_code in (401, 403)
+        assert "session token required" in body or "token does not match" in body
+        r3 = http.get(base_url + "/apps/getPreferences", params={"keyRegexp": key}, timeout=10)
+        assert r3.status_code == 200
+        assert value not in (r3.text or "")
+    finally:
+        _blank_preference(http, base_url, tok, key)
 
 
 def test_api_key_header_with_garbage_does_not_authenticate(http, base_url, require_server):
