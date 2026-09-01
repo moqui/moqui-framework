@@ -378,8 +378,17 @@ def test_datasnapshot_parent_segment_filename_is_not_found(http, base_url, requi
 
 def test_elfinder_component_webroot_put_does_not_write_screen(http, base_url, require_server, username, password):
     from pathlib import Path
-    require_screen_login(http, base_url, username, password)
-    tok = csrf_token(http.get(base_url + "/apps/system/Resource/ElFinder", timeout=10))
+    login_r = require_screen_login(http, base_url, username, password)
+    # X-CSRF-Token is only set when the session token is created (login makes a new session).
+    # Later GETs of ElFinder do not repeat the header.
+    tok = csrf_token(login_r)
+    elf = http.get(base_url + "/apps/system/Resource/ElFinder", timeout=10)
+    if elf.status_code in (401, 403):
+        pytest.skip("user cannot open ElFinder")
+    if not tok:
+        tok = csrf_token(elf)
+    if not tok:
+        pytest.skip("no CSRF token after login")
     screen_dir = Path(__file__).resolve().parents[2] / "runtime" / "base-component" / "webroot" / "screen" / "webroot"
     before = set(p.name for p in screen_dir.glob("*.xml")) if screen_dir.is_dir() else set()
     data = {
@@ -387,19 +396,20 @@ def test_elfinder_component_webroot_put_does_not_write_screen(http, base_url, re
         "resourceRoot": "component://webroot",
         "target": "v0_cm9vdA",  # hash of "root" is not required to be valid; write must still be refused
         "content": "<screen require-authentication=\"false\"></screen>",
+        "moquiSessionToken": tok,
     }
-    if tok:
-        data["moquiSessionToken"] = tok
     r = http.post(
         base_url + "/apps/system/Resource/ElFinder/command",
         data=data,
-        headers={"X-CSRF-Token": tok} if tok else {},
+        headers={"X-CSRF-Token": tok},
         timeout=15,
         allow_redirects=False,
     )
+    body = (r.text or "").lower()
+    if r.status_code in (401, 403) and "session token" in body:
+        pytest.fail("ElFinder command POST rejected for CSRF despite a session token from login")
     if r.status_code in (401, 403):
         pytest.skip("user cannot run ElFinder command")
     after = set(p.name for p in screen_dir.glob("*.xml")) if screen_dir.is_dir() else set()
     assert after == before
-    body = (r.text or "").lower()
     assert "write not allowed" in body or r.status_code != 200 or "error" in body

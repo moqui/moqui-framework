@@ -8,6 +8,8 @@ They use whatever data is loaded on that instance. Defaults are the demo user `j
 
 Users named `sec.*` (`sec.view.only`, `sec.all.only`, `sec.none.only`, `sec.lock.test`, `sec.ent.view`, `sec.ent.all`, `sec.api.view`, `sec.api.all`, `sec.es.view`, `sec.es.all`, `sec.ip.v4`, `sec.ip.loop`) and the SystemMessage receive remotes (`SEC_SMT_TEST` / `SEC_SMR_HMAC` / `SEC_SMR_HMAC_TS` / `SEC_SMR_NONE`) are created by the Gradle `Security*` Spock tests (`SecurityTestSupport.ensureUsers`), not by demo seed. Run `./gradlew :framework:test` against the same database first, or those HTTP tests **skip**. They must not pass silently when the user or remote is missing.
 
+`loadSave` does **not** include these users (they are inserted during `:framework:test`). After that Gradle run they are in the live H2 database. `sec.ip.loop` allows `127.0.0.1` and `::1` (`localhost` is often IPv6). `sec.ip.v4` is only allowed from `10.99.99.99`, so a login probe from the test client is supposed to fail — those tests use `sec.none.only` as the “fixtures loaded” check. `sec.lock.test` is often already disabled after a previous lockout proof; that is not “user not loaded”.
+
 The Gradle run and the HTTP run cannot share the database at the same time: Moqui's transaction log (`btm2.tlog`) is locked by whichever instance holds it. Stop the server before `./gradlew :framework:test`, then start it again before `./pytest.sh`.
 
 ## Run

@@ -381,4 +381,32 @@ class SecurityAuthnTests extends Specification {
         ec.message.clearAll()
     }
 
+    def "ipAllowed accepts IPv4 loopback for the loop user"() {
+        given:
+        def ufi = SecurityTestSupport.eci(ec).userFacade
+        ufi.clientIpInternal = "127.0.0.1"
+        when:
+        boolean ok = ec.user.loginUser(SecurityTestSupport.IP_LOOP_USERNAME, SecurityTestSupport.IP_LOOP_PASSWORD)
+        then:
+        ok
+        cleanup:
+        ufi.clientIpInternal = null
+        SecurityTestSupport.logout(ec)
+        ec.message.clearAll()
+    }
+
+    def "ipAllowed accepts IPv6 loopback for the loop user"() {
+        given:
+        def ufi = SecurityTestSupport.eci(ec).userFacade
+        ufi.clientIpInternal = "::1"
+        when:
+        boolean ok = ec.user.loginUser(SecurityTestSupport.IP_LOOP_USERNAME, SecurityTestSupport.IP_LOOP_PASSWORD)
+        then:
+        ok
+        cleanup:
+        ufi.clientIpInternal = null
+        SecurityTestSupport.logout(ec)
+        ec.message.clearAll()
+    }
+
 }

@@ -14,7 +14,7 @@ Named tests for **moqui-framework** and **moqui-runtime**. They record what is t
 
 N/A: volumetric WAF, TLS at the proxy, `webapp_https_*` as URL generation.
 
-Python `sec.*` users (`sec.view.only`, `sec.all.only`, `sec.none.only`, `sec.lock.test`, `sec.ent.view`, `sec.ent.all`, `sec.api.view`, `sec.api.all`, `sec.es.view`, `sec.es.all`) are inserted by Gradle `SecurityTestSupport.ensureUsers`. They are not demo seed. HTTP tests skip if those users are missing rather than pass.
+Python `sec.*` users (`sec.view.only`, `sec.all.only`, `sec.none.only`, `sec.lock.test`, `sec.ent.view`, `sec.ent.all`, `sec.api.view`, `sec.api.all`, `sec.es.view`, `sec.es.all`, `sec.ip.v4`, `sec.ip.loop`) are inserted by Gradle `SecurityTestSupport.ensureUsers`. They are not demo seed and are not in a `loadSave` snapshot. HTTP tests skip if those users are missing rather than pass. IP-restricted and already-locked accounts use the same public login text as a missing user; those proofs probe `sec.none.only` (created in the same `ensureUsers` call) instead of treating a failed login as “not loaded”.
 
 The two runners cannot share the database at the same time (Moqui locks `btm2.tlog`): stop the server before `./gradlew :framework:test`, then start it again before `./pytest.sh`.
 

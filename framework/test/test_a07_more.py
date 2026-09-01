@@ -1,6 +1,6 @@
 """A07 additional authn proofs."""
 import pytest
-from conftest import logged_in_json, require_sec_user, rest_login
+from conftest import logged_in_json, require_sec_fixtures, require_sec_user, rest_login
 
 
 def test_rest_login_wrong_password_is_401(http, base_url, require_server, username):
@@ -90,21 +90,21 @@ def test_short_password_is_rejected_over_http(http, base_url, require_server):
 
 def test_failed_logins_lock_dedicated_user(http, base_url, require_server):
     # Dedicated lock user from SecurityTestSupport; never john.doe.
+    # Disabled accounts use the same public text as unknown users, so existence is
+    # the other sec.* fixtures (created in the same ensureUsers call).
     user, pw = "sec.lock.test", "SecLock1!!"
     r = rest_login(http, base_url, user, pw)
     body = r.text or ""
-    logged_in = r.status_code == 200 and '"loggedin":true' in body.lower().replace(" ", "")
-    if "the username or password is not valid" in body.lower() and not logged_in:
-        pytest.skip("sec.lock.test not loaded (run Gradle Security* tests first)")
+    logged_in = logged_in_json(r)
     if logged_in:
         for _ in range(4):
             rest_login(http, base_url, user, "definitely-wrong-password")
         r2 = rest_login(http, base_url, user, pw)
-        body2 = (r2.text or "").lower().replace(" ", "")
-        assert '"loggedin":true' not in body2
+        assert not logged_in_json(r2)
     else:
+        require_sec_fixtures(base_url)
         # already locked from a previous run — still must not create a session
-        assert '"loggedin":true' not in body.lower().replace(" ", "")
+        assert not logged_in_json(r)
 
 
 def test_login_json_response_omits_password_parameters(http, base_url, require_server):
@@ -237,7 +237,9 @@ def test_password_reset_unknown_and_existing_share_public_text(http, base_url, r
 
 
 def test_ip_restricted_user_cannot_login_from_loopback(http, base_url, require_server):
-    require_sec_user(base_url, "sec.ip.v4", "SecIpV41!!")
+    # sec.ip.v4 is only allowed from 10.99.99.99; login from this client is supposed
+    # to fail with the same public text as a missing user, so probe another fixture.
+    require_sec_fixtures(base_url)
     r = rest_login(http, base_url, "sec.ip.v4", "SecIpV41!!")
     assert not logged_in_json(r)
     r2 = http.post(
@@ -257,6 +259,6 @@ def test_ip_restricted_user_cannot_login_from_loopback(http, base_url, require_s
 
 
 def test_loopback_ip_allowed_user_can_login(http, base_url, require_server):
-    require_sec_user(base_url, "sec.ip.loop", "SecIpLoop1!!")
+    require_sec_fixtures(base_url)
     r = rest_login(http, base_url, "sec.ip.loop", "SecIpLoop1!!")
     assert logged_in_json(r)

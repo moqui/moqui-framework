@@ -66,6 +66,8 @@ class SecurityTestSupport {
     static final String IP_LOOP_USERNAME = "sec.ip.loop"
     static final String IP_LOOP_PASSWORD = "SecIpLoop1!!"
     static final String IP_LOOP_USER_ID = "SEC_IP_LOOP"
+    // HTTP proofs hit localhost, which is often IPv6 ::1 rather than 127.0.0.1
+    static final String IP_LOOP_ALLOWED = "127.0.0.1,::1"
     static final String XSS_SCRIPT = "<script>alert(1)</script>"
     static final String SQLI_OR = "' OR '1'='1"
     static final String SMT_ID = "SEC_SMT_TEST"
@@ -139,7 +141,7 @@ class SecurityTestSupport {
             String ipV4Id = ensureUser(ec, IP_V4_USER_ID, IP_V4_USERNAME, IP_V4_PASSWORD, NONE_GROUP_ID)
             String ipLoopId = ensureUser(ec, IP_LOOP_USER_ID, IP_LOOP_USERNAME, IP_LOOP_PASSWORD, NONE_GROUP_ID)
             ensureIpAllowed(ec, ipV4Id, IP_V4_ALLOWED)
-            ensureIpAllowed(ec, ipLoopId, "127.0.0.1")
+            ensureIpAllowed(ec, ipLoopId, IP_LOOP_ALLOWED)
             ensureSystemMessageTestRemotes(ec)
             ensureEmailPixel(ec)
             ensurePermission(ec, "REST_SCHEMA", "REST schema dumps")

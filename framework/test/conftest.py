@@ -131,9 +131,14 @@ def require_screen_login(http, base_url, username, password, extra=None, fetch_l
 
 
 def require_sec_user(base_url, username, password):
-    """Gradle SecurityTestSupport users. Skip if that suite has not been run on this DB.
+    """Gradle SecurityTestSupport users that can authenticate from this client.
 
-    Uses a throwaway session so the test client is not left logged in.
+    Skip if that suite has not been run on this DB. Uses a throwaway session so the
+    test client is not left logged in.
+
+    Do not use this for accounts that are *expected* to fail login here (ipAllowed
+    mismatch, currently locked). Failed login uses the same public text as a missing
+    user, so this probe cannot tell those apart. Probe sec.none.only instead.
     """
     probe = requests.Session()
     r = rest_login(probe, base_url, username, password)
@@ -143,6 +148,11 @@ def require_sec_user(base_url, username, password):
     if r.status_code not in (200, 401, 403):
         pytest.skip(f"{username}: unexpected login status {r.status_code}")
     return r
+
+
+def require_sec_fixtures(base_url):
+    """ensureUsers creates every sec.* account together; sec.none.only can log in from loopback."""
+    return require_sec_user(base_url, "sec.none.only", "SecNone1!!")
 
 
 def looks_like_authn(resp):
