@@ -338,9 +338,12 @@ public class WebUtilities {
     public static byte[] linuxElf = {(byte) 0x7f, (byte) 0x45, (byte) 0x4c, (byte) 0x46};
     public static byte[] javaClass = {(byte) 0xca, (byte) 0xfe, (byte) 0xba, (byte) 0xbe};
     public static byte[] macOs = {(byte) 0xfe, (byte) 0xed, (byte) 0xfa, (byte) 0xce};
-    public static byte[][] allOsExecutables = {windowsPex, linuxElf, javaClass, macOs};
+    public static byte[] macOs64 = {(byte) 0xfe, (byte) 0xed, (byte) 0xfa, (byte) 0xcf};
+    public static byte[] macOsReverse = {(byte) 0xce, (byte) 0xfa, (byte) 0xed, (byte) 0xfe};
+    public static byte[] macOs64Reverse = {(byte) 0xcf, (byte) 0xfa, (byte) 0xed, (byte) 0xfe};
+    public static byte[][] allOsExecutables = {windowsPex, linuxElf, javaClass, macOs, macOs64, macOsReverse, macOs64Reverse};
 
-    /** Looks for byte patterns for Windows Portable Executable (4d5a), Linux ELF (7f454c46), Java class (cafebabe), macOS (feedface) */
+    /** Looks for byte patterns for Windows PE (4d5a), Linux ELF (7f454c46), Java class (cafebabe), macOS Mach-O (feedface/feedfacf and byte-swapped) */
     public static boolean isExecutable(FileItem item) throws IOException {
         InputStream is = item.getInputStream();
         byte[] bytes = new byte[4];
@@ -348,7 +351,7 @@ public class WebUtilities {
         is.close();
         return isExecutable(bytes);
     }
-    /** Looks for byte patterns for Windows Portable Executable (4d5a), Linux ELF (7f454c46), Java class (cafebabe), macOS (feedface) */
+    /** Looks for byte patterns for Windows PE (4d5a), Linux ELF (7f454c46), Java class (cafebabe), macOS Mach-O (feedface/feedfacf and byte-swapped) */
     public static boolean isExecutable(byte[] bytes) {
         boolean foundPattern = false;
         for (int i = 0; i < allOsExecutables.length; i++) {

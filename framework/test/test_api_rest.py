@@ -1,5 +1,5 @@
 """API / REST / RPC proofs (OWASP API Top 10 + A01)."""
-from conftest import rest_login, looks_like_authn
+from conftest import looks_like_authn, require_rest_login, rest_login
 
 
 def test_rpc_without_login_does_not_run_create_user(http, base_url, require_server):
@@ -23,7 +23,7 @@ def test_rpc_without_login_does_not_run_create_user(http, base_url, require_serv
 
 
 def test_rpc_find_enumeration_without_allow_is_not_user_create(http, base_url, require_server, username, password):
-    rest_login(http, base_url, username, password)
+    require_rest_login(http, base_url, username, password)
     r = http.post(
         base_url + "/rpc/json",
         json={
@@ -45,14 +45,16 @@ def test_rpc_find_enumeration_without_allow_is_not_user_create(http, base_url, r
 
 def test_rest_userInfo_transition_is_gone(http, base_url, require_server):
     r = http.get(base_url + "/rest/userInfo", timeout=10)
-    assert r.status_code in (404, 401, 403)
+    assert r.status_code == 404
 
 
 def test_rest_e1_user_account_without_entity_authz_is_not_200(http, base_url, require_server, username, password):
-    rest_login(http, base_url, username, password)
+    require_rest_login(http, base_url, username, password)
     r = http.get(base_url + "/rest/e1/moqui.security.UserAccount", timeout=10)
     # john.doe is ADMIN but entity REST is not Tools inherit; expect 401/403 unless an app granted entity authz
     assert r.status_code in (401, 403, 404) or (r.status_code == 200 and "currentPassword" not in (r.text or ""))
+    if r.status_code == 200:
+        assert "currentPassword" not in (r.text or "")
 
 
 def test_x_http_method_override_without_auth_is_401(http, base_url, require_server):
@@ -66,14 +68,15 @@ def test_x_http_method_override_without_auth_is_401(http, base_url, require_serv
 
 
 def test_entity_rest_post_without_csrf_does_not_create(http, base_url, require_server, username, password):
-    rest_login(http, base_url, username, password)
+    require_rest_login(http, base_url, username, password)
     r = http.post(
         base_url + "/rest/e1/moqui.basic.Enumeration",
         json={"enumId": "SEC_SHOULD_NOT_EXIST", "description": "sec csrf"},
         timeout=10,
     )
     # 401 CSRF, 403 authz, or 400 — must not 200-create
-    assert r.status_code != 200 or "SEC_SHOULD_NOT_EXIST" not in (r.text or "")
+    assert r.status_code != 200
+    assert "SEC_SHOULD_NOT_EXIST" not in (r.text or "")
     assert r.status_code in (400, 401, 403, 404) or r.status_code >= 400
 
 
@@ -91,6 +94,28 @@ def test_rpc_json_without_csrf_does_not_reset_password(http, base_url, require_s
         timeout=10,
     )
     body = (r.text or "").lower()
-    # token required, or the generic public reset text (service ran). Prefer token required.
-    assert r.status_code in (401, 403) or "token" in body or "if an account exists" in body
+    assert "if an account exists" not in body
+    assert r.status_code in (401, 403) or "token" in body
+
+
+def test_rest_e1_basic_auth_wrong_password_is_401(http, base_url, require_server, username):
+    r = http.get(
+        base_url + "/rest/e1/moqui.basic.Enumeration",
+        auth=(username, "definitely-wrong-password"),
+        timeout=10,
+    )
+    assert r.status_code == 401
+
+
+def test_rest_e1_basic_auth_valid_is_not_unauthenticated(http, base_url, require_server, username, password):
+    r = http.get(
+        base_url + "/rest/e1/moqui.basic.Enumeration",
+        auth=(username, password),
+        timeout=10,
+    )
+    # Entity REST has no catch-all inherit; 403/404 is authenticated-but-unauthorized
+    assert r.status_code != 401
+    assert r.status_code in (200, 403, 404)
+    if r.status_code == 200:
+        assert "currentPassword" not in (r.text or "")
 

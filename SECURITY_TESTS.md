@@ -14,6 +14,8 @@ Named tests for **moqui-framework** and **moqui-runtime**. They record what is t
 
 N/A: volumetric WAF, TLS at the proxy, `webapp_https_*` as URL generation.
 
+Python `sec.*` users (`sec.view.only`, `sec.all.only`, `sec.none.only`, `sec.lock.test`) are inserted by Gradle `SecurityTestSupport.ensureUsers`. They are not demo seed. HTTP tests skip if those users are missing rather than pass.
+
 ## Catalog (first wave)
 
 | Control | OWASP | Spock | Python HTTP |
@@ -21,33 +23,34 @@ N/A: volumetric WAF, TLS at the proxy, `webapp_https_*` as URL generation.
 | Unauthenticated Tools is not the tool | A01 | `SecurityAccessControlTests` | `test_a01_access.py` |
 | VIEW-only cannot run Service Run / cache clear / reloadEcfi / Data Import / Data Export / ElFinder / GroovyShell | A01 | `SecurityAccessControlTests` | `test_a01_more.py` (Service Run) |
 | Logged-in user with no artifact authz cannot open Tools | A01 | `SecurityAccessControlTests` | `test_a01_more.py` |
-| `/rest/s1` without credentials is unauthorized | A01 | `SecurityAccessControlTests` (s1 via ScreenTest) | `test_a01_access.py` (e1 over HTTP) |
+| `/rest/s1` without credentials is unauthorized | A01 | `SecurityAccessControlTests` (s1 via ScreenTest) | `test_a01_access.py` |
 | `/rest/e1` without credentials is 401 | A01 | (ScreenTest stub has no entity REST) | `test_a01_access.py` |
-| Removed `/rest/api_key`, `/rest/moquiSessionToken`, `/rest/userInfo` | A01 | `SecurityAccessControlTests` | `test_a01_access.py`, `test_api_rest.py` |
-| Login `returnTo` / Referer is not an open redirect | A01 | N/A (HTTP) | `test_a01_redirect.py` |
+| Removed `/rest/api_key`, `/rest/moquiSessionToken`, `/rest/userInfo` (404, not merely unauthenticated) | A01 | `SecurityAccessControlTests` | `test_a01_access.py`, `test_api_rest.py` |
+| Login `returnTo` / Referer is not an open redirect | A01 | `SecurityMisconfigTests` (`isSameOriginRedirect`) | `test_a01_redirect.py` |
 | Login unknown vs wrong password public text | A07 | `SecurityAuthnTests` | `test_a07_more.py` |
 | `/apps` getPreferences / qzSign without login | A01 | N/A (HTTP) | `test_a01_more.py` |
-| `/htmlr` anonymous error has no Java stack | A10 | N/A (HTTP) | `test_a01_more.py` |
+| Unknown path `/htmlr` does not leak a Java stack (not a servlet) | A10 | N/A (HTTP) | `test_a01_more.py` |
 | JSON-RPC does not run `allow-remote=false` services | A01 | `SecurityIntegrityTests` (`create#UserAccount`) | `test_api_rest.py` |
 | Default CSP / X-Frame-Options / nosniff | A02 | `SecurityMisconfigTests` (conf) | `test_a02_headers.py` |
-| CORS: no Origin → no ACAO; unknown Origin is 401 | A02 | `SecurityMisconfigTests` (DefaultConf empty `allow-origins`) | `test_a02_headers.py` (ProductionConf required) |
+| CORS: no Origin → no ACAO; unknown Origin is 401 (including OPTIONS preflight) | A02 | `SecurityMisconfigTests` (DefaultConf empty `allow-origins`) | `test_a02_headers.py` (ProductionConf required) |
 | Session cookie HttpOnly / SameSite Lax | A02 | `SecurityMisconfigTests` (web.xml) | `test_a02_headers.py` |
 | SubEtha SMTP / Jackrabbit factories disabled | A02 | `SecurityMisconfigTests` | N/A |
 | `upload-executable-allow` default false; MZ/ELF/class/Mach-O magic | A02 | `SecurityMisconfigTests` | N/A |
 | H2 console not mounted | A02 | N/A (DevConf-only servlet) | `test_a02_headers.py` |
-| Log4j not 2.14; Shiro 2.x | A03 | `SecurityMisconfigTests` | N/A |
+| Log4j 2.17+ (not 2.14–2.16); Shiro 2.x | A03 | `SecurityMisconfigTests` | N/A |
 | Password hashing SHA-256; stored hash; crypt-algo; login key hashed | A04 | `SecurityCryptoTests` | N/A |
 | Shipped `entity_ds_crypt_pass` default is CHANGEME (operators must override) | A04 | `SecurityCryptoTests` | N/A |
 | Default `allow-html` none | A05 | `SecurityInjectionTests` | `test_a05_injection.py` |
 | SQL-looking values stored as data | A05 | `SecurityInjectionTests` | `test_a05_injection.py` |
-| SQL Runner requires `SQL_RUNNER_WEB` + AUTHZA_ALL | A05 | `SecurityAccessControlTests` | `test_a01_more.py` |
+| VIEW-only cannot open SQL Runner | A05 | `SecurityAccessControlTests` | `test_a01_more.py` |
+| AUTHZA_ALL without `SQL_RUNNER_WEB` / `GROOVY_SHELL_WEB` cannot use those tools | A01 | `SecurityAccessControlTests` | N/A |
 | Insecure design (inherit model) | A06 | covered by A01 VIEW-only cases | — |
 | Failed-login lockout | A07 | `SecurityAuthnTests` | `test_a07_more.py` (`sec.lock.test`) |
 | `create#InitialAdminAccount` after users exist | A07 | `SecurityAuthnTests` | `test_a07_more.py` |
 | Short password rejected | A07 | `SecurityAuthnTests` | `test_a07_more.py` |
 | `POST /rest/login` without CSRF | A07 | `SecurityAccessControlTests` | `test_a07_authn.py` |
-| Other POST without CSRF token rejected | A01 | `SecurityAccessControlTests` | `test_a07_authn.py` |
-| `api_key` in query string does not log in | A07 | N/A (HTTP) | `test_a07_authn.py` |
+| Other POST without CSRF token rejected; with token is not a CSRF error | A01 | `SecurityAccessControlTests` | `test_a07_authn.py` |
+| HTTP `api_key` in query string does not log in (header/body is the intended API; minting transition removed) | A07 | `loginUserKey` in `SecurityAuthnTests` | `test_a07_authn.py` |
 | `loginUserKey` round-trip (hashed at rest) | A07 | `SecurityAuthnTests`, `SecurityCryptoTests` | N/A |
 | Login issues a new session id (no fixation) | A07 | N/A | `test_a07_authn.py` |
 | `sendOtp` / `verifyOtp` without pre-auth rejected | A07 | `SecurityAuthnTests` | `test_a07_more.py` |
@@ -56,24 +59,38 @@ N/A: volumetric WAF, TLS at the proxy, `webapp_https_*` as URL generation.
 | Component zip-slip rejected | A08 | `SecurityIntegrityTests` | N/A |
 | XML external entity expansion in `MNode.parse` | A05 | `SecurityIntegrityTests` | N/A |
 | Login history stored; failed-login does not store password | A09 | `SecurityLoggingTests` | N/A |
-| Unauthorized error page HTML-escapes the message | A10 | `SecurityErrorTests` | `test_a10_errors.py` |
-| InternalError stack to anonymous users | A10 | `SecurityErrorTests` | `test_a10_errors.py` |
+| Unauthorized error page HTML-escapes the message | A10 | `SecurityErrorTests` (injected payload) | `test_a10_errors.py` (HTML 401 has no script/stack) |
+| InternalError stack only when `showErrorDetail` (servlet: non-production and logged-in) | A10 | `SecurityErrorTests` | `test_a10_errors.py` (direct hit / HTML 401) |
 | Tarpit enabled in DefaultConf | A01 | `SecurityMisconfigTests` (flags + demo ALL_SCREENS XML) | `test_z_tarpit.py` (429 if demo tarpit loaded; otherwise skip) |
-| SSRF via ResourceFacade | A01 | VIEW-only Data Import `location=` covered | `test_a01_more.py` (unauthenticated Data Import) |
+| Unauthenticated / VIEW-only cannot invoke Data Import `location=` (authorized remote fetch is a designed power feature) | A01 | `SecurityAccessControlTests` | `test_a01_more.py` |
 | ElFinder hashed `..` stays under resourceRoot | A01 | `SecurityIntegrityTests` | N/A |
 | create#UserAccount extra password fields ignored | A01 | `SecurityIntegrityTests` | N/A |
 | Login HTML Cache-Control not public | A02 | N/A | `test_a02_headers.py` |
 | `/echopath` extra path HTML-escaped | A05 | N/A | `test_a01_more.py` |
 | `/fop` without login is not a PDF | A01 | N/A | `test_a01_more.py` |
 | `/email` unknown id returns PNG | A01 | N/A | `test_a01_more.py` |
-| `/status` no sensitive keys via X-Forwarded-For | A01 | N/A | `test_a01_more.py` |
+| `/status` JSON omits sensitive keys (`datasources`, `vmVendor`); allow-list is loopback | A01 | N/A | `test_a01_more.py` |
 | Login form posts to Login/login (Host URL gen is operator `webapp_http_host`) | A01 | N/A | `test_a01_more.py` |
 | Session cookie SameSite Lax actually sent | A02 | `SecurityMisconfigTests` (web.xml) | `test_a02_headers.py` |
 | Static `..` does not escape screen files | A01 | N/A | `test_a01_more.py` |
 | Entity REST POST without CSRF does not create | A01 | N/A | `test_api_rest.py` |
 | `/elastic` and `/kibana` without login | A01 | N/A | `test_a01_more.py` |
-| `/groovysh` HTTP GET is not a shell | A01 | N/A | `test_a01_more.py` |
-| `/htmlr` Tools without login is not a PDF | A01 | N/A | `test_a01_more.py` |
+| `/groovysh` HTTP GET is not a shell (not a WebSocket handshake) | A01 | N/A | `test_a01_more.py` |
+| Unknown path `/htmlr/...` is not a PDF | A01 | N/A | `test_a01_more.py` |
 | `/rest/sm` unknown type/remote rejected | A01 | N/A | `test_a01_more.py` |
 | Login transition via GET with password rejected | A07 | N/A | `test_a01_more.py` |
 | `/WEB-INF/web.xml` is not served | A01 | N/A | `test_a01_more.py` |
+| `/menuData` Tools without login is not the menu | A01 | N/A | `test_a01_more.py` |
+| HTTP Basic auth: wrong password 401; valid is not unauthenticated | A07 | N/A | `test_api_rest.py` |
+
+## Future work
+
+Not in this wave. Leave these if extending the suite:
+
+- **WebSocket handshake** (`/groovysh`, `/notws`): unauthenticated upgrade is not a shell / is ignored when `userId == null`. HTTP GET `/groovysh` is not that proof. `UserFacadeImpl.initFromHandshakeRequest` currently reads `api_key` / `login_key` from query parameters; HTTP request init does not (body/header only). A handshake test (and a product decision on query-string keys) is still open.
+- **`/rest/sm` HMAC remotes:** unknown type/remote is covered. Configured `SmatHmacSha256` with a bad signature, `SmatHmacSha256Timestamp` outside the 5-minute window, and `SmatNone` need test `SystemMessageRemote` rows.
+- **Authorized Data Import `location=`:** AUTHZA_ALL can still pass a remote URL into `EntityDataLoader` (SSRF-class by design). Not a public failing PoC.
+- **Email tracking pixel** state change given a real `emailMessageId` (unauthenticated `disableAuthz` update). Unknown id → PNG is covered.
+- **`/status` IP allow-list** from a non-loopback client spoofing `X-Forwarded-For: 127.0.0.1` (Jetty `ForwardedRequestCustomizer`). Sensitive keys are omitted for everyone; the interesting case is the allow-list, and it is an operator/proxy concern.
+- **SqlRunner SQL from the query string** is ignored (`secureRequestParameters` only). Needs a user with `SQL_RUNNER_WEB` (ADMIN_ADV) to prove the URL value is not executed.
+- **Positive `api_key` header** with a minted login key over HTTP. Minting via `/rest/api_key` was removed; Spock covers `getLoginKey` / `loginUserKey`.

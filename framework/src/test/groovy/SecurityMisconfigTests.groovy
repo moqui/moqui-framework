@@ -5,9 +5,12 @@
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
 import org.moqui.impl.context.ExecutionContextFactoryImpl
+import org.moqui.impl.screen.WebFacadeStub
 import org.moqui.util.MNode
+import org.moqui.util.WebUtilities
 import spock.lang.Shared
 import spock.lang.Specification
+import spock.lang.Unroll
 
 class SecurityMisconfigTests extends Specification {
     @Shared ExecutionContext ec
@@ -47,7 +50,7 @@ class SecurityMisconfigTests extends Specification {
         String xfo = headers.find { it.attribute("name") == "X-Frame-Options" }?.attribute("value")
         String xcto = headers.find { it.attribute("name") == "X-Content-Type-Options" }?.attribute("value")
         then:
-        csp != null && csp.contains("frame-ancestors")
+        csp != null && csp.contains("frame-ancestors") && csp.contains("form-action")
         xfo != null
         xcto != null && xcto.toLowerCase().contains("nosniff")
     }
@@ -82,13 +85,14 @@ class SecurityMisconfigTests extends Specification {
         jr.attribute("disabled") == "true"
     }
 
-    def "log4j core is not a Log4Shell-era 2.14 release"() {
+    def "log4j core is not a Log4Shell-era 2.14 through 2.16 release"() {
         when:
         String ver = org.apache.logging.log4j.LogManager.class.package.implementationVersion
         then:
         ver != null
-        !ver.startsWith("2.14")
         ver.startsWith("2.")
+        int minor = (ver.split("\\.")[1]) as int
+        minor >= 17
     }
 
     def "shiro is 2.x"() {
@@ -101,11 +105,34 @@ class SecurityMisconfigTests extends Specification {
 
     def "executable magic bytes are detected for PE ELF class and Mach-O"() {
         expect:
-        org.moqui.util.WebUtilities.isExecutable([(byte) 0x4d, (byte) 0x5a, 0, 0] as byte[])
-        org.moqui.util.WebUtilities.isExecutable([(byte) 0x7f, (byte) 0x45, (byte) 0x4c, (byte) 0x46] as byte[])
-        org.moqui.util.WebUtilities.isExecutable([(byte) 0xca, (byte) 0xfe, (byte) 0xba, (byte) 0xbe] as byte[])
-        org.moqui.util.WebUtilities.isExecutable([(byte) 0xfe, (byte) 0xed, (byte) 0xfa, (byte) 0xce] as byte[])
-        !org.moqui.util.WebUtilities.isExecutable([(byte) 0x89, (byte) 0x50, (byte) 0x4e, (byte) 0x47] as byte[])
+        WebUtilities.isExecutable([(byte) 0x4d, (byte) 0x5a, 0, 0] as byte[])
+        WebUtilities.isExecutable([(byte) 0x7f, (byte) 0x45, (byte) 0x4c, (byte) 0x46] as byte[])
+        WebUtilities.isExecutable([(byte) 0xca, (byte) 0xfe, (byte) 0xba, (byte) 0xbe] as byte[])
+        WebUtilities.isExecutable([(byte) 0xfe, (byte) 0xed, (byte) 0xfa, (byte) 0xce] as byte[])
+        WebUtilities.isExecutable([(byte) 0xfe, (byte) 0xed, (byte) 0xfa, (byte) 0xcf] as byte[])
+        WebUtilities.isExecutable([(byte) 0xce, (byte) 0xfa, (byte) 0xed, (byte) 0xfe] as byte[])
+        WebUtilities.isExecutable([(byte) 0xcf, (byte) 0xfa, (byte) 0xed, (byte) 0xfe] as byte[])
+        !WebUtilities.isExecutable([(byte) 0x89, (byte) 0x50, (byte) 0x4e, (byte) 0x47] as byte[])
+    }
+
+    @Unroll
+    def "isSameOriginRedirect #label"() {
+        given:
+        def stub = new WebFacadeStub(ecfi, [:], [:], "get")
+        expect:
+        WebUtilities.isSameOriginRedirect(url, stub.request) == allowed
+        where:
+        label                         | url                                  | allowed
+        "relative /apps"              | "/apps"                              | true
+        "https localhost"             | "https://localhost/apps"             | true
+        "https evil"                  | "https://evil.example/phish"         | false
+        "protocol-relative"           | "//evil.example"                     | false
+        "javascript"                  | "javascript:alert(1)"                | false
+        "data"                        | "data:text/html,hi"                  | false
+        "vbscript"                    | "vbscript:msg"                       | false
+        "backslash"                   | "/\\evil.example"                    | false
+        "userinfo"                    | "https://localhost@evil.example/"    | false
+        "empty"                       | ""                                   | false
     }
 
     def "session cookie is HttpOnly and SameSite Lax in web.xml"() {

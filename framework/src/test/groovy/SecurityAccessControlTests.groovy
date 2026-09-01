@@ -153,6 +153,26 @@ class SecurityAccessControlTests extends Specification {
                 (str.output != null && str.output.toLowerCase().contains("permission"))
     }
 
+    def "AUTHZA_ALL without SQL_RUNNER_WEB cannot use SQL Runner"() {
+        when:
+        SecurityTestSupport.login(ec, SecurityTestSupport.ALL_USERNAME, SecurityTestSupport.ALL_PASSWORD)
+        ScreenTestRender str = tools.render("Entity/SqlRunner", [groupName: "transactional", sql: "SELECT 1"], "get")
+        String all = ((str.errorMessages ?: []) + [str.output ?: ""]).join("\n").toLowerCase()
+        then:
+        all.contains("permission") || SecurityTestSupport.looksLikeAuthzFailure(str)
+        !all.contains("columnname")
+    }
+
+    def "AUTHZA_ALL without GROOVY_SHELL_WEB cannot open Groovy Shell"() {
+        when:
+        SecurityTestSupport.login(ec, SecurityTestSupport.ALL_USERNAME, SecurityTestSupport.ALL_PASSWORD)
+        ScreenTestRender str = tools.render("GroovyShell", null, "get")
+        String all = ((str.errorMessages ?: []) + [str.output ?: ""]).join("\n").toLowerCase()
+        then:
+        all.contains("permission") || SecurityTestSupport.looksLikeAuthzFailure(str)
+        !all.contains("xterm")
+    }
+
     def "user with no artifact authz cannot open Tools dashboard"() {
         when:
         SecurityTestSupport.login(ec, SecurityTestSupport.NONE_USERNAME, SecurityTestSupport.NONE_PASSWORD)

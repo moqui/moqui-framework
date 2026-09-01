@@ -24,31 +24,41 @@ class SecurityIntegrityTests extends Specification {
     def cleanupSpec() { SecurityTestSupport.logout(ec); ec.destroy() }
 
     def "component zip with path traversal is rejected"() {
-        given:
+        expect:
+        zipSlipRejected("../sec-zipslip-pwned.txt", new File(System.getProperty("java.io.tmpdir"), "sec-zipslip-pwned.txt"))
+    }
+
+    def "component zip with absolute entry is rejected"() {
+        expect:
+        zipSlipRejected("/tmp/sec-zipslip-abs.txt", new File("/tmp/sec-zipslip-abs.txt"))
+    }
+
+    def "component zip with nested parent segments is rejected"() {
+        expect:
+        zipSlipRejected("foo/../../sec-zipslip-nested.txt",
+                new File(System.getProperty("java.io.tmpdir"), "sec-zipslip-nested.txt"))
+    }
+
+    private boolean zipSlipRejected(String entryName, File outside) {
         File dir = Files.createTempDirectory("sec-zipslip").toFile()
         File zipFile = new File(dir, "evil.zip")
         ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(zipFile))
-        zos.putNextEntry(new ZipEntry("../sec-zipslip-pwned.txt"))
+        zos.putNextEntry(new ZipEntry(entryName))
         zos.write("pwned".getBytes("UTF-8"))
         zos.closeEntry()
         zos.close()
-        File outside = new File(dir.parentFile, "sec-zipslip-pwned.txt")
         if (outside.exists()) outside.delete()
-
-        when:
         Exception thrown = null
         try {
             new ExecutionContextFactoryImpl.ComponentInfo(zipFile.toURI().toString(), ecfi)
         } catch (Exception e) {
             thrown = e
         }
-        then:
-        !outside.exists()
-        thrown != null
-        cleanup:
+        boolean ok = thrown != null && !outside.exists()
         zipFile.delete()
         dir.delete()
         if (outside.exists()) outside.delete()
+        return ok
     }
 
     def "MNode XML parse does not expand external entities"() {
@@ -124,7 +134,17 @@ class SecurityIntegrityTests extends Specification {
         ua != null
         ua.currentPassword != "plaintext-should-not-stick"
         ua.passwordSalt != "evilsalt"
+        when:
+        SecurityTestSupport.logout(ec)
+        boolean withNew = SecurityTestSupport.login(ec, uname, "SecMass1!!")
+        SecurityTestSupport.logout(ec)
+        boolean withExtra = ec.user.loginUser(uname, "plaintext-should-not-stick")
+        then:
+        withNew
+        !withExtra
         cleanup:
+        SecurityTestSupport.logout(ec)
         ec.message.clearAll()
+        // Unique timestamped username; UserAccount is in a DataFeed so a raw delete is not worth it here.
     }
 }

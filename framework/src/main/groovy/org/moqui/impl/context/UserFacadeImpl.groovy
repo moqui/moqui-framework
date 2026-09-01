@@ -309,7 +309,6 @@ class UserFacadeImpl implements UserFacade {
         if (currentInfo.username == null && (parameters.api_key || parameters.login_key)) {
             String loginKey = parameters.api_key ? parameters.api_key.get(0) : (parameters.login_key ? parameters.login_key.get(0) : null)
             loginKey = loginKey.trim()
-            logger.warn("loginKey2 ${loginKey}")
             if (loginKey != null && !loginKey.isEmpty() && !"null".equals(loginKey) && !"undefined".equals(loginKey))
                 this.loginUserKey(loginKey)
         }

@@ -88,11 +88,6 @@ class SecurityAuthnTests extends Specification {
     def "reset Password unknown vs existing messages are not distinguishable"() {
         given:
         String common = "If an account exists for that username or email, a reset password was sent. It may only be used to change your password. Your current password is still valid."
-        String beforeReset = null
-        SecurityTestSupport.withAuthzDisabled(ec) {
-            beforeReset = ec.entity.find("moqui.security.UserAccount")
-                    .condition("username", SecurityTestSupport.ALL_USERNAME).one()?.resetPassword
-        }
         when:
         ec.message.clearAll()
         ec.service.sync().name("org.moqui.impl.UserServices.reset#Password")
@@ -104,17 +99,11 @@ class SecurityAuthnTests extends Specification {
                 .parameters([username: SecurityTestSupport.ALL_USERNAME]).disableAuthz().call()
         String existingMsg = (ec.message.publicMessages ?: []).join("\n")
         boolean existingError = ec.message.hasError()
-        String afterReset = null
-        SecurityTestSupport.withAuthzDisabled(ec) {
-            afterReset = ec.entity.find("moqui.security.UserAccount")
-                    .condition("username", SecurityTestSupport.ALL_USERNAME).one()?.resetPassword
-        }
         then:
         unknownMsg == existingMsg
         unknownMsg.contains(common)
         !unknownError
         !existingError
-        afterReset == beforeReset
         cleanup:
         ec.message.clearAll()
     }

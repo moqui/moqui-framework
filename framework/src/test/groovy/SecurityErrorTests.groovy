@@ -26,19 +26,30 @@ class SecurityErrorTests extends Specification {
         String out = str.output ?: ""
         then:
         !out.contains("<script>alert(1)</script>")
-        out.contains("&lt;script&gt;") || out.contains("alert(1)") == false || out.contains("&#")
+        out.contains("&lt;script&gt;")
     }
 
-    def "InternalError page does not include a Java stack trace for anonymous users"() {
+    def "InternalError page does not include a Java stack trace when showErrorDetail is false"() {
         when:
         Exception boom = new RuntimeException("sec-error-secret")
         ScreenTestRender str = errorScreens.render("InternalError",
-                [errorCode: 500, errorMessage: "internal", errorThrowable: boom], "get")
+                [errorCode: 500, errorMessage: "internal", errorThrowable: boom, showErrorDetail: false], "get")
         String out = str.output ?: ""
         then:
         !out.contains("sec-error-secret")
         !out.contains("at org.moqui")
         !out.contains(".groovy:")
+    }
+
+    def "InternalError page includes stack when showErrorDetail is true"() {
+        when:
+        Exception boom = new RuntimeException("sec-error-secret")
+        ScreenTestRender str = errorScreens.render("InternalError",
+                [errorCode: 500, errorMessage: "internal", errorThrowable: boom, showErrorDetail: true], "get")
+        String out = str.output ?: ""
+        then:
+        out.contains("sec-error-secret")
+        out.contains("at ")
     }
 
 }

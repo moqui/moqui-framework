@@ -1,5 +1,6 @@
 """A01 additional HTTP proofs: public paths, Host, FOP, email pixel, path traversal."""
-from conftest import rest_login, screen_login, looks_like_authn
+import pytest
+from conftest import csrf_token, require_screen_login, require_sec_user
 
 
 def test_echopath_extra_path_is_html_escaped(http, base_url, require_server):
@@ -62,32 +63,41 @@ def test_static_path_dotdot_does_not_escape(http, base_url, require_server):
 
 
 def test_view_only_cannot_run_service_run_over_http(http, base_url, require_server):
-    r = screen_login(http, base_url, "sec.view.only", "SecView1!!")
-    if r.status_code not in (200, 302, 303):
-        return
+    require_sec_user(base_url, "sec.view.only", "SecView1!!")
+    r = require_screen_login(http, base_url, "sec.view.only", "SecView1!!")
+    tok = csrf_token(r)
+    if not tok:
+        dash = http.get(base_url + "/apps/tools/dashboard", timeout=10, allow_redirects=False)
+        tok = csrf_token(dash)
+    if not tok:
+        pytest.skip("no CSRF token after VIEW-only login")
     r2 = http.post(
         base_url + "/apps/tools/Service/ServiceRun/run",
-        data={"serviceName": "org.moqui.impl.BasicServices.get#GeoRegionsForDropDown"},
+        data={
+            "serviceName": "org.moqui.impl.BasicServices.get#GeoRegionsForDropDown",
+            "moquiSessionToken": tok,
+        },
+        headers={"X-CSRF-Token": tok},
         timeout=10,
         allow_redirects=False,
     )
+    body = (r2.text or "").lower()
+    assert "session token required" not in body
     assert r2.status_code in (401, 403, 302)
-    assert r2.status_code != 200 or "not authorized" in (r2.text or "").lower()
+    assert r2.status_code != 200
 
 
 def test_none_user_cannot_open_tools(http, base_url, require_server):
-    r = screen_login(http, base_url, "sec.none.only", "SecNone1!!")
-    if r.status_code not in (200, 302, 303):
-        return
+    require_sec_user(base_url, "sec.none.only", "SecNone1!!")
+    require_screen_login(http, base_url, "sec.none.only", "SecNone1!!")
     r2 = http.get(base_url + "/apps/tools/dashboard", timeout=10, allow_redirects=False)
     body = (r2.text or "").lower()
     assert r2.status_code in (401, 403, 302) or "auto screens" not in body
 
 
 def test_view_only_cannot_open_sql_runner(http, base_url, require_server):
-    r = screen_login(http, base_url, "sec.view.only", "SecView1!!")
-    if r.status_code not in (200, 302, 303):
-        return
+    require_sec_user(base_url, "sec.view.only", "SecView1!!")
+    require_screen_login(http, base_url, "sec.view.only", "SecView1!!")
     r2 = http.get(
         base_url + "/apps/tools/Entity/SqlRunner",
         params={"groupName": "transactional", "sql": "SELECT 1"},
@@ -166,7 +176,7 @@ def test_system_message_unknown_remote_is_rejected(http, base_url, require_serve
     )
     assert r.status_code in (400, 401, 403)
     body = (r.text or "").lower()
-    assert "not valid" in body or "unauthorized" in body or r.status_code != 200
+    assert "not valid" in body or "unauthorized" in body or "authentication required" in body
 
 
 def test_login_get_with_password_is_rejected(http, base_url, require_server):
@@ -193,3 +203,10 @@ def test_groovysh_http_get_is_not_a_shell(http, base_url, require_server):
     body = (r.text or "").lower()
     assert "groovyshell" not in body or r.status_code in (400, 401, 403, 404, 405)
     assert r.status_code != 200 or "eval" not in body
+
+
+def test_menu_data_tools_without_login_is_not_the_menu(http, base_url, require_server):
+    r = http.get(base_url + "/menuData/apps/tools", timeout=10, allow_redirects=False)
+    body = (r.text or "").lower()
+    assert r.status_code in (401, 403, 302) or "auto screens" not in body
+    assert "groovyshell" not in body or r.status_code != 200

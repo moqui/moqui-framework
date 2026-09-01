@@ -18,11 +18,18 @@ def test_rest_e1_without_credentials_is_401(http, base_url, require_server):
     assert r.status_code == 401
 
 
+def test_rest_s1_without_credentials_is_unauthorized(http, base_url, require_server):
+    r = http.get(base_url + "/rest/s1/moqui/basic/enums", timeout=10)
+    assert r.status_code in (401, 403)
+    assert "enumId" not in (r.text or "")
+
+
 def test_removed_rest_api_key_is_not_found(http, base_url, require_server):
     r = http.get(base_url + "/rest/api_key", timeout=10)
-    assert r.status_code in (404, 401, 403)
+    # Catalog: transition removed, not merely unauthenticated
+    assert r.status_code == 404
 
 
 def test_removed_rest_moqui_session_token_is_not_found(http, base_url, require_server):
     r = http.get(base_url + "/rest/moquiSessionToken", timeout=10)
-    assert r.status_code in (404, 401, 403)
+    assert r.status_code == 404
