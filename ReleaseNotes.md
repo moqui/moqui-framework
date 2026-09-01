@@ -18,6 +18,15 @@
 - Groovy Shell WebSocket now also requires AUTHZA_ALL on the Tools app (in
   addition to the `GROOVY_SHELL_WEB` permission).
 
+### Security proof tests
+
+- Added a catalog in `SECURITY_TESTS.md` mapped to OWASP Top 10:2025 and
+  `SECURITY_SURFACE.md`.
+- In-process Spock proofs under `framework/src/test/groovy/Security*.groovy`
+  (run with `./gradlew :framework:test`).
+- HTTP proofs against a running server in `framework/test/` (pytest + requests,
+  not Gradle). Start Moqui, then `pytest`.
+
 ## Release 4.0.0 - 27 Feb 2026
 
 Moqui framework v4.0.0 is a major new release with massive changes some of which

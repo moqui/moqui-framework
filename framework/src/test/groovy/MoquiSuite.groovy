@@ -24,7 +24,9 @@ import org.moqui.Moqui
 @SelectClasses([ CacheFacadeTests.class, EntityCrud.class, EntityFindTests.class, EntityNoSqlCrud.class,
         L10nFacadeTests.class, MessageFacadeTests.class, ResourceFacadeTests.class, ServiceCrudImplicit.class,
         ServiceFacadeTests.class, SubSelectTests.class, TransactionFacadeTests.class, UserFacadeTests.class,
-        SystemScreenRenderTests.class, ToolsRestApiTests.class, ToolsScreenRenderTests.class])
+        SystemScreenRenderTests.class, ToolsRestApiTests.class, ToolsScreenRenderTests.class,
+        SecurityAccessControlTests.class, SecurityAuthnTests.class, SecurityInjectionTests.class,
+        SecurityMisconfigTests.class])
 class MoquiSuite {
     @AfterAll
     static void destroyMoqui() {

@@ -238,6 +238,7 @@ Walk each surface: is it enabled in *this* deployment, reachable from the networ
 Related:
 
 - [SECURITY.md](SECURITY.md) — policy and reporting
+- [SECURITY_TESTS.md](SECURITY_TESTS.md) — proof-test catalog (Spock + Python HTTP)
 - [Security](https://www.moqui.org/m/docs/framework/Security) — authn, MFA, artifact authz, CSRF, headers, tarpit
 - [Run and Deploy](https://www.moqui.org/m/docs/framework/Run+and+Deploy) — production checklist
 - [Web Service](https://www.moqui.org/m/docs/framework/System+Interfaces/Web+Service) — REST and JSON-RPC
