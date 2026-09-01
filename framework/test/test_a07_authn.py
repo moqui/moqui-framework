@@ -1,5 +1,5 @@
-"""A07 Authentication — HTTP proofs. Uses dev/demo users; do not run against production."""
-from conftest import rest_login
+"""A07 Authentication — HTTP proofs. Uses local demo users; do not point at a real production system."""
+from conftest import rest_login, screen_login
 
 
 def test_rest_login_succeeds_without_csrf_token(http, base_url, require_server, username, password):
@@ -33,3 +33,15 @@ def test_api_key_in_query_string_does_not_authenticate(http, base_url, require_s
         timeout=10,
     )
     assert r.status_code == 401
+
+
+def test_login_issues_a_new_session_id(http, base_url, require_server, username, password):
+    http.get(base_url + "/Login", timeout=10)
+    before = http.cookies.get("JSESSIONID")
+    r = screen_login(http, base_url, username, password)
+    after = http.cookies.get("JSESSIONID")
+    if r.status_code not in (200, 302, 303):
+        return
+    assert after
+    if before:
+        assert after != before

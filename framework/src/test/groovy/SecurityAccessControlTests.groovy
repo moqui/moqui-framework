@@ -116,4 +116,48 @@ class SecurityAccessControlTests extends Specification {
         str.errorMessages || SecurityTestSupport.looksLikeAuthzFailure(str) ||
                 (str.output != null && str.output.toLowerCase().contains("permission"))
     }
+
+    def "VIEW-only user cannot run Data Import load"() {
+        when:
+        SecurityTestSupport.login(ec, SecurityTestSupport.VIEW_USERNAME, SecurityTestSupport.VIEW_PASSWORD)
+        ScreenTestRender str = tools.render("Entity/DataImport/load",
+                SecurityTestSupport.csrfParams([location: "http://127.0.0.1:9/"]), "post")
+        then:
+        SecurityTestSupport.looksLikeAuthzFailure(str)
+    }
+
+    def "VIEW-only user cannot run Data Export"() {
+        when:
+        SecurityTestSupport.login(ec, SecurityTestSupport.VIEW_USERNAME, SecurityTestSupport.VIEW_PASSWORD)
+        ScreenTestRender str = tools.render("Entity/DataExport/EntityExport",
+                SecurityTestSupport.csrfParams([entityNames: "moqui.basic.Enumeration"]), "post")
+        then:
+        SecurityTestSupport.looksLikeAuthzFailure(str)
+    }
+
+    def "VIEW-only user cannot run ElFinder command"() {
+        when:
+        SecurityTestSupport.login(ec, SecurityTestSupport.VIEW_USERNAME, SecurityTestSupport.VIEW_PASSWORD)
+        ScreenTestRender str = system.render("Resource/ElFinder/command",
+                SecurityTestSupport.csrfParams([cmd: "open"]), "post")
+        then:
+        SecurityTestSupport.looksLikeAuthzFailure(str)
+    }
+
+    def "VIEW-only user cannot open Groovy Shell"() {
+        when:
+        SecurityTestSupport.login(ec, SecurityTestSupport.VIEW_USERNAME, SecurityTestSupport.VIEW_PASSWORD)
+        ScreenTestRender str = tools.render("GroovyShell", null, "get")
+        then:
+        str.errorMessages || SecurityTestSupport.looksLikeAuthzFailure(str) ||
+                (str.output != null && str.output.toLowerCase().contains("permission"))
+    }
+
+    def "user with no artifact authz cannot open Tools dashboard"() {
+        when:
+        SecurityTestSupport.login(ec, SecurityTestSupport.NONE_USERNAME, SecurityTestSupport.NONE_PASSWORD)
+        ScreenTestRender str = tools.render("dashboard", null, "get")
+        then:
+        SecurityTestSupport.looksLikeAuthzFailure(str) || SecurityTestSupport.looksLikeAuthnFailure(str)
+    }
 }

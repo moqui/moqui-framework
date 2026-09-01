@@ -24,8 +24,10 @@ import java.io.InputStream;
 import java.io.ObjectOutputStream;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
+import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -304,6 +306,32 @@ public class WebUtilities {
             if (allMatch) { anyMatches = true; break; }
         }
         return anyMatches;
+    }
+
+    /**
+     * True if url is a same-origin path or absolute URL safe to use as a post-login redirect.
+     * Relative paths must start with a single slash (not //). Absolute http(s) URLs must match the request host.
+     */
+    public static boolean isSameOriginRedirect(String url, HttpServletRequest request) {
+        if (url == null || request == null) return false;
+        String p = url.trim();
+        if (p.isEmpty()) return false;
+        String lower = p.toLowerCase(Locale.ROOT);
+        if (p.indexOf('\\') >= 0) return false;
+        if (lower.startsWith("javascript:") || lower.startsWith("data:") || lower.startsWith("vbscript:")) return false;
+        if (p.startsWith("//")) return false;
+        if (p.startsWith("/")) return true;
+        if (!lower.startsWith("http://") && !lower.startsWith("https://")) return false;
+        try {
+            URI uri = URI.create(p);
+            if (uri.getUserInfo() != null) return false;
+            String host = uri.getHost();
+            if (host == null || host.isEmpty()) return false;
+            String serverName = request.getServerName();
+            return serverName != null && host.equalsIgnoreCase(serverName);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     public static byte[] windowsPex = {(byte) 0x4d, (byte) 0x5a};

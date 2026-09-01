@@ -3,8 +3,10 @@
  * Grant of Patent License.
  */
 import org.moqui.context.ExecutionContext
+import org.moqui.entity.EntityValue
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.screen.ScreenTest
+import org.moqui.util.MNode
 
 /** Fixtures for public security proof tests. Authz is disabled only while inserting rows. */
 class SecurityTestSupport {
@@ -19,7 +21,13 @@ class SecurityTestSupport {
     static final String LOCK_USERNAME = "sec.lock.test"
     static final String LOCK_PASSWORD = "SecLock1!!"
     static final String LOCK_USER_ID = "SEC_LOCK_TEST"
+    static final String NONE_USERNAME = "sec.none.only"
+    static final String NONE_PASSWORD = "SecNone1!!"
+    static final String NONE_USER_ID = "SEC_NONE_ONLY"
+    static final String NONE_GROUP_ID = "SEC_NONE_GROUP"
     static final String SESSION_TOKEN = "TestSessionToken"
+    static final String XSS_SCRIPT = "<script>alert(1)</script>"
+    static final String SQLI_OR = "' OR '1'='1"
 
     static void logout(ExecutionContext ec) {
         if (ec.user.userId) ec.user.logoutUser()
@@ -47,10 +55,50 @@ class SecurityTestSupport {
             ensureAuthz(ec, "SEC_VIEW_SYS", VIEW_GROUP_ID, "SYSTEM_APP", "AUTHZA_VIEW")
             ensureAuthz(ec, "SEC_ALL_TOOLS", ALL_GROUP_ID, "TOOLS_APP", "AUTHZA_ALL")
             ensureAuthz(ec, "SEC_ALL_SYS", ALL_GROUP_ID, "SYSTEM_APP", "AUTHZA_ALL")
+            ensureGroup(ec, NONE_GROUP_ID, "Security test no artifact authz")
             ensureUser(ec, VIEW_USER_ID, VIEW_USERNAME, VIEW_PASSWORD, VIEW_GROUP_ID)
             ensureUser(ec, ALL_USER_ID, ALL_USERNAME, ALL_PASSWORD, ALL_GROUP_ID)
             ensureUser(ec, LOCK_USER_ID, LOCK_USERNAME, LOCK_PASSWORD, VIEW_GROUP_ID)
+            ensureUser(ec, NONE_USER_ID, NONE_USERNAME, NONE_PASSWORD, NONE_GROUP_ID)
         }
+    }
+
+    /** Raw MoquiDefaultConf.xml, not the DevConf merge used by Gradle tests. */
+    static MNode defaultConfRoot() {
+        InputStream is = SecurityTestSupport.class.classLoader.getResourceAsStream("MoquiDefaultConf.xml")
+        if (is == null) throw new IllegalStateException("MoquiDefaultConf.xml not on classpath")
+        try {
+            return MNode.parse("classpath://MoquiDefaultConf.xml", is)
+        } finally {
+            is.close()
+        }
+    }
+
+    static String defaultProperty(String name) {
+        MNode node = defaultConfRoot().children("default-property").find { it.attribute("name") == name }
+        return node?.attribute("value")
+    }
+
+    static EntityValue waitForLoginHistory(ExecutionContext ec, String userId, long timeoutMs = 4000) {
+        long start = System.currentTimeMillis()
+        EntityValue found = null
+        while (System.currentTimeMillis() - start < timeoutMs) {
+            withAuthzDisabled(ec) {
+                found = ec.entity.find("moqui.security.UserLoginHistory")
+                        .condition("userId", userId).orderBy("-fromDate").limit(1).one()
+            }
+            if (found != null) return found
+            Thread.sleep(50)
+        }
+        return found
+    }
+
+    static String userIdForUsername(ExecutionContext ec, String username) {
+        String id = null
+        withAuthzDisabled(ec) {
+            id = ec.entity.find("moqui.security.UserAccount").condition("username", username).one()?.userId
+        }
+        return id
     }
 
     static void ensureGroup(ExecutionContext ec, String groupId, String description) {

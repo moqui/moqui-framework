@@ -41,7 +41,6 @@ import org.xml.sax.helpers.DefaultHandler
 
 import javax.sql.rowset.serial.SerialBlob
 import javax.xml.parsers.SAXParser
-import javax.xml.parsers.SAXParserFactory
 import java.nio.charset.StandardCharsets
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
@@ -284,7 +283,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             // load the XML text in its own transaction
             if (this.xmlText) {
                 tf.runUseOrBegin(transactionTimeout, "Error loading XML entity data", {
-                    XMLReader reader = SAXParserFactory.newInstance().newSAXParser().XMLReader
+                    XMLReader reader = MNode.newSecureXmlReader()
                     exh.setLocation("xmlText")
                     reader.setContentHandler(exh)
                     reader.parse(new InputSource(new StringReader(this.xmlText)))
@@ -349,7 +348,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                     long beforeRecords = exh.valuesRead ?: 0
                     exh.setLocation(location)
 
-                    SAXParser parser = SAXParserFactory.newInstance().newSAXParser()
+                    SAXParser parser = MNode.newSecureSaxParser()
                     parser.parse(inputStream, exh)
 
                     recordsLoaded = (exh.valuesRead?:0) - beforeRecords
@@ -377,7 +376,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                                 long beforeRecords = exh.valuesRead ?: 0
                                 exh.setLocation(location)
 
-                                SAXParser parser = SAXParserFactory.newInstance().newSAXParser()
+                                SAXParser parser = MNode.newSecureSaxParser()
                                 parser.parse(zis, exh)
 
                                 long curFileLoaded = (exh.valuesRead?:0) - beforeRecords

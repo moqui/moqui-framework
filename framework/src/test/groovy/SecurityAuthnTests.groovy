@@ -55,4 +55,68 @@ class SecurityAuthnTests extends Specification {
         cleanup:
         ec.message.clearErrors()
     }
+
+    def "short password is rejected"() {
+        when:
+        SecurityTestSupport.login(ec, SecurityTestSupport.ALL_USERNAME, SecurityTestSupport.ALL_PASSWORD)
+        ec.message.clearErrors()
+        def result = ec.service.sync().name("org.moqui.impl.UserServices.update#Password")
+                .parameters([userId: SecurityTestSupport.userIdForUsername(ec, SecurityTestSupport.ALL_USERNAME),
+                             oldPassword: SecurityTestSupport.ALL_PASSWORD,
+                             newPassword: "short", newPasswordVerify: "short"]).call()
+        then:
+        result?.passwordIssues || ec.message.hasError() || (ec.message.messagesString ?: "").toLowerCase().contains("shorter")
+        cleanup:
+        ec.message.clearAll()
+        SecurityTestSupport.login(ec, SecurityTestSupport.ALL_USERNAME, SecurityTestSupport.ALL_PASSWORD)
+    }
+
+    def "reset Password unknown user does not succeed"() {
+        given:
+        String common = "If an account exists for that username or email, a reset password was sent. It may only be used to change your password. Your current password is still valid."
+        when:
+        ec.message.clearAll()
+        def result = ec.service.sync().name("org.moqui.impl.UserServices.reset#Password")
+                .parameters([username: "sec.no.such.user.zzz"]).disableAuthz().call()
+        then:
+        !ec.message.hasError()
+        ec.message.publicMessages.contains(common)
+        cleanup:
+        ec.message.clearAll()
+    }
+
+    def "reset Password unknown vs existing messages are not distinguishable"() {
+        given:
+        String common = "If an account exists for that username or email, a reset password was sent. It may only be used to change your password. Your current password is still valid."
+        String beforeReset = null
+        SecurityTestSupport.withAuthzDisabled(ec) {
+            beforeReset = ec.entity.find("moqui.security.UserAccount")
+                    .condition("username", SecurityTestSupport.ALL_USERNAME).one()?.resetPassword
+        }
+        when:
+        ec.message.clearAll()
+        ec.service.sync().name("org.moqui.impl.UserServices.reset#Password")
+                .parameters([username: "sec.no.such.user.zzz"]).disableAuthz().call()
+        String unknownMsg = (ec.message.publicMessages ?: []).join("\n")
+        boolean unknownError = ec.message.hasError()
+        ec.message.clearAll()
+        ec.service.sync().name("org.moqui.impl.UserServices.reset#Password")
+                .parameters([username: SecurityTestSupport.ALL_USERNAME]).disableAuthz().call()
+        String existingMsg = (ec.message.publicMessages ?: []).join("\n")
+        boolean existingError = ec.message.hasError()
+        String afterReset = null
+        SecurityTestSupport.withAuthzDisabled(ec) {
+            afterReset = ec.entity.find("moqui.security.UserAccount")
+                    .condition("username", SecurityTestSupport.ALL_USERNAME).one()?.resetPassword
+        }
+        then:
+        unknownMsg == existingMsg
+        unknownMsg.contains(common)
+        !unknownError
+        !existingError
+        afterReset == beforeReset
+        cleanup:
+        ec.message.clearAll()
+    }
+
 }

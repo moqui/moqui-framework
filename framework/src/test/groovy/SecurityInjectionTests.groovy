@@ -27,4 +27,17 @@ class SecurityInjectionTests extends Specification {
         cleanup:
         ec.message.clearErrors()
     }
+
+    def "SQL-looking preference value is stored as data not executed"() {
+        when:
+        SecurityTestSupport.login(ec, SecurityTestSupport.ALL_USERNAME, SecurityTestSupport.ALL_PASSWORD)
+        ec.message.clearAll()
+        String key = "secSqliTest"
+        ec.user.setPreference(key, SecurityTestSupport.SQLI_OR)
+        String stored = ec.user.getPreference(key)
+        then:
+        stored == SecurityTestSupport.SQLI_OR
+        cleanup:
+        ec.message.clearAll()
+    }
 }

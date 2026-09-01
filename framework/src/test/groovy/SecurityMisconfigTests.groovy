@@ -51,4 +51,60 @@ class SecurityMisconfigTests extends Specification {
         xfo != null
         xcto != null && xcto.toLowerCase().contains("nosniff")
     }
+
+    def "DefaultConf handle-cors is true and allow-origins is empty"() {
+        expect:
+        SecurityTestSupport.defaultProperty("webapp_handle_cors") == "true"
+        SecurityTestSupport.defaultProperty("webapp_allow_origins") == ""
+    }
+
+    def "DefaultConf tarpit is on for screens transitions services and off for entities"() {
+        when:
+        MNode defRoot = SecurityTestSupport.defaultConfRoot()
+        Map flags = [:]
+        defRoot.first("artifact-execution-facade")?.children("artifact-execution")?.each {
+            flags[it.attribute("type")] = it.attribute("tarpit-enabled")
+        }
+        then:
+        flags["AT_XML_SCREEN"] == "true"
+        flags["AT_XML_SCREEN_TRANS"] == "true"
+        flags["AT_SERVICE"] == "true"
+        flags["AT_ENTITY"] == "false"
+    }
+
+    def "Jackrabbit tool-factory is disabled by default"() {
+        when:
+        MNode jr = confRoot.first("tools")?.children("tool-factory")?.find {
+            it.attribute("class")?.contains("Jackrabbit")
+        }
+        then:
+        jr != null
+        jr.attribute("disabled") == "true"
+    }
+
+    def "log4j core is not a Log4Shell-era 2.14 release"() {
+        when:
+        String ver = org.apache.logging.log4j.LogManager.class.package.implementationVersion
+        then:
+        ver != null
+        !ver.startsWith("2.14")
+        ver.startsWith("2.")
+    }
+
+    def "shiro is 2.x"() {
+        when:
+        String ver = org.apache.shiro.SecurityUtils.class.package.implementationVersion
+        then:
+        ver != null
+        ver.startsWith("2.")
+    }
+
+    def "executable magic bytes are detected for PE ELF class and Mach-O"() {
+        expect:
+        org.moqui.util.WebUtilities.isExecutable([(byte) 0x4d, (byte) 0x5a, 0, 0] as byte[])
+        org.moqui.util.WebUtilities.isExecutable([(byte) 0x7f, (byte) 0x45, (byte) 0x4c, (byte) 0x46] as byte[])
+        org.moqui.util.WebUtilities.isExecutable([(byte) 0xca, (byte) 0xfe, (byte) 0xba, (byte) 0xbe] as byte[])
+        org.moqui.util.WebUtilities.isExecutable([(byte) 0xfe, (byte) 0xed, (byte) 0xfa, (byte) 0xce] as byte[])
+        !org.moqui.util.WebUtilities.isExecutable([(byte) 0x89, (byte) 0x50, (byte) 0x4e, (byte) 0x47] as byte[])
+    }
 }

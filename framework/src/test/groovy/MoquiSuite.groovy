@@ -26,7 +26,8 @@ import org.moqui.Moqui
         ServiceFacadeTests.class, SubSelectTests.class, TransactionFacadeTests.class, UserFacadeTests.class,
         SystemScreenRenderTests.class, ToolsRestApiTests.class, ToolsScreenRenderTests.class,
         SecurityAccessControlTests.class, SecurityAuthnTests.class, SecurityInjectionTests.class,
-        SecurityMisconfigTests.class])
+        SecurityMisconfigTests.class, SecurityCryptoTests.class, SecurityIntegrityTests.class,
+        SecurityLoggingTests.class, SecurityErrorTests.class])
 class MoquiSuite {
     @AfterAll
     static void destroyMoqui() {

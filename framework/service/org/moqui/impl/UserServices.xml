@@ -390,13 +390,16 @@ along with this software (see the LICENSE.md file). If not, see
                 <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount" for-update="true">
                     <field-map field-name="emailAddress" from="username"/></entity-find-one>
             </if>
+            <set field="resetPublicMsg" value="If an account exists for that username or email, a reset password was sent. It may only be used to change your password. Your current password is still valid."/>
             <if condition="userAccount == null">
-                <message public="true" type="danger">Could not find account with username or email address ${username}</message>
-                <return error="true" message="Account not found"/>
+                <log level="warn" message="Password reset requested for unknown username [${username}]"/>
+                <message public="true" type="success">${resetPublicMsg}</message>
+                <return/>
             </if>
             <if condition="!userAccount.emailAddress">
-                <message public="true" type="danger">Account with username ${username} does not have an email address</message>
-                <return error="true" message="Account has no email address"/>
+                <log level="warn" message="Password reset requested for username [${userAccount.username}] with no email address"/>
+                <message public="true" type="success">${resetPublicMsg}</message>
+                <return/>
             </if>
 
             <!-- reset the password to a random value -->
@@ -412,8 +415,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <field-map field-name="toAddresses" from="userAccount.emailAddress"/>
                 <field-map field-name="bodyParameters" from="bodyParameters + [userAccount:userAccount, resetPassword:resetPassword]"/>
             </service-call>
-            <message public="true" type="success">A reset password was sent to the email of username ${userAccount.username}. This password may only be used to change your password. Your current password is still valid.</message>
-            <if condition="userAccount.requirePasswordChange == 'Y'"><message public="true" type="info">You must change your password before login.</message></if>
+            <message public="true" type="success">${resetPublicMsg}</message>
         </actions>
     </service>
 

@@ -15,6 +15,7 @@ package org.moqui.etl;
 
 import org.moqui.BaseException;
 import org.moqui.resource.ResourceReference;
+import org.moqui.util.MNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xml.sax.Attributes;
@@ -23,7 +24,6 @@ import org.xml.sax.Locator;
 import org.xml.sax.XMLReader;
 import org.xml.sax.helpers.DefaultHandler;
 
-import javax.xml.parsers.SAXParserFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
@@ -49,7 +49,7 @@ public class FlatXmlExtractor implements SimpleEtl.Extractor {
 
         try {
             FlatXmlHandler xmlHandler = new FlatXmlHandler(this);
-            XMLReader reader = SAXParserFactory.newInstance().newSAXParser().getXMLReader();
+            XMLReader reader = MNode.newSecureXmlReader();
             reader.setContentHandler(xmlHandler);
             reader.parse(new InputSource(is));
         } catch (Exception e) {

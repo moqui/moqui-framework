@@ -1,6 +1,9 @@
 #! /bin/bash
 # HTTP security proofs in framework/test/. Moqui must already be listening
-# (java -jar moqui.war). Extra args go to pytest, e.g. ./pytest.sh -v -k cors
+# with MoquiProductionConf.xml, e.g.:
+#   java -jar moqui.war conf=conf/MoquiProductionConf.xml
+# Extra args go to pytest, e.g. ./pytest.sh -v -k cors
+# DevConf is expected to fail (CORS, tarpit, H2 console).
 
 set -euo pipefail
 
