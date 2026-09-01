@@ -27,13 +27,11 @@
     <default-property name="webapp_upload_executable_allow" value="false"/>
 
     <!--
-        While there is no default value for webapp_client_ip_header, embedded Jetty looks at Forwarded and
-        X-Forwarded-For headers via ForwardedRequestCustomizer (see MoquiStart.java); this is necessary so that
-        Jetty knows if a proxied request came via HTTPS vs HTTP, but is risky because clients can set a value for
-        the header to spoof any of these settings including a client IP address; if the outer-most proxy handles
-        X-Forwarded-For by always setting it to its client IP address instead of the common default behavior of
-        appending to an existing X-Forwarded-For header then it is fine, but to avoid this set webapp_client_ip_header
-        to something more reliable for the proxy used.
+        webapp_client_ip_header is how Moqui reads the client IP from a trusted proxy (X-Real-IP, CF-Connecting-IP,
+        CloudFront-Viewer-Address, or X-Forwarded-For if the outer-most proxy overwrites rather than appends).
+        Embedded Jetty still uses ForwardedRequestCustomizer for X-Forwarded-Proto / X-Proxied-Https so it knows
+        if a proxied request was HTTPS; it does not take the client address from X-Forwarded-For or Forwarded
+        (see MoquiStart.java).
 
         nginx-proxy: X-Real-IP (see https://github.com/nginx-proxy/nginx-proxy/blob/main/nginx.tmpl)
         Cloudflare: CF-Connecting-IP (or True-Client-IP if that feature is enabled)

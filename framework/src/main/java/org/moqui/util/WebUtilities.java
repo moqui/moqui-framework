@@ -24,6 +24,7 @@ import java.io.InputStream;
 import java.io.ObjectOutputStream;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
+import java.net.InetAddress;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -291,6 +292,7 @@ public class WebUtilities {
             boolean allMatch = true;
             for (int i = 0; i < patternArray.length; i++) {
                 String curPattern = patternArray[i];
+                if (i >= addressArray.length) { allMatch = false; break; }
                 String curAddress = addressArray[i];
                 if (curPattern.equals("*") || curPattern.equals(curAddress)) continue;
                 if (curPattern.contains("-")) {
@@ -306,6 +308,98 @@ public class WebUtilities {
             if (allMatch) { anyMatches = true; break; }
         }
         return anyMatches;
+    }
+
+    /**
+     * Strip wrapping brackets and :port from a client IP. IPv4:port (CloudFront-Viewer-Address) drops the port;
+     * [IPv6]:port keeps the IPv6 literal. Unbracketed IPv6 is not treated as host:port.
+     */
+    public static String canonicalizeClientIp(String clientIp) {
+        if (clientIp == null) return null;
+        String ip = clientIp.trim();
+        if (ip.isEmpty()) return ip;
+
+        if (ip.charAt(0) == '[') {
+            int close = ip.indexOf(']');
+            if (close > 1) {
+                return normalizeIpLiteral(ip.substring(1, close));
+            }
+        }
+
+        int firstColon = ip.indexOf(':');
+        int lastColon = ip.lastIndexOf(':');
+        if (firstColon >= 0 && firstColon == lastColon) {
+            String left = ip.substring(0, firstColon);
+            if (isDottedIpv4(left)) return left;
+            return ip;
+        }
+        if (firstColon >= 0) {
+            int pct = ip.indexOf('%');
+            if (pct > 0) ip = ip.substring(0, pct);
+            return normalizeIpLiteral(ip);
+        }
+        return ip;
+    }
+
+    private static boolean isDottedIpv4(String s) {
+        if (s == null || s.isEmpty()) return false;
+        String[] parts = s.split("\\.", -1);
+        if (parts.length != 4) return false;
+        for (int i = 0; i < 4; i++) {
+            try {
+                int n = Integer.parseInt(parts[i]);
+                if (n < 0 || n > 255) return false;
+            } catch (NumberFormatException e) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static String normalizeIpLiteral(String ip) {
+        try {
+            InetAddress addr = InetAddress.getByName(ip);
+            String host = addr.getHostAddress();
+            int pct = host.indexOf('%');
+            if (pct > 0) host = host.substring(0, pct);
+            return host;
+        } catch (Exception e) {
+            return ip;
+        }
+    }
+
+    /** IPv4 patterns use {@link #ip4Matches}; IPv6 is an exact match after {@link #canonicalizeClientIp}. */
+    public static boolean ipMatches(String patternString, String address) {
+        if (patternString == null || patternString.isEmpty()) return true;
+        String canonAddr = canonicalizeClientIp(address);
+        if (canonAddr == null || canonAddr.isEmpty()) return false;
+        String[] patterns = patternString.split(",");
+        for (int pi = 0; pi < patterns.length; pi++) {
+            String raw = patterns[pi].trim();
+            if (raw.isEmpty()) continue;
+            if (raw.equals("*") || raw.equals("*.*.*.*")) return true;
+            String pattern = canonicalizeClientIp(raw);
+            if (pattern == null || pattern.isEmpty()) continue;
+            boolean patternV6 = pattern.indexOf(':') >= 0;
+            boolean addrV6 = canonAddr.indexOf(':') >= 0;
+            if (patternV6 || addrV6) {
+                if (ipv6Equal(pattern, canonAddr)) return true;
+            } else if (ip4Matches(pattern, canonAddr)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean ipv6Equal(String a, String b) {
+        if (a.equals(b)) return true;
+        try {
+            byte[] ba = InetAddress.getByName(a).getAddress();
+            byte[] bb = InetAddress.getByName(b).getAddress();
+            return Arrays.equals(ba, bb);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     /**

@@ -71,6 +71,15 @@ and clarifies security details that have been more scattered and less formal.
   permission (seeded on ADMIN). Swagger no longer sets `Access-Control-Allow-Origin: *`.
 - Timestamped system-message HMAC rejects a repeated signature inside the
   window.
+- WebSocket endpoint ExecutionContext handling: each upgrade starts with a
+  fresh context on the dispatch thread; handshake auth applies only to that
+  connection.
+- Client IP canonicalization for IPv6 (and IPv4 `:port`); `ipAllowed` uses the
+  same matching for both. Embedded Jetty still reads `X-Forwarded-Proto` but
+  does not take the client address from `X-Forwarded-For`.
+- ElFinder: `component://` and `file:` roots remain browsable; write commands
+  on those roots are refused when `instance_purpose` is production. Directory
+  delete and entry names are cleaned up.
 
 ## Release 4.0.0 - 27 Feb 2026
 

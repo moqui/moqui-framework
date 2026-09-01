@@ -45,6 +45,22 @@ def test_status_x_forwarded_for_does_not_grant_access_from_spoofed_loopback(http
     body = (r.text or "").lower()
     assert "datasources" not in body
     assert "vmvendor" not in body
+    # From loopback, utilization JSON should still be returned (forwarded-for is not the client IP).
+    if r.content:
+        assert r.status_code == 200
+        assert "utilization" in body or "heap" in body or r.text.strip().startswith("{")
+
+
+def test_status_forwarded_for_header_does_not_hide_loopback(http, base_url, require_server):
+    r = http.get(
+        base_url + "/status",
+        headers={"Forwarded": "for=8.8.8.8"},
+        timeout=10,
+    )
+    body = (r.text or "").lower()
+    assert "datasources" not in body
+    if r.content:
+        assert "utilization" in body or "heap" in body or r.text.strip().startswith("{")
 
 
 def test_login_form_action_is_login_path(http, base_url, require_server):
@@ -358,3 +374,32 @@ def test_datasnapshot_parent_segment_filename_is_not_found(http, base_url, requi
     body = (r.text or "").lower()
     assert "moqui-conf" not in body
     assert "crypt-pass" not in body
+
+
+def test_elfinder_component_webroot_put_does_not_write_screen(http, base_url, require_server, username, password):
+    from pathlib import Path
+    require_screen_login(http, base_url, username, password)
+    tok = csrf_token(http.get(base_url + "/apps/system/Resource/ElFinder", timeout=10))
+    screen_dir = Path(__file__).resolve().parents[2] / "runtime" / "base-component" / "webroot" / "screen" / "webroot"
+    before = set(p.name for p in screen_dir.glob("*.xml")) if screen_dir.is_dir() else set()
+    data = {
+        "cmd": "put",
+        "resourceRoot": "component://webroot",
+        "target": "v0_cm9vdA",  # hash of "root" is not required to be valid; write must still be refused
+        "content": "<screen require-authentication=\"false\"></screen>",
+    }
+    if tok:
+        data["moquiSessionToken"] = tok
+    r = http.post(
+        base_url + "/apps/system/Resource/ElFinder/command",
+        data=data,
+        headers={"X-CSRF-Token": tok} if tok else {},
+        timeout=15,
+        allow_redirects=False,
+    )
+    if r.status_code in (401, 403):
+        pytest.skip("user cannot run ElFinder command")
+    after = set(p.name for p in screen_dir.glob("*.xml")) if screen_dir.is_dir() else set()
+    assert after == before
+    body = (r.text or "").lower()
+    assert "write not allowed" in body or r.status_code != 200 or "error" in body

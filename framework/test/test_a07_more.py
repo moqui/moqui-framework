@@ -1,6 +1,6 @@
 """A07 additional authn proofs."""
 import pytest
-from conftest import require_sec_user, rest_login
+from conftest import logged_in_json, require_sec_user, rest_login
 
 
 def test_rest_login_wrong_password_is_401(http, base_url, require_server, username):
@@ -234,3 +234,29 @@ def test_password_reset_unknown_and_existing_share_public_text(http, base_url, r
         low = body.lower()
         assert "could not find account" not in low
         assert "does not have an email address" not in low
+
+
+def test_ip_restricted_user_cannot_login_from_loopback(http, base_url, require_server):
+    require_sec_user(base_url, "sec.ip.v4", "SecIpV41!!")
+    r = rest_login(http, base_url, "sec.ip.v4", "SecIpV41!!")
+    assert not logged_in_json(r)
+    r2 = http.post(
+        base_url + "/rest/login",
+        json={"username": "sec.ip.v4", "password": "SecIpV41!!"},
+        headers={"X-Forwarded-For": "10.99.99.99"},
+        timeout=10,
+    )
+    assert not logged_in_json(r2)
+    r3 = http.post(
+        base_url + "/rest/login",
+        json={"username": "sec.ip.v4", "password": "SecIpV41!!"},
+        headers={"X-Forwarded-For": "::1"},
+        timeout=10,
+    )
+    assert not logged_in_json(r3)
+
+
+def test_loopback_ip_allowed_user_can_login(http, base_url, require_server):
+    require_sec_user(base_url, "sec.ip.loop", "SecIpLoop1!!")
+    r = rest_login(http, base_url, "sec.ip.loop", "SecIpLoop1!!")
+    assert logged_in_json(r)

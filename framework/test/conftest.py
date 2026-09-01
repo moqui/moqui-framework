@@ -3,7 +3,8 @@
 Requires MoquiProductionConf.xml. DevConf (CORS *, tarpit off, /h2 console) must fail.
 
 Users named sec.* (sec.view.only, sec.all.only, sec.none.only, sec.lock.test,
-sec.ent.view, sec.ent.all, sec.api.view, sec.api.all, sec.es.view, sec.es.all)
+sec.ent.view, sec.ent.all, sec.api.view, sec.api.all, sec.es.view, sec.es.all,
+sec.ip.v4, sec.ip.loop)
 are created by the Gradle Security* Spock tests (SecurityTestSupport.ensureUsers).
 They are not demo seed. If they are missing, tests skip rather than pass.
 """

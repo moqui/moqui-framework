@@ -253,10 +253,9 @@ class SecurityMisconfigTests extends Specification {
         UserFacadeImpl.getClientIp(req, null, ecfi) == "203.0.113.9"
     }
 
-    /** Pins current getClientIp address shapes (used for /status allow-lists, ipAllowed, visit, request log).
-     * IPv6 values after the last colon are the implementation today, not a claim that /status matching is correct. */
+    /** Pins getClientIp address shapes (used for /status allow-lists, ipAllowed, visit, request log). */
     @Unroll
-    def "getClientIp remoteAddr #label is #expected"() {
+    def "getClientIp remoteAddr #label canonicalizes"() {
         given:
         def sc = Stub(ServletContext) { getInitParameter("moqui-name") >> "webroot" }
         def req = Stub(HttpServletRequest) {
@@ -264,12 +263,25 @@ class SecurityMisconfigTests extends Specification {
             getRemoteAddr() >> remoteAddr
         }
         expect:
-        UserFacadeImpl.getClientIp(req, null, ecfi) == expected
+        UserFacadeImpl.getClientIp(req, null, ecfi) == WebUtilities.canonicalizeClientIp(remoteAddr)
         where:
-        label                    | remoteAddr            || expected
-        "IPv4"                   | "203.0.113.9"         || "203.0.113.9"
-        "IPv6 loopback literal"  | "0:0:0:0:0:0:0:1"     || "1"
-        "IPv6 full"              | "2001:db8::1"         || "1"
+        label                         | remoteAddr
+        "IPv4"                        | "203.0.113.9"
+        "IPv4 with port"              | "203.0.113.9:1234"
+        "IPv6 loopback compressed"    | "::1"
+        "IPv6 loopback full"          | "0:0:0:0:0:0:0:1"
+        "IPv6 full"                   | "2001:db8::1"
+        "IPv6 brackets with port"     | "[2001:db8::1]:443"
+    }
+
+    def "canonicalizeClientIp treats IPv6 loopback forms as equal"() {
+        expect:
+        WebUtilities.canonicalizeClientIp("::1") == WebUtilities.canonicalizeClientIp("0:0:0:0:0:0:0:1")
+        WebUtilities.ipMatches("::1", "0:0:0:0:0:0:0:1")
+        WebUtilities.ipMatches("127.0.0.1", "127.0.0.1")
+        WebUtilities.ipMatches("10.99.99.99", "8.8.8.8") == false
+        WebUtilities.ipMatches("10.0.0.*", "10.0.0.9")
+        WebUtilities.ipMatches("::1", "8.8.8.8") == false
     }
 
     def "simplifyRequestParameters bodyOnly drops query-string keys"() {

@@ -261,6 +261,88 @@ class SecurityIntegrityTests extends Specification {
         conn.isRoot(conn.getLocation(conn.hash("root")))
     }
 
+    def "ElFinder dbresource roots stay writable in production"() {
+        given:
+        String oldPurpose = System.getProperty("instance_purpose")
+        System.setProperty("instance_purpose", "production")
+        def conn = new org.moqui.impl.util.ElFinderConnector(ec, "dbresource://mantle/content", "v0_")
+        expect:
+        !conn.writesRestricted()
+        cleanup:
+        if (oldPurpose != null) System.setProperty("instance_purpose", oldPurpose)
+        else System.clearProperty("instance_purpose")
+    }
+
+    def "ElFinder write commands are refused on component roots in production"() {
+        given:
+        String oldPurpose = System.getProperty("instance_purpose")
+        System.setProperty("instance_purpose", "production")
+        def conn = new org.moqui.impl.util.ElFinderConnector(ec, "component://webroot", "v0_")
+        when:
+        ec.context.cmd = "put"
+        ec.context.target = conn.hash("screen/webroot/sec_elfinder_probe.xml")
+        ec.context.otherParameters = [content: "<screen/>"]
+        conn.runCommand()
+        then:
+        conn.writesRestricted()
+        ec.context.responseMap?.error
+        cleanup:
+        if (oldPurpose != null) System.setProperty("instance_purpose", oldPurpose)
+        else System.clearProperty("instance_purpose")
+        ec.context.remove("cmd")
+        ec.context.remove("target")
+        ec.context.remove("otherParameters")
+        ec.context.remove("responseMap")
+    }
+
+    def "ElFinder write commands are refused on file roots in production"() {
+        given:
+        String oldPurpose = System.getProperty("instance_purpose")
+        System.setProperty("instance_purpose", "production")
+        def conn = new org.moqui.impl.util.ElFinderConnector(ec, "file:runtime", "v0_")
+        when:
+        ec.context.cmd = "mkdir"
+        ec.context.target = conn.hash("root")
+        ec.context.otherParameters = [name: "sec_elfinder_probe_dir"]
+        conn.runCommand()
+        then:
+        conn.writesRestricted()
+        ec.context.responseMap?.error
+        cleanup:
+        if (oldPurpose != null) System.setProperty("instance_purpose", oldPurpose)
+        else System.clearProperty("instance_purpose")
+        ec.context.remove("cmd")
+        ec.context.remove("target")
+        ec.context.remove("otherParameters")
+        ec.context.remove("responseMap")
+    }
+
+    def "ElFinder mkdir name parent segment is rejected"() {
+        expect:
+        org.moqui.impl.util.ElFinderConnector.safeEntryName("..") == null
+        org.moqui.impl.util.ElFinderConnector.safeEntryName(".") == null
+        org.moqui.impl.util.ElFinderConnector.safeEntryName("../secret") == "secret"
+        org.moqui.impl.util.ElFinderConnector.safeEntryName("foo/bar") == "bar"
+        org.moqui.impl.util.ElFinderConnector.safeEntryName("ok-name.txt") == "ok-name.txt"
+        org.moqui.impl.util.ElFinderConnector.safeEntryName("path\\to\\file.txt") == "file.txt"
+    }
+
+    def "ElFinder rm removes a directory under a writable root"() {
+        given:
+        File tmp = new File(System.getProperty("java.io.tmpdir"), "elfinder-rm-" + System.currentTimeMillis())
+        tmp.mkdirs()
+        File sub = new File(tmp, "subdir")
+        sub.mkdirs()
+        new File(sub, "a.txt").text = "x"
+        def conn = new org.moqui.impl.util.ElFinderConnector(ec, "file:" + tmp.getAbsolutePath(), "v0_")
+        when:
+        conn.delete(conn.joinUnderRoot("subdir"))
+        then:
+        !sub.exists()
+        cleanup:
+        tmp.deleteDir()
+    }
+
     def "create UserAccount extra currentPassword is not stored plaintext"() {
         given:
         String uname = "sec.mass." + System.currentTimeMillis()

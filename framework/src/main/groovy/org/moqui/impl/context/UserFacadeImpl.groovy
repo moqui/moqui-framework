@@ -30,6 +30,7 @@ import org.apache.shiro.authc.AuthenticationException
 import org.apache.shiro.authc.UsernamePasswordToken
 import org.apache.shiro.subject.Subject
 import org.apache.shiro.subject.support.DefaultSubjectContext
+import org.apache.shiro.util.ThreadContext
 import org.apache.shiro.web.subject.WebSubjectContext
 import org.apache.shiro.web.subject.support.DefaultWebSubjectContext
 import org.apache.shiro.web.session.HttpServletSession
@@ -264,7 +265,16 @@ class UserFacadeImpl implements UserFacade {
             }
         }
     }
+    /** Drop inherited UserFacade state without Shiro logout (logout would invalidate a still-valid HTTP session). */
+    void resetToAnonymous() {
+        userInfoStack.clear()
+        currentInfo = new UserInfo(this, null)
+        userInfoStack.addFirst(currentInfo)
+        try { ThreadContext.unbindSubject() } catch (Throwable ignored) { }
+    }
+
     void initFromHandshakeRequest(HandshakeRequest request) {
+        resetToAnonymous()
         try {
             this.session = (HttpSession) request.getHttpSession()
         } catch (Throwable t) {
@@ -309,6 +319,7 @@ class UserFacadeImpl implements UserFacade {
         // Callers should send those as headers or rely on the existing HTTP session cookie.
     }
     void initFromHttpSession(HttpSession session) {
+        resetToAnonymous()
         this.session = session
         Subject webSubject = makeEmptySubject()
         if (webSubject.isAuthenticated()) {
@@ -997,21 +1008,7 @@ class UserFacadeImpl implements UserFacade {
         }
 
         if (clientIp != null) {
-            // some headers, like CloudFront-Viewer-Address, contain a port as well so remove that
-            int cipColonIdx = clientIp.lastIndexOf(':')
-            if (cipColonIdx >= 0) {
-                // for IPv6 addresses with square braces, only strip before colon if colon after closing square brace
-                int closeSqBrIdx = clientIp.indexOf(']')
-                if (closeSqBrIdx == -1 || closeSqBrIdx < cipColonIdx)
-                    clientIp = clientIp.substring(cipColonIdx + 1)
-            }
-
-            // strip IPv6 square braces if present
-            if (clientIp != null && !clientIp.isEmpty()) {
-                if (clientIp.charAt(0) == (char) '[') clientIp = clientIp.substring(1)
-                if (clientIp.charAt(clientIp.length() - 1) == (char) ']')
-                    clientIp = clientIp.substring(0, clientIp.length() - 1)
-            }
+            clientIp = WebUtilities.canonicalizeClientIp(clientIp)
         }
 
         return clientIp

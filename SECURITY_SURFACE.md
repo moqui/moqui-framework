@@ -48,7 +48,7 @@ Seed (runtime `ToolsSecurityData.xml`, framework `SecurityTypeData.xml`): `ADMIN
 - Uploads: Commons FileUpload to `runtime/tmp`; `upload-executable-allow` defaults false (`WebUtilities.isExecutable`).
 - CORS: `handle-cors` defaults true; `Access-Control-Allow-Credentials` is true; `Access-Control-Allow-Origin` is set if the request `Origin` is in `webapp.@allow-origins` (empty by default) or `allow-origins` contains `*`, and always for same-origin requests; other origins get 401.
 - Default response headers: CSP `frame-ancestors 'none'; form-action 'self';`, `X-Frame-Options` sameorigin, `X-Content-Type-Options` nosniff, `X-XSS-Protection`, HSTS on `screen-secure`. See `MoquiDefaultConf.xml`.
-- Client IP: set `webapp_client_ip_header` for the outer proxy (`X-Real-IP`, `CF-Connecting-IP`, …). Embedded Jetty always applies `ForwardedRequestCustomizer` (Forwarded / X-Forwarded-For). Clients can spoof those headers if the outer proxy appends instead of overwriting. Used by `/status`, visit tracking, and related logic.
+- Client IP: set `webapp_client_ip_header` for the outer proxy (`X-Real-IP`, `CF-Connecting-IP`, …). Embedded Jetty applies `ForwardedRequestCustomizer` for `X-Forwarded-Proto` / `X-Proxied-Https` so it knows a proxied request was HTTPS; it does not take the client address from `X-Forwarded-For` or `Forwarded`. Used by `/status`, visit tracking, `ipAllowed`, and related logic.
 - ResourceFacade `http`/`https` (and other) schemes: outbound fetch from *authorized* server-side code. SSRF-class if a screen or service takes a location URL from the client (Data Import `location=`, ElFinder, `sendResourceResponse`).
 - Screen JSON (`Accept: application/json` or `.json`): `currentParameters` / `screenParameters` omit password and other credential field names (`password`, `oldPassword`, `newPassword`, `authPassword`, `api_key`, `login_key`, …).
 
@@ -94,7 +94,7 @@ Root screen: `component://webroot/screen/webroot.xml`, `require-authentication="
 | `/` → `/qapps` | `qapps` / `vapps` pre-actions redirect to `/Login` if no user | Three shells: `/qapps` (Quasar, default), `/vapps`, `/apps` (server-rendered). `/apps` does **not** redirect in pre-actions; sub-screens default to requiring auth. |
 | `/Login` | none | login (`require-session-token="false"`), logout, reset/change password, MFA `sendOtp`, `createInitialAdminAccount` (only if there is no real `UserAccount` besides `_NA_`). Session pre-auth: `moquiPreAuthcUsername`, `moquiAuthcFactorRequired`. JSON responses omit credential fields from `currentParameters`. |
 | `/ChangePassword`, `/SecondFactor` | none / `anonymous-all` | Password-change and MFA; pre-auth session state. |
-| `/status` | client IP in `webapp_status_ips` (plus `127.0.0.1` and IPv6 loopback) | JSON process stats from `getStatusMap()`. Sensitive fields (version, OS, datasources) are always omitted here (`includeSensitive` is not exposed via this transition). Review: IP spoofing via forwarded headers. |
+| `/status` | client IP in `webapp_status_ips` (plus `127.0.0.1` and IPv6 loopback) | JSON process stats from `getStatusMap()`. Sensitive fields (version, OS, datasources) are always omitted here (`includeSensitive` is not exposed via this transition). |
 | `/menuData` | login required (401 if no user) | Menu JSON for the SPA shells; follows the target screen path. |
 | `/email/{emailMessageId}` | **none** | 1×1 PNG tracking pixel; `disableAuthz` update of `EmailMessage` to `ES_VIEWED`. Unauthenticated state change given a message id (dot suffix stripped). |
 | `/robots.txt`, `/favicon.ico` | none | robots.txt disallows `/apps`, `/vapps`, `/qapps`, `/rest`, `/rpc`, `/status`, `/menuData`. |
@@ -128,7 +128,7 @@ Default seed: `ADMIN` inherit-all on the app root. Extra `UserPermission` gates 
 | Screen | Why it matters |
 | --- | --- |
 | Security (users, groups, artifact groups/authz, MFA factors) | Identity and authz administration |
-| Resource / ElFinder | ResourceFacade file manager (browse/upload under a resource root; default `dbresource://mantle/content` preference) |
+| Resource / ElFinder | ResourceFacade file manager (browse/upload under a resource root; default `dbresource://mantle/content` preference). `component://` and `file:` roots are browsable; write commands on those roots are refused when `instance_purpose` is production. |
 | Service Jobs | Enable, run, and inspect scheduled jobs |
 | System Messages | Queue/send/receive/consume; paired with `/rest/sm` |
 | Entity Sync | Replication; paired with allow-remote put/get |

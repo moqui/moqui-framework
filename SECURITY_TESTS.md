@@ -55,7 +55,7 @@ The two runners cannot share the database at the same time (Moqui locks `btm2.tl
 | Other POST without CSRF token rejected; with token is not a CSRF error | A01 | `SecurityAccessControlTests` | `test_a07_authn.py` |
 | HTTP `api_key` in query string does not log in (header/body is the intended API; minting transition removed) | A07 | `SecurityHandshakeTests` (WS query-string api_key) | `test_a07_authn.py` |
 | WebSocket handshake: `api_key` header logs in; query `api_key` / `authUsername` do not | A07 | `SecurityHandshakeTests` | N/A |
-| Anonymous has no `GROOVY_SHELL_WEB`; `/notws` ignores `userId == null` | A01 | `SecurityHandshakeTests` | `test_a01_more.py` (HTTP GET is not a handshake) |
+| Anonymous has no `GROOVY_SHELL_WEB`; `/notws` ignores `userId == null` | A01 | `SecurityHandshakeTests` | `test_a01_more.py` (HTTP GET); `test_a01_ws.py` (live upgrade) |
 | `loginUserKey` round-trip (hashed at rest) | A07 | `SecurityAuthnTests`, `SecurityCryptoTests` | N/A |
 | Login issues a new session id (no fixation) | A07 | N/A | `test_a07_authn.py` |
 | `send#ExternalAuthcCode` without pre-auth rejected | A07 | `SecurityAuthnTests` | `test_a07_more.py` (`sendOtp`; the `verifyOtp` case is stopped by CSRF before the pre-auth gate, see Proof strength notes) |
@@ -75,7 +75,7 @@ The two runners cannot share the database at the same time (Moqui locks `btm2.tl
 | `/fop` without login is not a PDF | A01 | N/A | `test_a01_more.py` |
 | `/email` unknown id returns PNG; known id is an unauthenticated `ES_VIEWED` update (designed) | A01 | `SecurityIntegrityTests` (`markEmailMessageViewed`) | `test_a01_more.py` (unknown id PNG) |
 | SqlRunner does not execute `sql` from the query string (`secureRequestParameters` / body only) | A05 | `SecurityMisconfigTests` (`simplifyRequestParameters`) | `test_a01_more.py` (ADMIN_ADV / demo user) |
-| `getClientIp` ignores `X-Forwarded-For` when `webapp_client_ip_header` is empty | A01 | `SecurityMisconfigTests` | `/status` omits sensitive keys in `test_a01_more.py` |
+| `getClientIp` ignores `X-Forwarded-For` when `webapp_client_ip_header` is empty | A01 | `SecurityMisconfigTests` | `/status` with `X-Forwarded-For` / `Forwarded` still returns JSON from loopback in `test_a01_more.py` |
 | `/rest/sm` HMAC: missing/bad signature and stale timestamp are 403; valid HMAC needs no session | A01 | fixtures in `SecurityTestSupport` | `test_api_rest.py` |
 | `/status` JSON omits sensitive keys (`datasources`, `VmVendor`); allow-list is loopback | A01 | N/A | `test_a01_more.py` |
 | Login form posts to Login/login (Host URL gen is operator `webapp_http_host`) | A01 | N/A | `test_a01_more.py` |
@@ -109,7 +109,10 @@ The two runners cannot share the database at the same time (Moqui locks `btm2.tl
 | `allow-html="any"` skips HTML validation; `none` rejects and `safe` accepts the same value (positive companions) | A05 | `SecurityInjectionTests` | N/A |
 | ElFinder `joinUnderRoot` keeps traversal, backslash, and scheme-like segments under the root | A01 | `SecurityIntegrityTests` | N/A |
 | ElFinder `joinUnderRoot` allows a normal nested path; hash round-trips (positive companions) | A01 | `SecurityIntegrityTests` | N/A |
-| `getClientIp` address shapes (IPv4, IPv6 loopback literal, IPv6 full) | A01 | `SecurityMisconfigTests` | N/A |
+| `getClientIp` address shapes (IPv4, IPv4:port, IPv6 loopback, IPv6 full, `[IPv6]:port`) | A01 | `SecurityMisconfigTests` | N/A |
+| Handshake with no credentials / wrong Basic / garbage `api_key` does not keep a previous user | A01 | `SecurityHandshakeTests` | `test_a01_ws.py` anonymous `/groovysh` after an admin session |
+| `ipAllowed` matches IPv4 and IPv6; a non-matching client is rejected | A07 | `SecurityAuthnTests` | `test_a07_more.py` (`sec.ip.v4`, `sec.ip.loop`) |
+| ElFinder write commands on `component://` / `file:` roots in production; entry names; directory `rm` | A01 | `SecurityIntegrityTests` | `test_a01_more.py` (component webroot `put`) |
 | `upload-executable-allow` default read from the default-property, not the unexpanded conf attribute | A02 | `SecurityMisconfigTests` | N/A |
 | Component zip with contained entries expands (positive control for the zip-slip rows) | A08 | `SecurityIntegrityTests` | N/A |
 | `MNode` parse of a stream / file and external DTD subset does not expand external entities | A05 | `SecurityIntegrityTests` | N/A |
@@ -141,7 +144,7 @@ These rows record a default that is deliberately permissive. They are not proofs
 - Rows with `SecurityMisconfigTests` / `SecurityCryptoTests` are **config-flag or unit proofs**: they parse `MoquiDefaultConf.xml`, `web.xml`, or call a utility. They prove the default is what is claimed, not that runtime enforcement can't be overridden. Where a behavior proof exists it is in the Python column.
 - Spock screen proofs use in-process `ScreenTest`/`WebFacadeStub`, not the servlet filter chain. Entity REST (`/rest/e1`), servlet filters (`MoquiAuthFilter`), and WebSocket upgrades are HTTP-only in the Python column.
 - `SecurityErrorTests` pass `showErrorDetail` as a **screen parameter**; the servlet-level gate (non-production and logged-in) is not exercised end-to-end.
-- The `/status` XFF test connects from loopback, so it can only prove sensitive keys stay omitted, not that a non-allow-listed IP is rejected.
+- The `/status` tests connect from loopback, so they prove forwarded headers do not hide the JSON (and sensitive keys stay omitted), not that a non-allow-listed TCP source is rejected.
 - The `/notws` `userId == null` Spock test asserts the endpoint is not stored and has a positive control, but topic/ACL semantics are still untested: any connected user can `subscribe:` to any topic name (delivery is still gated by `NotificationMessage.getNotifyUserIds()`), and the set is unbounded.
 - Positive controls (token actually runs the transition, same-origin CORS allowed, re-enable window, zip expands, notification endpoint registered, XXE document still parses) are the companion assertions to the negative rows above. A negative row without one would still pass if the feature simply stopped working.
 - HSTS is a `screen-secure` conf header; `ScreenRenderImpl` adds it only when `request.isSecure()`. There is no HTTP proof on the ProductionConf HTTP listener.
@@ -159,8 +162,6 @@ Still open; not public failing PoCs:
   `receive#IncomingSystemMessage` still requires a user, so an anonymous POST is not accepted. `test_api_rest.py`
   pins not-200 plus an auth-failure signal (today the status is 500). `SECURITY_SURFACE.md:151` overstates the exposure.
 - **Authorized Data Import `location=`:** AUTHZA_ALL can pass a remote URL into `EntityDataLoader` (SSRF-class by design).
-- **Jetty `ForwardedRequestCustomizer`** can still rewrite `remoteAddr` from `X-Forwarded-For`. Moqui `getClientIp` ignores XFF unless `webapp_client_ip_header` is set. Operators must overwrite XFF at the proxy. See the TODO in `MoquiStart`.
-- **Live WebSocket upgrade** (`/groovysh`, `/notws`) without a session cookie. Handshake credential rules and the `userId == null` register-endpoint guard are covered in Spock; HTTP GET is not an upgrade.
 - **Positive HTTP `api_key` header** with a minted key. There is no minting transition; Spock covers `getLoginKey` / handshake header login.
 - **MFA positive flow** (sendOtp → verifyOtp → login with code); only the no-pre-auth rejection is covered.
 - **Tarpit velocity for services and transitions**; only conf flags plus the demo ALL_SCREENS 429 are covered.
@@ -169,7 +170,6 @@ Still open; not public failing PoCs:
 - **Upload end-to-end** (multipart to `runtime/tmp`, `upload-executable-allow`); only magic-byte detection is unit-tested. Note `WebUtilities.isExecutable` only inspects bytes 0-3, so a text-prefixed payload, a `#!` script, and a JAR/ZIP are not detected.
 - **WebSocket Origin / cross-site WebSocket hijacking** (no Origin allow-list test exists). `MoquiContextListener.checkOrigin` delegates to the container default and returns true.
 - **`api_key` / `login_key` in the request body** login path, and HTTP Basic on screens (REST-only today).
-- **`/status` IPv6 allow-list**: tracked privately. Spock pins current `getClientIp` address shapes.
 - **Password reset token lifecycle**: no public test yet. `reset#Password` needs a user with an `emailAddress`
   (the `sec.*` fixtures have none), which is why only the public-message rows are covered.
 - **`ArtifactAuthzFailure` rows for denied REST calls**: every `/rest/*` transition is `read-only="true"`

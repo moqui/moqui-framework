@@ -338,4 +338,47 @@ class SecurityAuthnTests extends Specification {
         SecurityTestSupport.resetLockAccount(ec)
     }
 
+    def "ipAllowed rejects a non-matching IPv4 client"() {
+        given:
+        def ufi = SecurityTestSupport.eci(ec).userFacade
+        ufi.clientIpInternal = "8.8.8.8"
+        when:
+        boolean ok = ec.user.loginUser(SecurityTestSupport.IP_V4_USERNAME, SecurityTestSupport.IP_V4_PASSWORD)
+        then:
+        !ok
+        cleanup:
+        ufi.clientIpInternal = null
+        SecurityTestSupport.logout(ec)
+        ec.message.clearAll()
+    }
+
+    def "ipAllowed accepts a matching IPv4 client"() {
+        given:
+        def ufi = SecurityTestSupport.eci(ec).userFacade
+        ufi.clientIpInternal = SecurityTestSupport.IP_V4_ALLOWED
+        when:
+        boolean ok = ec.user.loginUser(SecurityTestSupport.IP_V4_USERNAME, SecurityTestSupport.IP_V4_PASSWORD)
+        then:
+        ok
+        ec.user.username == SecurityTestSupport.IP_V4_USERNAME
+        cleanup:
+        ufi.clientIpInternal = null
+        SecurityTestSupport.logout(ec)
+        ec.message.clearAll()
+    }
+
+    def "ipAllowed rejects IPv6 when the allowed list is IPv4"() {
+        given:
+        def ufi = SecurityTestSupport.eci(ec).userFacade
+        ufi.clientIpInternal = "::1"
+        when:
+        boolean ok = ec.user.loginUser(SecurityTestSupport.IP_V4_USERNAME, SecurityTestSupport.IP_V4_PASSWORD)
+        then:
+        !ok
+        cleanup:
+        ufi.clientIpInternal = null
+        SecurityTestSupport.logout(ec)
+        ec.message.clearAll()
+    }
+
 }

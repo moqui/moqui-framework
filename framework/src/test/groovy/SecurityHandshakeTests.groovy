@@ -64,6 +64,54 @@ class SecurityHandshakeTests extends Specification {
         SecurityTestSupport.logout(ec)
     }
 
+    def "handshake with no credentials does not keep a previously logged-in user"() {
+        when:
+        SecurityTestSupport.login(ec, SecurityTestSupport.ALL_USERNAME, SecurityTestSupport.ALL_PASSWORD)
+        HandshakeRequest anon = Stub(HandshakeRequest) {
+            getHttpSession() >> { throw new RuntimeException("no session") }
+            getHeaders() >> [:]
+            getParameterMap() >> [:]
+        }
+        SecurityTestSupport.eci(ec).userFacade.initFromHandshakeRequest(anon)
+        then:
+        ec.user.username == null
+        cleanup:
+        SecurityTestSupport.logout(ec)
+    }
+
+    def "handshake with wrong Basic does not keep a previously logged-in user"() {
+        when:
+        SecurityTestSupport.login(ec, SecurityTestSupport.ALL_USERNAME, SecurityTestSupport.ALL_PASSWORD)
+        String basic = "Basic " + "wrong:pass".bytes.encodeBase64().toString()
+        HandshakeRequest req = Stub(HandshakeRequest) {
+            getHttpSession() >> { throw new RuntimeException("no session") }
+            getHeaders() >> [Authorization: [basic]]
+            getParameterMap() >> [:]
+        }
+        SecurityTestSupport.eci(ec).userFacade.initFromHandshakeRequest(req)
+        then:
+        ec.user.username == null
+        cleanup:
+        SecurityTestSupport.logout(ec)
+        ec.message.clearAll()
+    }
+
+    def "handshake with garbage api_key does not keep a previously logged-in user"() {
+        when:
+        SecurityTestSupport.login(ec, SecurityTestSupport.ALL_USERNAME, SecurityTestSupport.ALL_PASSWORD)
+        HandshakeRequest req = Stub(HandshakeRequest) {
+            getHttpSession() >> { throw new RuntimeException("no session") }
+            getHeaders() >> [api_key: ["not-a-real-login-key"]]
+            getParameterMap() >> [:]
+        }
+        SecurityTestSupport.eci(ec).userFacade.initFromHandshakeRequest(req)
+        then:
+        ec.user.username == null
+        cleanup:
+        SecurityTestSupport.logout(ec)
+        ec.message.clearAll()
+    }
+
     def "anonymous user does not have GROOVY_SHELL_WEB"() {
         expect:
         !ec.user.userId

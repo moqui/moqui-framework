@@ -33,6 +33,31 @@ class ElFinderConnector {
         this.volumeId = volumeId
     }
 
+    /** In production, only dbresource:// (and content://) roots accept write commands; component and file roots stay browsable. */
+    boolean writesRestricted() {
+        if (!"production".equals(System.getProperty("instance_purpose"))) return false
+        if (resourceRoot == null) return true
+        if (resourceRoot.startsWith("dbresource://")) return false
+        if (resourceRoot.startsWith("content://")) return false
+        return true
+    }
+
+    boolean refuseWrites(Map responseMap) {
+        if (!writesRestricted()) return false
+        responseMap.clear()
+        responseMap.error = "Write not allowed for this resource root"
+        return true
+    }
+
+    static String safeEntryName(String name) {
+        if (!name) return null
+        String n = name.replace('\\', '/')
+        int slash = n.lastIndexOf('/')
+        if (slash >= 0) n = n.substring(slash + 1)
+        if (!n || n == "." || n == ".." || n.contains(":") || n.contains("/")) return null
+        return n
+    }
+
     String hash(String str) {
         String hashed = str.bytes.encodeBase64().toString()
         hashed = hashed.replace("=", "")
@@ -115,7 +140,7 @@ class ElFinderConnector {
         if (ref.supportsSize()) info.size = ref.getSize()
         info.dirs = hasChildDirectories(ref) ? 1 : 0
         info.read = 1
-        info.write = ref.supportsWrite() ? 1 : 0
+        info.write = (ref.supportsWrite() && !writesRestricted()) ? 1 : 0
         info.locked = 0
 
         return info
@@ -176,15 +201,20 @@ class ElFinderConnector {
     Map getOptions(String target) {
         Map options = [seperator:"/", path:getLocation(target)]
         // if we ever have a direct URL to get a file: options.url = "http://localhost/files/..."
-        options.disabled = [ 'tmb', 'size', 'dim', 'duplicate', 'paste', 'archive', 'extract', 'search', 'resize', 'netmount' ]
+        List disabled = [ 'tmb', 'size', 'dim', 'duplicate', 'paste', 'archive', 'extract', 'search', 'resize', 'netmount' ]
+        if (writesRestricted()) disabled.addAll(['rm', 'rename', 'mkdir', 'mkfile', 'upload', 'edit'])
+        options.disabled = disabled
         return options
     }
 
     List delete(String location) {
         List<String> deleted = []
         ResourceReference ref = ec.resource.getLocationReference(location)
-        if (!ref.isDirectory()) if (ref.delete()) deleted.add(hash(getPathRelativeToRoot(location)))
-        else deleted.addAll(deleteDir(ref))
+        if (ref.isDirectory()) {
+            deleted.addAll(deleteDir(ref))
+        } else if (ref.delete()) {
+            deleted.add(hash(getPathRelativeToRoot(location)))
+        }
         return deleted
     }
 
@@ -250,7 +280,8 @@ class ElFinderConnector {
             for (ResourceReference child in curDir.getDirectoryEntries()) fileList.add(child.getFileName())
             responseMap.list = fileList
         } else if (cmd == "mkdir") {
-            String name = otherParameters.name
+            if (refuseWrites(responseMap)) return
+            String name = safeEntryName(otherParameters.name as String)
             if (!target) { responseMap.clear(); responseMap.error = "errOpen"; return }
             if (!name) { responseMap.clear(); responseMap.error = "No name specified for new directory"; return }
             String curLocation = getLocation(target)
@@ -259,7 +290,8 @@ class ElFinderConnector {
             ResourceReference newRef  = curDir.makeDirectory(name)
             responseMap.added = [getResourceInfo(newRef)]
         } else if (cmd == "mkfile") {
-            String name = otherParameters.name
+            if (refuseWrites(responseMap)) return
+            String name = safeEntryName(otherParameters.name as String)
             if (!target) { responseMap.clear(); responseMap.error = "errOpen"; return }
             if (!name) { responseMap.clear(); responseMap.error = "No name specified for new file"; return }
             String curLocation = getLocation(target)
@@ -268,6 +300,7 @@ class ElFinderConnector {
             ResourceReference newRef  = curDir.makeFile(name)
             responseMap.added = [getResourceInfo(newRef)]
         } else if (cmd == "rm") {
+            if (refuseWrites(responseMap)) return
             Object targetsObj = otherParameters.targets
             if (!targetsObj) targetsObj = otherParameters.'targets[]'
             List<String> targets = targetsObj instanceof List ? targetsObj : [targetsObj as String]
@@ -279,7 +312,8 @@ class ElFinderConnector {
             }
             responseMap.removed = removed
         } else if (cmd == "rename") {
-            String name = otherParameters.name
+            if (refuseWrites(responseMap)) return
+            String name = safeEntryName(otherParameters.name as String)
             if (!target) { responseMap.clear(); responseMap.error = "errOpen"; return }
             if (!name) { responseMap.clear(); responseMap.error = "No name specified for new directory"; return }
 
@@ -292,13 +326,16 @@ class ElFinderConnector {
             responseMap.added = [getLocationInfo(newLocation)]
             responseMap.removed = [target]
         } else if (cmd == "upload") {
+            if (refuseWrites(responseMap)) return
             if (!target) { responseMap.clear(); responseMap.error = "errOpen"; return }
             String location = getLocation(target)
             // logger.info("ElFinder upload to ${location}, _fileUploadList: ${otherParameters._fileUploadList}")
             List<Map> added = []
             for (FileItem item in otherParameters._fileUploadList) {
-                logger.info("ElFinder upload ${item.getName()} to ${location}")
-                ResourceReference newRef = ec.resource.getLocationReference("${location}/${item.getName()}")
+                String uploadName = safeEntryName(item.getName())
+                if (!uploadName) continue
+                logger.info("ElFinder upload ${uploadName} to ${location}")
+                ResourceReference newRef = ec.resource.getLocationReference("${location}/${uploadName}")
                 newRef.putStream(item.getInputStream())
                 added.add(getResourceInfo(newRef))
             }
@@ -308,6 +345,7 @@ class ElFinderConnector {
             ResourceReference curRef = ec.resource.getLocationReference(location)
             responseMap.content = curRef.getText()
         } else if (cmd == "put") {
+            if (refuseWrites(responseMap)) return
             String content = otherParameters.content
             String location = getLocation(target)
             ResourceReference curRef = ec.resource.getLocationReference(location)

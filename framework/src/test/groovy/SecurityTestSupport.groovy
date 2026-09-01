@@ -59,6 +59,13 @@ class SecurityTestSupport {
     static final String ES_ALL_PASSWORD = "SecEsAll1!!"
     static final String ES_ALL_USER_ID = "SEC_ES_ALL"
     static final String ES_ALL_GROUP_ID = "SEC_ES_ALL_GROUP"
+    static final String IP_V4_USERNAME = "sec.ip.v4"
+    static final String IP_V4_PASSWORD = "SecIpV41!!"
+    static final String IP_V4_USER_ID = "SEC_IP_V4"
+    static final String IP_V4_ALLOWED = "10.99.99.99"
+    static final String IP_LOOP_USERNAME = "sec.ip.loop"
+    static final String IP_LOOP_PASSWORD = "SecIpLoop1!!"
+    static final String IP_LOOP_USER_ID = "SEC_IP_LOOP"
     static final String XSS_SCRIPT = "<script>alert(1)</script>"
     static final String SQLI_OR = "' OR '1'='1"
     static final String SMT_ID = "SEC_SMT_TEST"
@@ -129,6 +136,10 @@ class SecurityTestSupport {
             ensureUser(ec, API_ALL_USER_ID, API_ALL_USERNAME, API_ALL_PASSWORD, API_ALL_GROUP_ID)
             ensureUser(ec, ES_VIEW_USER_ID, ES_VIEW_USERNAME, ES_VIEW_PASSWORD, ES_VIEW_GROUP_ID)
             ensureUser(ec, ES_ALL_USER_ID, ES_ALL_USERNAME, ES_ALL_PASSWORD, ES_ALL_GROUP_ID)
+            String ipV4Id = ensureUser(ec, IP_V4_USER_ID, IP_V4_USERNAME, IP_V4_PASSWORD, NONE_GROUP_ID)
+            String ipLoopId = ensureUser(ec, IP_LOOP_USER_ID, IP_LOOP_USERNAME, IP_LOOP_PASSWORD, NONE_GROUP_ID)
+            ensureIpAllowed(ec, ipV4Id, IP_V4_ALLOWED)
+            ensureIpAllowed(ec, ipLoopId, "127.0.0.1")
             ensureSystemMessageTestRemotes(ec)
             ensureEmailPixel(ec)
             ensurePermission(ec, "REST_SCHEMA", "REST schema dumps")
@@ -308,6 +319,13 @@ class SecurityTestSupport {
         }
         if (username == LOCK_USERNAME) resetLockAccount(ec)
         return userId
+    }
+
+    static void ensureIpAllowed(ExecutionContext ec, String userId, String ipAllowed) {
+        if (!userId) return
+        ec.service.sync().name("update", "moqui.security.UserAccount")
+                .parameters([userId: userId, ipAllowed: ipAllowed])
+                .disableAuthz().requireNewTransaction(true).call()
     }
 
     /** UserAccount is in a DataFeed; updates must run in an active TX. Failed-login tests often leave none. */
