@@ -37,15 +37,16 @@ There is no `/rest/api_key` minting transition and no `/rest/moquiSessionToken` 
 
 Screens use `require-authentication`: `true` (default), `false`, `anonymous-view`, or `anonymous-all`. Artifact authz (`ArtifactAuthz` / `ArtifactGroup`) is checked as each screen, transition, service, REST path, and entity is pushed on the execution stack. **Inheritable** allow/always records authorize children on that stack (sub-screens, transitions, services, entities) unless a more specific DENY wins. Screen transitions use `authz-action` (`view` / `create` / `update` / `delete` / `all`): explicit, else from a transition-level `service-call`, else `view` if `read-only`, else `update` if the transition has actions, else `view`. A VIEW-only inheritable authz does **not** run mutating Tools/System transitions (cache clear, Service Run, instance start, and similar). A few tools also check `UserPermission` (`GROOVY_SHELL_WEB`, `SQL_RUNNER_WEB`, `SERVICE_LOAD_RUNNER`, `ADMIN_LOGIN_AS`, `ADMIN_PASSWORD`, `ElasticRemote`, `KibanaRemote`). Details: [Security — Artifact-Aware Authorization](https://www.moqui.org/m/docs/framework/Security).
 
-Seed (runtime `ToolsSecurityData.xml`, framework `SecurityTypeData.xml`): `ADMIN` has `AUTHZT_ALWAYS` + `AUTHZA_ALL` + `inheritAuthz=Y` on the Tools app root, System app root, and `/moqui` Service REST root (`MOQUI_API`). `ADMIN_ADV` has the extra permissions above. `ALL_USERS` can view Screen Tree / App List.
+Seed (runtime `ToolsSecurityData.xml`, framework `SecurityTypeData.xml`): `ADMIN` has `AUTHZT_ALWAYS` + `AUTHZA_ALL` + `inheritAuthz=Y` on the Tools app root, System app root, and `/moqui` Service REST root (`MOQUI_API`). `ADMIN_ADV` has the tool-gate permissions above (`GROOVY_SHELL_WEB`, `SQL_RUNNER_WEB`, `SERVICE_LOAD_RUNNER`, `ADMIN_LOGIN_AS`); `ADMIN` also has `ADMIN_PASSWORD`, `ElasticRemote`, and `KibanaRemote`. `ALL_USERS` can view Screen Tree / App List.
 
 ### Cross-cutting controls (assume unless a row says otherwise)
 
 - CSRF: non-GET screen transitions require the session token (`moquiSessionToken` / `X-CSRF-Token`) unless `require-session-token="false"`. `webapp_require_session_token` defaults true.
+- Login throttle: `user-facade.login` `max-failures="3"` disables the account for `disable-minutes="5"` after consecutive failures (re-enabled after that window); not a substitute for WAF-level throttling of the login endpoint.
 - Tarpit: screens, transitions, and services on; entities off. Per-user velocity, not a flood WAF. Demo data adds an example ALL_SCREENS tarpit (120 hits / 60s).
-- HTML: `parameter.@allow-html` is `none` by default; `safe` uses AntiSamy/ESAPI; `any` is unconstrained.
+- HTML: `parameter.@allow-html` is `none` by default; `safe` cleans with Jsoup (`Safelist.relaxed()`); `any` is unconstrained.
 - Uploads: Commons FileUpload to `runtime/tmp`; `upload-executable-allow` defaults false (`WebUtilities.isExecutable`).
-- CORS: `handle-cors` defaults true; `Access-Control-Allow-Credentials` is true; `Access-Control-Allow-Origin` is set only if the request `Origin` is in `webapp.@allow-origins` (empty by default).
+- CORS: `handle-cors` defaults true; `Access-Control-Allow-Credentials` is true; `Access-Control-Allow-Origin` is set if the request `Origin` is in `webapp.@allow-origins` (empty by default) or `allow-origins` contains `*`, and always for same-origin requests; other origins get 401.
 - Default response headers: CSP `frame-ancestors 'none'; form-action 'self';`, `X-Frame-Options` sameorigin, `X-Content-Type-Options` nosniff, `X-XSS-Protection`, HSTS on `screen-secure`. See `MoquiDefaultConf.xml`.
 - Client IP: set `webapp_client_ip_header` for the outer proxy (`X-Real-IP`, `CF-Connecting-IP`, …). Embedded Jetty always applies `ForwardedRequestCustomizer` (Forwarded / X-Forwarded-For). Clients can spoof those headers if the outer proxy appends instead of overwriting. Used by `/status`, visit tracking, and related logic.
 - ResourceFacade `http`/`https` (and other) schemes: outbound fetch from *authorized* server-side code. SSRF-class if a screen or service takes a location URL from the client (Data Import `location=`, ElFinder, `sendResourceResponse`).
@@ -54,7 +55,7 @@ Seed (runtime `ToolsSecurityData.xml`, framework `SecurityTypeData.xml`): `ADMIN
 
 - **Embedded Jetty** via `MoquiStart`: default listen **8080**, max threads 100 (`port=`, `threads=`). Session store under `runtime/sessions`.
 - **External servlet container**: `framework/src/main/webapp/WEB-INF/web.xml`, context-param `moqui-name=webroot`.
-- Session cookie: http-only, SameSite Lax (`web.xml` `cookie-config`), timeout 60 minutes (`session-config` / `webapp.session-config.@timeout`).
+- Session cookie: http-only, SameSite Lax (`web.xml` `cookie-config`), timeout 60 minutes (`session-config` / `webapp.session-config.@timeout`). `Secure` is not set by default; set it on the container or rely on TLS at the edge (same as everything else here).
 - Catch-all: any path not claimed by a more specific servlet is a **screen path** under the root screen (`MoquiServlet` `/*`).
 
 ## Servlets, filters, WebSocket endpoints
@@ -63,7 +64,7 @@ Configured on `webapp-list.webapp` in `framework/src/main/resources/MoquiDefault
 
 | Surface | Path | Default | Authn | Authz | Considerations |
 | --- | --- | --- | --- | --- | --- |
-| `MoquiServlet` | `/*` | on | per screen | per screen / transition, inheritable | Main renderer. Hierarchical XML screens + transitions. Also serves **file resources** under a screen directory (js/css/images). Bulk of the HTTP surface. |
+| `MoquiServlet` | `/*` | on | per screen | per screen / transition, inheritable | Main renderer. Hierarchical XML screens + transitions. Also serves **file resources** under a screen directory (js/css/images). Bulk of the HTTP surface. Note: any screen the user can view can usually also be requested with a render-mode extension (`.csv`, `.text`, `.xml`, `.xsl-fo`, and the Vue/Quasar template modes) — the same authz applies, but data dumps of authorized screens are easy to forget in a review. |
 | `MoquiFopServlet` | `/fop/*` | on | same as target screen | same screen authz | Renders the remaining path as XSL-FO then PDF (`ResourceFacade.xslFoTransform`). FO transform runs with authz disabled after the screen render. FOP *engine* component is out of scope. |
 | ElasticSearch / OpenSearch proxy | `/elastic/*` | on (proxy) | logged in | `UserPermission` `ElasticRemote` (`ADMIN` in seed) | Jetty `ProxyServlet$Transparent` to `elasticsearch_url` (default `http://127.0.0.1:9200`). This is the **full cluster HTTP API** if the permission is granted. Keep OS/ES on a private network regardless. |
 | Kibana proxy | `/kibana/*` | on (proxy) | logged in | `KibanaRemote` (`ADMIN` in seed) | Same pattern to `kibana_host:kibana_port`. Backing Kibana process is out of scope. |
@@ -78,10 +79,12 @@ Override an endpoint in runtime/component conf by merging `webapp.endpoint` on `
 
 Root screen: `component://webroot/screen/webroot.xml`, `require-authentication="false"` so Login and public transitions can exist; **children decide**. Default subscreen is `qapps`.
 
-`MoquiConf.xml` in the tools component mounts:
+`MoquiConf.xml` in the tools component mounts on the `apps` screen:
 
-- `apps` / `qapps` / `vapps` **system** → `component://tools/screen/System.xml`
+- **system** → `component://tools/screen/System.xml`
 - **tools** → `component://tools/screen/Tools.xml`
+
+`qapps` and `vapps` are thin SPA shell screens with no subscreens of their own; the Quasar/Vuet shells build menu and link paths in the screen-tree context of the `apps` tree.
 
 ### Public and weakly authenticated root paths
 
@@ -90,8 +93,8 @@ Root screen: `component://webroot/screen/webroot.xml`, `require-authentication="
 | `/` → `/qapps` | `qapps` / `vapps` pre-actions redirect to `/Login` if no user | Three shells: `/qapps` (Quasar, default), `/vapps`, `/apps` (server-rendered). `/apps` does **not** redirect in pre-actions; sub-screens default to requiring auth. |
 | `/Login` | none | login (`require-session-token="false"`), logout, reset/change password, MFA `sendOtp`, `createInitialAdminAccount` (only if there is no real `UserAccount` besides `_NA_`). Session pre-auth: `moquiPreAuthcUsername`, `moquiAuthcFactorRequired`. |
 | `/ChangePassword`, `/SecondFactor` | none / `anonymous-all` | Password-change and MFA; pre-auth session state. |
-| `/status` | client IP in `webapp_status_ips` (plus `127.0.0.1` and IPv6 loopback) | JSON process stats from `getStatusMap()`. Sensitive fields (version, OS, datasources) omitted unless `includeSensitive`. Review: IP spoofing via forwarded headers. |
-| `/menuData` | follows the target screen path | Menu JSON for the SPA shells. |
+| `/status` | client IP in `webapp_status_ips` (plus `127.0.0.1` and IPv6 loopback) | JSON process stats from `getStatusMap()`. Sensitive fields (version, OS, datasources) are always omitted here (`includeSensitive` is not exposed via this transition). Review: IP spoofing via forwarded headers. |
+| `/menuData` | login required (401 if no user) | Menu JSON for the SPA shells; follows the target screen path. |
 | `/email/{emailMessageId}` | **none** | 1×1 PNG tracking pixel; `disableAuthz` update of `EmailMessage` to `ES_VIEWED`. Unauthenticated state change given a message id (dot suffix stripped). |
 | `/robots.txt`, `/favicon.ico` | none | robots.txt disallows `/apps`, `/vapps`, `/qapps`, `/rest`, `/rpc`, `/status`, `/menuData`. |
 | `/error/*` | none | Unauthorized, Forbidden, NotFound, TooMany, InternalError. |
@@ -116,7 +119,7 @@ Default seed: `ADMIN` inherit-all on the app root. Extra `UserPermission` gates 
 | Entity Data Export, Data Snapshot | inherit-all | Bulk read / dump of entity data |
 | Auto Screen, Data Edit, Data View | inherit-all | Generic entity CRUD UI |
 | Service Run | inherit-all | Call any authorized service by name |
-| Service Load Runner | `SERVICE_LOAD_RUNNER` | Load generator against services |
+| Service Load Runner | `SERVICE_LOAD_RUNNER` + AUTHZA_ALL | Load generator against services |
 | Artifact Stats, Speed Test | inherit-all | Stats / load; Speed Test is disabled on demo.moqui.org |
 
 **System** (`/qapps/system`, …):
@@ -147,7 +150,7 @@ Default seed: `ADMIN` inherit-all on the app root. Extra `UserPermission` gates 
 | `/rest/s1/{root}/...` | Declared Service REST (`*.rest.xml`) | per resource (`authenticate` on the resource/method) | `AT_REST_PATH`; seed `MOQUI_API` `/moqui` inherit-all for `ADMIN` | Runtime root **moqui**: artifacts, dataDocuments, basic geo/enum/status/uom, email, print, entity sync, systemMessages, users, wiki. Other components add roots. |
 | `/rest/sm/{type}/{remote}/{id?}` | Inbound SystemMessage | `require-session-token="false"`; see auth enum | login + service authz, **or** HMAC then `loginAnonymousIfNoUser`, **or** `SmatNone` (no auth) | Path: `systemMessageTypeId` / `systemMessageRemoteId` / optional `remoteMessageId`. Body is the message. `SmatHmacSha256`: header HMAC-SHA256 of body, Base64. `SmatHmacSha256Timestamp`: Stripe-style `t=` / `v1=`, hex HMAC of `timestamp.body`, **5 minute** window + 10s skew. `SmatNone` is an explicit no-auth remote. Only configured remotes. |
 | `/rest/entity.json` `.raml` `.swagger`, `master.*`, `service.swagger` `.raml` | Schema dumps | required | same general REST authz | Model and API shape to whoever can authenticate and is authorized for those handlers. |
-| `/rpc/json` | JSON-RPC 2.0 | via service parameters / request init | **only services with `allow-remote="true"`**, then service authz | Named params. XML-RPC is gone. Adding `allow-remote` is an exposure decision. |
+| `/rpc/json` | JSON-RPC 2.0 | via service parameters / request init | **only services with `allow-remote="true"`**, then service authz | Named params; JSON-RPC batches (array body) run each call through the same allow-remote + authz checks. XML-RPC is gone. Adding `allow-remote` is an exposure decision. |
 
 Framework services with `allow-remote="true"` (not a complete ecosystem list): `org.moqui.impl.BasicServices` find/get helpers (geo, status, enumeration), `UserServices.set#Preference`, `update#Password`, `reset#Password`, `EntitySyncServices.put#EntitySyncData` and `get#EntitySyncData`, `SystemMessageServices.receive#IncomingSystemMessage`.
 
@@ -164,7 +167,7 @@ Framework services with `allow-remote="true"` (not a complete ecosystem list): `
 | **Outbound SMTP** | if `EmailServer` configured | client | — | `allowedToDomains` on `EmailServer`. Body from email screens/templates. |
 | **OpenSearch / Elasticsearch** | client `http://127.0.0.1:9200`; `MoquiStart` may launch `runtime/opensearch` | cluster HTTP | keep private; `/elastic` is the Moqui-side HTTP exposure |
 | **JDBC** | configured datasource | — | never on a public interface |
-| **Scheduled jobs** | check every `scheduled_job_check_time` seconds (default 60; `0` disables) | internal | service authz as the job user | Seed jobs: some cleanup **running**; EntitySync all, SystemMessage send/consume, poll email, search delete **paused**. Jobs can call powerful services. |
+| **Scheduled jobs** | check every `scheduled_job_check_time` seconds (default 60; `0` disables) | internal | service authz as the job user | Seed jobs: cleanup and `render#ScheduledScreens` **running**; EntitySync all, SystemMessage send/consume, poll email, search delete **paused**. Jobs can call powerful services. |
 | **EntitySync** put/get | `allow-remote="true"` | JSON-RPC and `/rest/s1/moqui/entity/syncs/data/*` | `EntitySyncServices` group: `ADMIN` in seed | Replication ingest is a write surface. |
 | **Worker thread pool** | on | internal | — | Not a network listener. |
 
