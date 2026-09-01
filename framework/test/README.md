@@ -24,11 +24,14 @@ MOQUI_TEST_USERNAME=john.doe MOQUI_TEST_PASSWORD=moqui ./pytest.sh
 | File | OWASP |
 | --- | --- |
 | `test_a01_access.py` | A01 unauthenticated Tools/REST, removed transitions |
+| `test_a01_more.py` | A01 FOP, /status, /email, echopath, path `..`, VIEW-only, elastic/kibana, groovysh, Data Import, `/htmlr`, `/rest/sm`, WEB-INF, `/apps` helpers |
 | `test_a01_redirect.py` | A01 Login `returnTo` / Referer open redirect |
 | `test_a02_headers.py` | A02 CSP, cookies, CORS (unknown Origin is 401), no H2 console |
+| `test_a05_injection.py` | A05 allow-html none, SQL-looking stored as data |
 | `test_a07_authn.py` | A07 REST login without CSRF, POST CSRF, api_key query string |
-| `test_a07_more.py` | A07 OTP without pre-auth, initial admin HTTP |
+| `test_a07_more.py` | A07 OTP, initial admin, short password, lockout, password reset, login enumeration |
 | `test_a10_errors.py` | A10 anonymous error JSON/HTML |
 | `test_api_rest.py` | REST/RPC allow-remote, removed userInfo, entity REST |
+| `test_z_tarpit.py` | A01 screen tarpit 429 (runs last; demo ALL_SCREENS) |
 
 See [SECURITY_TESTS.md](../../SECURITY_TESTS.md) for the catalog. In-process proofs are Spock under `framework/src/test/groovy/Security*.groovy`.

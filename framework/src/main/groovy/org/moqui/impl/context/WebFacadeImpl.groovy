@@ -857,6 +857,10 @@ class WebFacadeImpl implements WebFacade {
     }
 
     void sendQzSignedResponse(String message) {
+        if (!eci.userFacade.userId) {
+            sendError(HttpServletResponse.SC_UNAUTHORIZED, "Authentication required", null)
+            return
+        }
         try {
             String signature = qzSigner.sign(message)
             response.setContentType("text/plain")

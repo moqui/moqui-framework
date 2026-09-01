@@ -23,6 +23,7 @@ import jakarta.servlet.ServletContext
 import jakarta.servlet.ServletContextEvent
 import jakarta.servlet.ServletContextListener
 import jakarta.servlet.ServletRegistration
+import jakarta.servlet.SessionCookieConfig
 
 import jakarta.websocket.HandshakeResponse
 import jakarta.websocket.server.HandshakeRequest
@@ -153,6 +154,15 @@ class MoquiContextListener implements ServletContextListener {
             }
 
             // NOTE: webapp.session-config.@timeout handled in MoquiSessionListener
+            // Jetty 12 ignores the old web.xml comment __SAME_SITE_LAX__; Servlet 6 SessionCookieConfig.setAttribute works.
+            try {
+                SessionCookieConfig scc = sc.getSessionCookieConfig()
+                scc.setHttpOnly(true)
+                scc.setAttribute("SameSite", "Lax")
+                logger.info("Session cookie HttpOnly=true SameSite=Lax")
+            } catch (Exception e) {
+                logger.warn("Could not set session cookie SameSite=Lax", e)
+            }
 
             // WebSocket Endpoint Setup
             ServerContainer wsServer = ecfi.getServerContainer()

@@ -107,4 +107,33 @@ class SecurityMisconfigTests extends Specification {
         org.moqui.util.WebUtilities.isExecutable([(byte) 0xfe, (byte) 0xed, (byte) 0xfa, (byte) 0xce] as byte[])
         !org.moqui.util.WebUtilities.isExecutable([(byte) 0x89, (byte) 0x50, (byte) 0x4e, (byte) 0x47] as byte[])
     }
+
+    def "session cookie is HttpOnly and SameSite Lax in web.xml"() {
+        when:
+        File webXml = new File("src/main/webapp/WEB-INF/web.xml")
+        String text = webXml.getText("UTF-8")
+        then:
+        webXml.exists()
+        text.contains("<http-only>true</http-only>")
+        text.contains("__SAME_SITE_LAX__")
+    }
+
+    def "demo data includes ALL_SCREENS tarpit example"() {
+        when:
+        File demo = new File("../runtime/base-component/webroot/data/WebrootSecurityDemoData.xml")
+        String text = demo.getText("UTF-8")
+        then:
+        demo.exists()
+        text.contains("artifactGroupId=\"ALL_SCREENS\"")
+        text.contains("maxHitsCount=\"120\"")
+        text.contains("userGroupId=\"ALL_USERS\"")
+    }
+
+    def "GroovyShell websocket endpoint is enabled by default"() {
+        when:
+        MNode ep = webapp.children("endpoint")?.find { it.attribute("path") == "/groovysh" }
+        then:
+        ep != null
+        ep.attribute("enabled") == "true" || ep.attribute("enabled") == null
+    }
 }

@@ -42,3 +42,19 @@ def test_h2_console_is_not_mounted(http, base_url, require_server):
     assert "h2 console" not in body
     assert "login.jsp" not in body
     assert r.status_code != 200 or "h2" not in body
+
+
+def test_session_cookie_samesite_lax(http, base_url, require_server):
+    r = http.get(base_url + "/Login", timeout=10)
+    raw = r.headers.get("Set-Cookie") or ""
+    if not raw:
+        r2 = http.get(base_url + "/", timeout=10)
+        raw = r2.headers.get("Set-Cookie") or ""
+    assert "samesite=lax" in raw.lower()
+
+
+def test_login_html_is_not_publicly_cacheable(http, base_url, require_server):
+    r = http.get(base_url + "/Login", timeout=10)
+    cc = (r.headers.get("Cache-Control") or "").lower()
+    assert "no-store" in cc or "no-cache" in cc or "private" in cc
+    assert "public" not in cc

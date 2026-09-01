@@ -160,4 +160,14 @@ class SecurityAccessControlTests extends Specification {
         then:
         SecurityTestSupport.looksLikeAuthzFailure(str) || SecurityTestSupport.looksLikeAuthnFailure(str)
     }
+
+    def "REST login succeeds without a session token"() {
+        when:
+        ScreenTestRender str = rest.render("login",
+                [username: SecurityTestSupport.ALL_USERNAME, password: SecurityTestSupport.ALL_PASSWORD], "post")
+        String all = ((str.errorMessages ?: []) + [str.output ?: ""]).join("\n").toLowerCase()
+        then:
+        !all.contains("session token required")
+        (str.output ?: "").contains("loggedIn") || !SecurityTestSupport.looksLikeAuthnFailure(str)
+    }
 }

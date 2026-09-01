@@ -53,13 +53,29 @@ class ElFinderConnector {
     }
 
     String getLocation(String hashed) {
-        if (hashed) {
-            String unhashedPath = unhash(hashed)
-            if (unhashedPath == "/" || unhashedPath == "root") return resourceRoot
-            if (unhashedPath.startsWith("/")) unhashedPath = unhashedPath.substring(1)
-            return resourceRoot + (resourceRoot.endsWith("/") ? "" : "/") + unhashedPath
+        if (!hashed) return resourceRoot
+        String unhashedPath = unhash(hashed)
+        return joinUnderRoot(unhashedPath)
+    }
+
+    /** Join a hashed/relative path onto resourceRoot. Rejects parent segments, backslash, and scheme-like parts. */
+    String joinUnderRoot(String unhashedPath) {
+        if (!unhashedPath || unhashedPath == "/" || unhashedPath == "root") return resourceRoot
+        String normalized = unhashedPath.replace('\\', '/')
+        String[] parts = normalized.split("/")
+        List<String> safe = []
+        for (String part in parts) {
+            if (!part || part == ".") continue
+            if (part == ".." || part.contains(":")) {
+                logger.warn("ElFinder path rejected under ${resourceRoot}: ${unhashedPath}")
+                return resourceRoot
+            }
+            safe.add(part)
         }
-        return resourceRoot
+        if (!safe) return resourceRoot
+        String loc = resourceRoot + (resourceRoot.endsWith("/") ? "" : "/") + safe.join("/")
+        if (!loc.startsWith(resourceRoot)) return resourceRoot
+        return loc
     }
 
     String getPathRelativeToRoot(String location) {

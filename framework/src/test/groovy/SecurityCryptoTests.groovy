@@ -61,16 +61,16 @@ class SecurityCryptoTests extends Specification {
         when:
         SecurityTestSupport.login(ec, SecurityTestSupport.ALL_USERNAME, SecurityTestSupport.ALL_PASSWORD)
         String key = ec.user.getLoginKey(1)
+        String hashed = ecfi.getSimpleHash(key, "", ecfi.getLoginKeyHashType(), false)
         def stored = null
         SecurityTestSupport.withAuthzDisabled(ec) {
-            stored = ec.entity.find("moqui.security.UserLoginKey")
-                    .condition("userId", ec.user.userId).orderBy("-fromDate").limit(1).one()
+            stored = ec.entity.find("moqui.security.UserLoginKey").condition("loginKey", hashed).one()
         }
         then:
         key != null && key.length() > 10
         stored != null
         stored.loginKey != key
-        stored.loginKey == ecfi.getSimpleHash(key, "", ecfi.getLoginKeyHashType(), false)
+        stored.loginKey == hashed
         cleanup:
         SecurityTestSupport.withAuthzDisabled(ec) {
             if (stored != null) stored.delete()

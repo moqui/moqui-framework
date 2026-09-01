@@ -90,4 +90,41 @@ class SecurityIntegrityTests extends Specification {
         sd != null
         sd.allowRemote
     }
+
+    def "ElFinder hashed path cannot walk above resourceRoot"() {
+        given:
+        def conn = new org.moqui.impl.util.ElFinderConnector(ec, "dbresource://mantle/content", "v0_")
+        when:
+        String locDots = conn.getLocation(conn.hash("../secret"))
+        String locAbs = conn.getLocation(conn.hash("/etc/passwd"))
+        String locOk = conn.getLocation(conn.hash("docs/readme.txt"))
+        then:
+        locDots == "dbresource://mantle/content"
+        !locDots.contains("..")
+        locAbs == "dbresource://mantle/content/etc/passwd"
+        !locAbs.contains("..")
+        locOk == "dbresource://mantle/content/docs/readme.txt"
+    }
+
+    def "create UserAccount extra currentPassword is not stored plaintext"() {
+        given:
+        String uname = "sec.mass." + System.currentTimeMillis()
+        when:
+        ec.message.clearAll()
+        def created = ec.service.sync().name("org.moqui.impl.UserServices.create#UserAccount")
+                .parameters([username: uname, newPassword: "SecMass1!!", newPasswordVerify: "SecMass1!!",
+                             currentPassword: "plaintext-should-not-stick", passwordSalt: "evilsalt"])
+                .disableAuthz().call()
+        def ua = null
+        SecurityTestSupport.withAuthzDisabled(ec) {
+            ua = ec.entity.find("moqui.security.UserAccount").condition("username", uname).one()
+        }
+        then:
+        created?.userId
+        ua != null
+        ua.currentPassword != "plaintext-should-not-stick"
+        ua.passwordSalt != "evilsalt"
+        cleanup:
+        ec.message.clearAll()
+    }
 }

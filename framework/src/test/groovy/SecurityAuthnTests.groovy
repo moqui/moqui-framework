@@ -119,4 +119,52 @@ class SecurityAuthnTests extends Specification {
         ec.message.clearAll()
     }
 
+    def "loginUserKey authenticates with a hashed key"() {
+        when:
+        SecurityTestSupport.login(ec, SecurityTestSupport.ALL_USERNAME, SecurityTestSupport.ALL_PASSWORD)
+        String key = ec.user.getLoginKey(1)
+        SecurityTestSupport.logout(ec)
+        boolean ok = ec.user.loginUserKey(key)
+        then:
+        key
+        ok
+        ec.user.username == SecurityTestSupport.ALL_USERNAME
+        cleanup:
+        SecurityTestSupport.logout(ec)
+    }
+
+    def "login unknown vs wrong password messages are not distinguishable"() {
+        given:
+        String common = "The username or password is not valid"
+        when:
+        ec.message.clearAll()
+        boolean unknownOk = ec.user.loginUser("sec.no.such.user.zzz", "definitely-wrong-password")
+        String unknownMsg = (ec.message.errors ?: []).join("\n")
+        ec.message.clearAll()
+        boolean wrongOk = ec.user.loginUser(SecurityTestSupport.ALL_USERNAME, "definitely-wrong-password")
+        String wrongMsg = (ec.message.errors ?: []).join("\n")
+        then:
+        !unknownOk
+        !wrongOk
+        unknownMsg == wrongMsg
+        unknownMsg.contains(common)
+        !unknownMsg.toLowerCase().contains("no account found")
+        !wrongMsg.toLowerCase().contains("password incorrect")
+        !unknownMsg.contains("sec.no.such.user.zzz")
+        !wrongMsg.contains(SecurityTestSupport.ALL_USERNAME)
+        cleanup:
+        ec.message.clearAll()
+    }
+
+    def "send ExternalAuthcCode without pre-auth fails"() {
+        when:
+        ec.message.clearAll()
+        ec.service.sync().name("org.moqui.impl.UserServices.send#ExternalAuthcCode")
+                .parameters([factorId: "not-a-real-factor"]).call()
+        then:
+        ec.message.hasError()
+        cleanup:
+        ec.message.clearAll()
+    }
+
 }

@@ -713,7 +713,10 @@ class UserFacadeImpl implements UserFacade {
             // others to consider handling differently (these all inherit from AuthenticationException):
             //     UnknownAccountException, IncorrectCredentialsException, ExpiredCredentialsException,
             //     CredentialsException, LockedAccountException, DisabledAccountException, ExcessiveAttemptsException
-            eci.messageFacade.addError(ae.message)
+            // Public message is the same for unknown user, wrong password, and disabled/terminated so the
+            // client cannot tell those cases apart. Distinct reason stays in the log.
+            logger.warn("Login failed for username ${username}: ${ae.getClass().getSimpleName()}: ${ae.message}")
+            eci.messageFacade.addError(eci.l10n.localize("The username or password is not valid"))
             return false
         }
         return true

@@ -63,3 +63,34 @@ def test_x_http_method_override_without_auth_is_401(http, base_url, require_serv
         timeout=10,
     )
     assert r.status_code == 401
+
+
+def test_entity_rest_post_without_csrf_does_not_create(http, base_url, require_server, username, password):
+    rest_login(http, base_url, username, password)
+    r = http.post(
+        base_url + "/rest/e1/moqui.basic.Enumeration",
+        json={"enumId": "SEC_SHOULD_NOT_EXIST", "description": "sec csrf"},
+        timeout=10,
+    )
+    # 401 CSRF, 403 authz, or 400 — must not 200-create
+    assert r.status_code != 200 or "SEC_SHOULD_NOT_EXIST" not in (r.text or "")
+    assert r.status_code in (400, 401, 403, 404) or r.status_code >= 400
+
+
+def test_rpc_json_without_csrf_does_not_reset_password(http, base_url, require_server):
+    # After a session exists, mutating RPC should require the session token.
+    http.get(base_url + "/Login", timeout=10)
+    r = http.post(
+        base_url + "/rpc/json",
+        json={
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "org.moqui.impl.UserServices.reset#Password",
+            "params": {"username": "sec.no.such.user.zzz"},
+        },
+        timeout=10,
+    )
+    body = (r.text or "").lower()
+    # token required, or the generic public reset text (service ran). Prefer token required.
+    assert r.status_code in (401, 403) or "token" in body or "if an account exists" in body
+

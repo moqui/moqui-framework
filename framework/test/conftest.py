@@ -78,6 +78,10 @@ def rest_login(http, base_url, username, password):
     return r
 
 
+def csrf_token(resp):
+    return resp.headers.get("X-CSRF-Token") or resp.headers.get("moquiSessionToken")
+
+
 def screen_login(http, base_url, username, password, extra=None):
     """Login via /Login/login (no CSRF). extra is extra form fields (e.g. returnTo)."""
     http.get(base_url + "/Login", timeout=10)
