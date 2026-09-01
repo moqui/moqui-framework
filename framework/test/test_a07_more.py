@@ -107,6 +107,55 @@ def test_failed_logins_lock_dedicated_user(http, base_url, require_server):
         assert '"loggedin":true' not in body.lower().replace(" ", "")
 
 
+def test_login_json_response_omits_password_parameters(http, base_url, require_server):
+    """Screen JSON (Accept: application/json) must not echo the submitted password."""
+    user, pw = "sec.none.only", "SecNone1!!"
+    r0 = http.get(base_url + "/Login", timeout=10)
+    token = r0.headers.get("X-CSRF-Token") or r0.headers.get("moquiSessionToken")
+    data = {"username": user, "password": pw}
+    if token:
+        data["moquiSessionToken"] = token
+    r = http.post(
+        base_url + "/Login/login",
+        data=data,
+        headers={"Accept": "application/json"},
+        timeout=10,
+        allow_redirects=False,
+    )
+    body = r.text or ""
+    if r.status_code in (401, 403) or "not valid" in body.lower():
+        pytest.skip("sec.none.only not loaded (run Gradle Security* tests first)")
+    assert pw not in body
+    if "application/json" in (r.headers.get("Content-Type") or ""):
+        data = r.json()
+        params = data.get("currentParameters") or {}
+        assert "password" not in params
+        assert "password" not in (data.get("screenParameters") or {})
+
+
+def test_login_json_failed_omits_password_parameters(http, base_url, require_server):
+    r0 = http.get(base_url + "/Login", timeout=10)
+    token = r0.headers.get("X-CSRF-Token") or r0.headers.get("moquiSessionToken")
+    planted = "SecShouldNotEcho1!!"
+    data = {"username": "sec.no.such.user.zzz", "password": planted}
+    if token:
+        data["moquiSessionToken"] = token
+    r = http.post(
+        base_url + "/Login/login",
+        data=data,
+        headers={"Accept": "application/json"},
+        timeout=10,
+        allow_redirects=False,
+    )
+    body = r.text or ""
+    assert planted not in body
+    if "application/json" in (r.headers.get("Content-Type") or ""):
+        data = r.json()
+        params = data.get("currentParameters") or {}
+        assert "password" not in params
+        assert planted not in str(data)
+
+
 def test_login_unknown_and_wrong_password_share_public_text(http, base_url, require_server):
     common = "The username or password is not valid"
     def post_login(name, pw):

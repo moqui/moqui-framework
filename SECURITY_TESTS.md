@@ -122,6 +122,8 @@ The two runners cannot share the database at the same time (Moqui locks `btm2.tl
 | Login `returnTo` with a mismatched `Host` header does not redirect off-site | A01 | `SecurityMisconfigTests` | `test_a01_redirect.py` |
 | `POST` + `X-HTTP-Method-Override` is authorized as the override action | A01 | N/A | `test_api_rest.py` |
 | `PATCH /rest/s1/moqui/users` does not store `currentPassword` | A01 | N/A | `test_api_rest.py` |
+| `GET /rest/s1/moqui/users` and entity REST UserAccount omit password hash fields | A01 | `SecurityMisconfigTests` | `test_api_rest.py` |
+| Screen JSON `currentParameters` omits password / credential fields | A02 | `SecurityMisconfigTests` | `test_a07_more.py` |
 | REST schema dumps: anonymous 401, no `REST_SCHEMA` 403, no `ACAO: *` | A01 | N/A | `test_api_rest.py` |
 | `/rest/sm` timestamped HMAC rejects a repeated signature inside the window | A02 | fixtures in `SecurityTestSupport` | `test_api_rest.py` |
 

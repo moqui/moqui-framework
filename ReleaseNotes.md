@@ -63,7 +63,10 @@ and clarifies security details that have been more scattered and less formal.
   not rewrite it from `Host`.
 - Service REST authorizes `X-HTTP-Method-Override` using the override method.
 - Generic entity REST update/create/store drops UserAccount password hash
-  fields (`currentPassword`, `resetPassword`, salt, hash type).
+  fields (`currentPassword`, `resetPassword`, salt, hash type). GET of
+  UserAccount over Service REST and entity REST omits the same fields.
+- Screen JSON responses (`Accept: application/json`) omit password and
+  other credential fields from `currentParameters`.
 - REST schema dumps (`entity.json` / swagger / raml) require the `REST_SCHEMA`
   permission (seeded on ADMIN). Swagger no longer sets `Access-Control-Allow-Origin: *`.
 - Timestamped system-message HMAC rejects a repeated signature inside the

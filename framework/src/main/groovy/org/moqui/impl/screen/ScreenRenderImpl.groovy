@@ -255,7 +255,7 @@ class ScreenRenderImpl implements ScreenRender {
             Map<String, Object> responseMap = getBasicResponseMap()
             // add screen path, parameters from fullUrl
             responseMap.put("screenPathList", fullUrl.sui.fullPathNameList)
-            responseMap.put("screenParameters", fullUrl.getParameterMap())
+            responseMap.put("screenParameters", WebUtilities.stripCredentialParameters(fullUrl.getParameterMap()))
             responseMap.put("screenUrl", pathWithParams)
             // send it
             ec.web.sendJsonResponse(responseMap)
@@ -303,7 +303,7 @@ class ScreenRenderImpl implements ScreenRender {
         Map parms = new HashMap()
         if (ec.web.requestParameters != null) parms.putAll(ec.web.requestParameters)
         if (ec.web.requestAttributes != null) parms.putAll(ec.web.requestAttributes)
-        responseMap.put("currentParameters", ContextJavaUtil.unwrapMap(parms))
+        responseMap.put("currentParameters", WebUtilities.stripCredentialParameters(ContextJavaUtil.unwrapMap(parms)))
 
         return responseMap
     }

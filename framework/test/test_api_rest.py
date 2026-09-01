@@ -13,6 +13,21 @@ SEC_SMR_HMAC_TS = "SEC_SMR_HMAC_TS"
 HMAC_SECRET = b"sec-hmac-test-secret"
 HMAC_HEADER = "X-Moqui-Signature"
 HMAC_SKIP = "HMAC test remotes not loaded (run Gradle Security* tests first)"
+USER_ACCOUNT_SECRET_FIELDS = (
+    "currentPassword", "resetPassword", "passwordSalt", "passwordHashType", "passwordBase64",
+)
+
+
+def assert_no_user_account_secrets(obj):
+    """Exact JSON keys only. resetPasswordSetDate / passwordSetDate / passwordHint may remain."""
+    if isinstance(obj, dict):
+        for field in USER_ACCOUNT_SECRET_FIELDS:
+            assert field not in obj
+        for value in obj.values():
+            assert_no_user_account_secrets(value)
+    elif isinstance(obj, list):
+        for item in obj:
+            assert_no_user_account_secrets(item)
 
 
 def test_rpc_without_login_does_not_run_create_user(http, base_url, require_server):
@@ -344,6 +359,29 @@ def test_service_rest_moqui_api_view_can_read_users(http, base_url, require_serv
     require_rest_login(http, base_url, "sec.api.view", "SecApiView1!!")
     r = http.get(base_url + "/rest/s1/moqui/users", timeout=10)
     assert r.status_code == 200, "MOQUI_API VIEW should list /moqui/users"
+    assert_no_user_account_secrets(r.json())
+
+
+def test_service_rest_users_one_omits_password_hash_fields(http, base_url, require_server):
+    require_rest_login(http, base_url, "sec.api.view", "SecApiView1!!")
+    r = http.get(base_url + "/rest/s1/moqui/users/EX_JOHN_DOE", timeout=10)
+    if r.status_code == 404:
+        pytest.skip("EX_JOHN_DOE not in this database")
+    assert r.status_code == 200
+    data = r.json()
+    assert data.get("username") == "john.doe" or data.get("userId") == "EX_JOHN_DOE"
+    assert_no_user_account_secrets(data)
+
+
+def test_entity_rest_user_account_omits_password_hash_fields(http, base_url, require_server):
+    """Catch-all AT_ENTITY can GET UserAccount; the JSON still omits hash fields."""
+    require_rest_login(http, base_url, "sec.ent.all", "SecEntAll1!!")
+    r2 = http.get(base_url + "/rest/e1/moqui.security.UserAccount/EX_JOHN_DOE", timeout=10)
+    if r2.status_code == 404:
+        pytest.skip("EX_JOHN_DOE not in this database")
+    assert r2.status_code == 200
+    data = r2.json()
+    assert_no_user_account_secrets(data)
 
 
 def test_service_rest_moqui_api_view_cannot_update_users(http, base_url, require_server):

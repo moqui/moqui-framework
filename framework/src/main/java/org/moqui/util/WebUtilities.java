@@ -344,6 +344,60 @@ public class WebUtilities {
         }
     }
 
+    /** UserAccount fields that are password material. Omitted from REST JSON and not accepted on generic entity writes. */
+    public static final Set<String> USER_ACCOUNT_SECRET_FIELDS = new HashSet<>(Arrays.asList(
+            "currentPassword", "resetPassword", "passwordSalt", "passwordHashType", "passwordBase64"));
+
+    private static final Set<String> CREDENTIAL_PARAMETER_NAMES_LC = new HashSet<>(Arrays.asList(
+            "password", "oldpassword", "newpassword", "newpasswordverify", "currentpassword",
+            "resetpassword", "authpassword", "api_key", "login_key", "passwordsalt",
+            "passwordhashtype", "passwordbase64", "passwordverify"));
+
+    public static boolean isUserAccountEntity(String entityName) {
+        if (entityName == null || entityName.isEmpty()) return false;
+        return "moqui.security.UserAccount".equals(entityName) || "users".equals(entityName)
+                || entityName.endsWith(".UserAccount");
+    }
+
+    /** Drop password-hash fields from a parameter map in place (generic entity create/update/store). */
+    public static void removeUserAccountSecretsFromMap(Map<?, ?> map) {
+        if (map == null) return;
+        for (String field : USER_ACCOUNT_SECRET_FIELDS) map.remove(field);
+    }
+
+    /**
+     * Copy of obj for JSON output with UserAccount password-hash fields removed at every map level.
+     * Maps and collections are copied; other values are returned as-is.
+     */
+    public static Object stripUserAccountSecrets(Object obj) {
+        if (obj instanceof Map) {
+            Map<Object, Object> out = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> entry : ((Map<?, ?>) obj).entrySet()) {
+                Object key = entry.getKey();
+                if (key instanceof String && USER_ACCOUNT_SECRET_FIELDS.contains(key)) continue;
+                out.put(key, stripUserAccountSecrets(entry.getValue()));
+            }
+            return out;
+        } else if (obj instanceof Collection) {
+            List<Object> out = new ArrayList<>();
+            for (Object value : (Collection<?>) obj) out.add(stripUserAccountSecrets(value));
+            return out;
+        }
+        return obj;
+    }
+
+    /** Copy of request parameters with credential field names omitted (case-insensitive). */
+    public static Map<String, Object> stripCredentialParameters(Map<String, ?> parms) {
+        if (parms == null) return null;
+        Map<String, Object> out = new LinkedHashMap<>();
+        for (Map.Entry<String, ?> entry : parms.entrySet()) {
+            String key = entry.getKey();
+            if (key != null && CREDENTIAL_PARAMETER_NAMES_LC.contains(key.toLowerCase(Locale.ROOT))) continue;
+            out.put(key, entry.getValue());
+        }
+        return out;
+    }
+
     public static byte[] windowsPex = {(byte) 0x4d, (byte) 0x5a};
     public static byte[] linuxElf = {(byte) 0x7f, (byte) 0x45, (byte) 0x4c, (byte) 0x46};
     public static byte[] javaClass = {(byte) 0xca, (byte) 0xfe, (byte) 0xba, (byte) 0xbe};

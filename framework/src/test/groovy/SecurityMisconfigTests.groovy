@@ -174,6 +174,39 @@ class SecurityMisconfigTests extends Specification {
         !WebUtilities.isSameOriginRedirect("https://evil.example/phish", stub.request, "")
     }
 
+    def "stripUserAccountSecrets omits hash fields from nested maps"() {
+        when:
+        Map nested = [currentPassword: "hash", username: "sec.none.only",
+                      child: [resetPassword: "r", passwordSalt: "s", emailAddress: "a@b.c"]]
+        Object out = WebUtilities.stripUserAccountSecrets([users: [nested], passwordHashType: "SHA"])
+        then:
+        out instanceof Map
+        !((Map) out).containsKey("passwordHashType")
+        Map user = (Map) ((List) ((Map) out).users)[0]
+        user.username == "sec.none.only"
+        !user.containsKey("currentPassword")
+        ((Map) user.child).emailAddress == "a@b.c"
+        !((Map) user.child).containsKey("resetPassword")
+        !((Map) user.child).containsKey("passwordSalt")
+        nested.currentPassword == "hash"
+    }
+
+    def "stripCredentialParameters omits password keys case-insensitively"() {
+        when:
+        Map src = [username: "sec.none.only", password: "SecNone1!!", newPassword: "x",
+                   NEWPASSWORDVERIFY: "x", authPassword: "y", api_key: "k", locale: "en"]
+        Map out = WebUtilities.stripCredentialParameters(src)
+        then:
+        out.username == "sec.none.only"
+        out.locale == "en"
+        !out.containsKey("password")
+        !out.containsKey("newPassword")
+        !out.containsKey("NEWPASSWORDVERIFY")
+        !out.containsKey("authPassword")
+        !out.containsKey("api_key")
+        src.password == "SecNone1!!"
+    }
+
     def "session cookie is HttpOnly in web.xml"() {
         // NOTE: SameSite=Lax is NOT proven here. web.xml still carries the legacy __SAME_SITE_LAX__ comment but
         // Jetty 12 ignores it; the real control is MoquiContextListener calling

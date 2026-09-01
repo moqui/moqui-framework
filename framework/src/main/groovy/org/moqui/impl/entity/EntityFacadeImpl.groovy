@@ -37,6 +37,7 @@ import org.moqui.util.MNode
 import org.moqui.util.ObjectUtilities
 import org.moqui.util.StringUtilities
 import org.moqui.util.SystemBinding
+import org.moqui.util.WebUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.w3c.dom.Element
@@ -1710,12 +1711,12 @@ class EntityFacadeImpl implements EntityFacade {
                 if (masterName != null && masterName.length() > 0) {
                     Map resultMap = find(lastEd.getFullEntityName()).condition(pkValues).oneMaster(masterName)
                     if (resultMap == null) throw new EntityValueNotFoundException("No value found for entity [${lastEd.getShortAlias()?:''}:${lastEd.getFullEntityName()}] with key ${pkValues}")
-                    return resultMap
+                    return WebUtilities.stripUserAccountSecrets(resultMap)
                 } else {
                     EntityValueBase evb = (EntityValueBase) find(lastEd.getFullEntityName()).condition(pkValues).one()
                     if (evb == null) throw new EntityValueNotFoundException("No value found for entity [${lastEd.getShortAlias()?:''}:${lastEd.getFullEntityName()}] with key ${pkValues}")
                     Map resultMap = evb.getPlainValueMap(dependentLevels)
-                    return resultMap
+                    return WebUtilities.stripUserAccountSecrets(resultMap)
                 }
             } else {
                 // otherwise do a list find
@@ -1741,17 +1742,17 @@ class EntityFacadeImpl implements EntityFacade {
 
                 if (masterName != null && masterName.length() > 0) {
                     List resultList = ef.listMaster(masterName)
-                    return resultList
+                    return WebUtilities.stripUserAccountSecrets(resultList)
                 } else {
                     EntityList el = ef.list()
                     List resultList = el.getPlainValueList(dependentLevels)
-                    return resultList
+                    return WebUtilities.stripUserAccountSecrets(resultList)
                 }
             }
         } else {
             // use the entity auto service runner for other operations (create, store, update, delete)
             Map result = ecfi.serviceFacade.sync().name(operation, lastEd.fullEntityName).parameters(parameters).call()
-            return result
+            return WebUtilities.stripUserAccountSecrets(result)
         }
     }
 

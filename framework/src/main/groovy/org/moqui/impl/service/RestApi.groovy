@@ -32,6 +32,7 @@ import org.moqui.jcache.MCache
 import org.moqui.util.CollectionUtilities
 import org.moqui.util.MNode
 import org.moqui.util.SystemBinding
+import org.moqui.util.WebUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -400,12 +401,8 @@ class RestApi {
                     return new RestResult([count:count], headers)
                 } else if (operation in ['create', 'update', 'store', 'delete']) {
                     Map parms = new LinkedHashMap(ec.context)
-                    if (operation != 'delete' && isUserAccountEntity(entityName)) {
-                        parms.remove('currentPassword')
-                        parms.remove('resetPassword')
-                        parms.remove('passwordSalt')
-                        parms.remove('passwordHashType')
-                        parms.remove('passwordBase64')
+                    if (operation != 'delete' && WebUtilities.isUserAccountEntity(entityName)) {
+                        WebUtilities.removeUserAccountSecretsFromMap(parms)
                     }
                     Map result = ec.getService().sync().name(operation, entityName).parameters(parms).call()
                     return new RestResult(result, null)
@@ -417,8 +414,7 @@ class RestApi {
             }
         }
         static boolean isUserAccountEntity(String entityName) {
-            return entityName == "moqui.security.UserAccount" || entityName == "users" ||
-                    entityName?.endsWith(".UserAccount")
+            return WebUtilities.isUserAccountEntity(entityName)
         }
 
         void addToSwaggerMap(Map<String, Object> swaggerMap, Map<String, Map<String, Object>> resourceMap) {
@@ -820,7 +816,7 @@ class RestApi {
         Object responseObj
         Map<String, Object> headers = [:]
         RestResult(Object responseObj, Map<String, Object> headers) {
-            this.responseObj = responseObj
+            this.responseObj = WebUtilities.stripUserAccountSecrets(responseObj)
             if (headers) this.headers.putAll(headers)
         }
         void setHeaders(HttpServletResponse response) {
