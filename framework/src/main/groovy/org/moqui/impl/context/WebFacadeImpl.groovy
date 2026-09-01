@@ -1396,23 +1396,26 @@ class WebFacadeImpl implements WebFacade {
         response.setHeader("Content-Disposition", "inline")
         OutputStream os = response.outputStream
         try { os.write(trackingPng) } finally { os.close() }
-        // mark the message viewed
+        // mark the message viewed (unauthenticated by design; id is the capability)
         try {
-            String emailMessageId = (String) eci.contextStack.get("emailMessageId")
-            if (emailMessageId != null && !emailMessageId.isEmpty()) {
-                int dotIndex = emailMessageId.indexOf(".")
-                if (dotIndex > 0) emailMessageId = emailMessageId.substring(0, dotIndex)
-                EntityValue emailMessage = eci.entity.find("moqui.basic.email.EmailMessage").condition("emailMessageId", emailMessageId)
-                        .disableAuthz().one()
-                if (emailMessage == null) {
-                    logger.warn("Tried to mark EmailMessage ${emailMessageId} viewed but not found")
-                } else if (!"ES_VIEWED".equals(emailMessage.statusId)) {
-                    eci.service.sync().name("update#moqui.basic.email.EmailMessage").parameter("emailMessageId", emailMessageId)
-                            .parameter("statusId", "ES_VIEWED").parameter("receivedDate", eci.user.nowTimestamp).disableAuthz().call()
-                }
-            }
+            markEmailMessageViewed(eci, (String) eci.contextStack.get("emailMessageId"))
         } catch (Throwable t) {
             logger.error("Error marking EmailMessage viewed", t)
+        }
+    }
+
+    /** Unauthenticated tracking-pixel side effect. Public for proofs; not an HTTP entry point. */
+    static void markEmailMessageViewed(ExecutionContextImpl eci, String emailMessageId) {
+        if (emailMessageId == null || emailMessageId.isEmpty()) return
+        int dotIndex = emailMessageId.indexOf(".")
+        if (dotIndex > 0) emailMessageId = emailMessageId.substring(0, dotIndex)
+        EntityValue emailMessage = eci.entity.find("moqui.basic.email.EmailMessage").condition("emailMessageId", emailMessageId)
+                .disableAuthz().one()
+        if (emailMessage == null) {
+            logger.warn("Tried to mark EmailMessage ${emailMessageId} viewed but not found")
+        } else if (!"ES_VIEWED".equals(emailMessage.statusId)) {
+            eci.service.sync().name("update#moqui.basic.email.EmailMessage").parameter("emailMessageId", emailMessageId)
+                    .parameter("statusId", "ES_VIEWED").parameter("receivedDate", eci.user.nowTimestamp).disableAuthz().call()
         }
     }
 

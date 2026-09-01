@@ -51,6 +51,8 @@ Python `sec.*` users (`sec.view.only`, `sec.all.only`, `sec.none.only`, `sec.loc
 | `POST /rest/login` without CSRF | A07 | `SecurityAccessControlTests` | `test_a07_authn.py` |
 | Other POST without CSRF token rejected; with token is not a CSRF error | A01 | `SecurityAccessControlTests` | `test_a07_authn.py` |
 | HTTP `api_key` in query string does not log in (header/body is the intended API; minting transition removed) | A07 | `loginUserKey` in `SecurityAuthnTests` | `test_a07_authn.py` |
+| WebSocket handshake: `api_key` header logs in; query `api_key` / `authUsername` do not | A07 | `SecurityHandshakeTests` | N/A |
+| Anonymous has no `GROOVY_SHELL_WEB`; `/notws` ignores `userId == null` | A01 | `SecurityHandshakeTests` | `test_a01_more.py` (HTTP GET is not a handshake) |
 | `loginUserKey` round-trip (hashed at rest) | A07 | `SecurityAuthnTests`, `SecurityCryptoTests` | N/A |
 | Login issues a new session id (no fixation) | A07 | N/A | `test_a07_authn.py` |
 | `sendOtp` / `verifyOtp` without pre-auth rejected | A07 | `SecurityAuthnTests` | `test_a07_more.py` |
@@ -68,7 +70,10 @@ Python `sec.*` users (`sec.view.only`, `sec.all.only`, `sec.none.only`, `sec.loc
 | Login HTML Cache-Control not public | A02 | N/A | `test_a02_headers.py` |
 | `/echopath` extra path HTML-escaped | A05 | N/A | `test_a01_more.py` |
 | `/fop` without login is not a PDF | A01 | N/A | `test_a01_more.py` |
-| `/email` unknown id returns PNG | A01 | N/A | `test_a01_more.py` |
+| `/email` unknown id returns PNG; known id is an unauthenticated `ES_VIEWED` update (designed) | A01 | `SecurityIntegrityTests` (`markEmailMessageViewed`) | `test_a01_more.py` (unknown id PNG) |
+| SqlRunner does not execute `sql` from the query string (`secureRequestParameters` / body only) | A05 | `SecurityMisconfigTests` (`simplifyRequestParameters`) | `test_a01_more.py` (ADMIN_ADV / demo user) |
+| `getClientIp` ignores `X-Forwarded-For` when `webapp_client_ip_header` is empty | A01 | `SecurityMisconfigTests` | `/status` omits sensitive keys in `test_a01_more.py` |
+| `/rest/sm` HMAC: missing/bad signature and stale timestamp are 403; valid HMAC needs no session | A01 | fixtures in `SecurityTestSupport` | `test_api_rest.py` |
 | `/status` JSON omits sensitive keys (`datasources`, `vmVendor`); allow-list is loopback | A01 | N/A | `test_a01_more.py` |
 | Login form posts to Login/login (Host URL gen is operator `webapp_http_host`) | A01 | N/A | `test_a01_more.py` |
 | Session cookie SameSite Lax actually sent | A02 | `SecurityMisconfigTests` (web.xml) | `test_a02_headers.py` |
@@ -85,12 +90,11 @@ Python `sec.*` users (`sec.view.only`, `sec.all.only`, `sec.none.only`, `sec.loc
 
 ## Future work
 
-Not in this wave. Leave these if extending the suite:
+Still open; not public failing PoCs:
 
-- **WebSocket handshake** (`/groovysh`, `/notws`): unauthenticated upgrade is not a shell / is ignored when `userId == null`. HTTP GET `/groovysh` is not that proof. `UserFacadeImpl.initFromHandshakeRequest` currently reads `api_key` / `login_key` from query parameters; HTTP request init does not (body/header only). A handshake test (and a product decision on query-string keys) is still open.
-- **`/rest/sm` HMAC remotes:** unknown type/remote is covered. Configured `SmatHmacSha256` with a bad signature, `SmatHmacSha256Timestamp` outside the 5-minute window, and `SmatNone` need test `SystemMessageRemote` rows.
-- **Authorized Data Import `location=`:** AUTHZA_ALL can still pass a remote URL into `EntityDataLoader` (SSRF-class by design). Not a public failing PoC.
-- **Email tracking pixel** state change given a real `emailMessageId` (unauthenticated `disableAuthz` update). Unknown id → PNG is covered.
-- **`/status` IP allow-list** from a non-loopback client spoofing `X-Forwarded-For: 127.0.0.1` (Jetty `ForwardedRequestCustomizer`). Sensitive keys are omitted for everyone; the interesting case is the allow-list, and it is an operator/proxy concern.
-- **SqlRunner SQL from the query string** is ignored (`secureRequestParameters` only). Needs a user with `SQL_RUNNER_WEB` (ADMIN_ADV) to prove the URL value is not executed.
-- **Positive `api_key` header** with a minted login key over HTTP. Minting via `/rest/api_key` was removed; Spock covers `getLoginKey` / `loginUserKey`.
+- **Send-side HMAC** (`send#SystemMessageRest` still TODOs `SmatHmacSha256`). Receive HMAC is covered.
+- **`SmatNone` remotes** are explicit no-auth. Do not treat “accepts a POST” as a lock-down test.
+- **Authorized Data Import `location=`:** AUTHZA_ALL can pass a remote URL into `EntityDataLoader` (SSRF-class by design).
+- **Jetty `ForwardedRequestCustomizer`** can still rewrite `remoteAddr` from `X-Forwarded-For`. Moqui `getClientIp` ignores XFF unless `webapp_client_ip_header` is set. Operators must overwrite XFF at the proxy. See the TODO in `MoquiStart`.
+- **Live WebSocket upgrade** (`/groovysh`, `/notws`) without a session cookie. Handshake credential rules and the `userId == null` register-endpoint guard are covered in Spock; HTTP GET is not an upgrade.
+- **Positive HTTP `api_key` header** with a minted key. There is no minting transition; Spock covers `getLoginKey` / handshake header login.

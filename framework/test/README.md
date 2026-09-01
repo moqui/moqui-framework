@@ -6,7 +6,7 @@ They require **`MoquiProductionConf.xml`**. `MoquiDevConf.xml` (CORS `*`, tarpit
 
 They use whatever data is loaded on that instance. Defaults are the demo user `john.doe` / `moqui`. ProductionConf does not load demo data by itself; use a local DB that already has those users. Do not point this at a real production system.
 
-Users named `sec.*` (`sec.view.only`, `sec.all.only`, `sec.none.only`, `sec.lock.test`) are created by the Gradle `Security*` Spock tests (`SecurityTestSupport.ensureUsers`), not by demo seed. Run `./gradlew :framework:test` against the same database first, or those HTTP tests **skip**. They must not pass silently when the user is missing.
+Users named `sec.*` (`sec.view.only`, `sec.all.only`, `sec.none.only`, `sec.lock.test`) and the HMAC receive remotes (`SEC_SMT_TEST` / `SEC_SMR_HMAC` / `SEC_SMR_HMAC_TS`) are created by the Gradle `Security*` Spock tests (`SecurityTestSupport.ensureUsers`), not by demo seed. Run `./gradlew :framework:test` against the same database first, or those HTTP tests **skip**. They must not pass silently when the user or remote is missing.
 
 ## Run
 

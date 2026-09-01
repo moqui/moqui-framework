@@ -22,12 +22,14 @@ Each surface: path or bind, default, authn, authz, untrusted input, review consi
 
 ### HTTP authentication
 
-`UserFacadeImpl.initFromHttpRequest()` (and the WebSocket handshake equivalent), after any existing session user:
+`UserFacadeImpl.initFromHttpRequest()` after any existing session user:
 
 1. HTTP Basic `Authorization` header
 2. `api_key` or `login_key` request header
 3. `api_key` or `login_key` in the request body (not the query string)
 4. `authUsername` and `authPassword` in the request body
+
+The WebSocket handshake (`initFromHandshakeRequest`) uses the existing HTTP session, then the same Basic and `api_key` / `login_key` **headers**. It does not read credentials from the upgrade query string.
 
 There is no `/rest/api_key` minting transition and no `/rest/moquiSessionToken` fetch (both removed). Login keys are hashed `UserLoginKey` values from `ec.user.getLoginKey()`.
 

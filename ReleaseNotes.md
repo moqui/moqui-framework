@@ -18,6 +18,17 @@
 - Groovy Shell WebSocket now also requires AUTHZA_ALL on the Tools app (in
   addition to the `GROOVY_SHELL_WEB` permission).
 
+### WebSocket handshake credentials
+
+- `UserFacadeImpl.initFromHandshakeRequest` no longer logs anyone in from the
+  upgrade **query string** (`api_key`, `login_key`, `authUsername` /
+  `authPassword`). That matched neither HTTP request init (body/header only, not
+  the query string) nor `SECURITY_SURFACE.md`.
+- The handshake still uses the existing HTTP session, then HTTP Basic and
+  `api_key` / `login_key` **headers**. Callers that put a key on
+  `/groovysh?api_key=` (or `/notws`) must send a header or rely on the session
+  cookie from a prior login.
+
 ### Security proof tests
 
 - Added a catalog in `SECURITY_TESTS.md` mapped to OWASP Top 10:2025 and

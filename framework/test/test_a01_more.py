@@ -1,6 +1,6 @@
 """A01 additional HTTP proofs: public paths, Host, FOP, email pixel, path traversal."""
 import pytest
-from conftest import csrf_token, require_screen_login, require_sec_user
+from conftest import csrf_token, require_rest_login, require_screen_login, require_sec_user
 
 
 def test_echopath_extra_path_is_html_escaped(http, base_url, require_server):
@@ -203,6 +203,37 @@ def test_groovysh_http_get_is_not_a_shell(http, base_url, require_server):
     body = (r.text or "").lower()
     assert "groovyshell" not in body or r.status_code in (400, 401, 403, 404, 405)
     assert r.status_code != 200 or "eval" not in body
+
+
+def test_sql_runner_query_string_sql_is_not_executed(http, base_url, require_server, username, password):
+    # john.doe in demo data is ADMIN_ADV (SQL_RUNNER_WEB). URL sql must not run.
+    r = require_rest_login(http, base_url, username, password)
+    tok = csrf_token(r)
+    probe = "sec_sql_probe_col"
+    r_get = http.get(
+        base_url + "/apps/tools/Entity/SqlRunner",
+        params={"groupName": "transactional", "sql": "SELECT 1 AS " + probe},
+        timeout=10,
+        allow_redirects=False,
+    )
+    if r_get.status_code in (401, 403):
+        pytest.skip("logged-in user lacks SQL_RUNNER_WEB (need ADMIN_ADV / demo john.doe)")
+    get_body = (r_get.text or "").lower()
+    # Query sql may appear in the textarea; it must not have been executed as a result set
+    assert "result set" not in get_body
+    assert "showing all" not in get_body
+    if not tok:
+        pytest.skip("no CSRF token after login")
+    r_post = http.post(
+        base_url + "/apps/tools/Entity/SqlRunner",
+        data={"groupName": "transactional", "sql": "SELECT 1 AS " + probe, "moquiSessionToken": tok},
+        headers={"X-CSRF-Token": tok},
+        timeout=10,
+        allow_redirects=True,
+    )
+    post_body = (r_post.text or "").lower()
+    assert "session token required" not in post_body
+    assert "result set" in post_body or probe.lower() in post_body or "showing all" in post_body
 
 
 def test_menu_data_tools_without_login_is_not_the_menu(http, base_url, require_server):

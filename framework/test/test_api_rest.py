@@ -1,5 +1,18 @@
 """API / REST / RPC proofs (OWASP API Top 10 + A01)."""
+import base64
+import hashlib
+import hmac
+import time
+
+import pytest
 from conftest import looks_like_authn, require_rest_login, rest_login
+
+SEC_SMT = "SEC_SMT_TEST"
+SEC_SMR_HMAC = "SEC_SMR_HMAC"
+SEC_SMR_HMAC_TS = "SEC_SMR_HMAC_TS"
+HMAC_SECRET = b"sec-hmac-test-secret"
+HMAC_HEADER = "X-Moqui-Signature"
+HMAC_SKIP = "HMAC test remotes not loaded (run Gradle Security* tests first)"
 
 
 def test_rpc_without_login_does_not_run_create_user(http, base_url, require_server):
@@ -118,4 +131,75 @@ def test_rest_e1_basic_auth_valid_is_not_unauthenticated(http, base_url, require
     assert r.status_code in (200, 403, 404)
     if r.status_code == 200:
         assert "currentPassword" not in (r.text or "")
+
+
+def _sm_url(base_url, remote):
+    return base_url + "/rest/sm/" + SEC_SMT + "/" + remote
+
+
+def _hmac_b64(body):
+    digest = hmac.new(HMAC_SECRET, body.encode("utf-8"), hashlib.sha256).digest()
+    return base64.b64encode(digest).decode("ascii")
+
+
+def _hmac_ts_header(body, ts):
+    sig = hmac.new(HMAC_SECRET, (str(ts) + "." + body).encode("utf-8"), hashlib.sha256).hexdigest()
+    return "t=" + str(ts) + ",v1=" + sig
+
+
+def test_system_message_hmac_missing_header_is_403(http, base_url, require_server):
+    body = '{"probe":true}'
+    r = http.post(
+        _sm_url(base_url, SEC_SMR_HMAC),
+        data=body,
+        headers={"Content-Type": "application/json"},
+        timeout=10,
+    )
+    if r.status_code == 400 and "not valid" in (r.text or "").lower():
+        pytest.skip(HMAC_SKIP)
+    assert r.status_code == 403
+    assert "hmac" in (r.text or "").lower() or "header" in (r.text or "").lower()
+
+
+def test_system_message_hmac_bad_signature_is_403(http, base_url, require_server):
+    body = '{"probe":true}'
+    r = http.post(
+        _sm_url(base_url, SEC_SMR_HMAC),
+        data=body,
+        headers={"Content-Type": "application/json", HMAC_HEADER: "not-a-valid-hmac"},
+        timeout=10,
+    )
+    if r.status_code == 400 and "not valid" in (r.text or "").lower():
+        pytest.skip(HMAC_SKIP)
+    assert r.status_code == 403
+    assert "hmac" in (r.text or "").lower()
+
+
+def test_system_message_hmac_valid_does_not_require_login(http, base_url, require_server):
+    body = '{"probe":true}'
+    r = http.post(
+        _sm_url(base_url, SEC_SMR_HMAC),
+        data=body,
+        headers={"Content-Type": "application/json", HMAC_HEADER: _hmac_b64(body)},
+        timeout=10,
+    )
+    if r.status_code == 400 and "not valid" in (r.text or "").lower():
+        pytest.skip(HMAC_SKIP)
+    assert r.status_code == 200
+    assert "hmac verify failed" not in (r.text or "").lower()
+
+
+def test_system_message_hmac_timestamp_outside_window_is_403(http, base_url, require_server):
+    body = '{"probe":true}'
+    old_ts = int(time.time()) - 400
+    r = http.post(
+        _sm_url(base_url, SEC_SMR_HMAC_TS),
+        data=body,
+        headers={"Content-Type": "application/json", HMAC_HEADER: _hmac_ts_header(body, old_ts)},
+        timeout=10,
+    )
+    if r.status_code == 400 and "not valid" in (r.text or "").lower():
+        pytest.skip(HMAC_SKIP)
+    assert r.status_code == 403
+    assert "hmac" in (r.text or "").lower() or "timestamp" in (r.text or "").lower()
 

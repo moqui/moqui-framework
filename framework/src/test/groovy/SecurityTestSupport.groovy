@@ -28,6 +28,12 @@ class SecurityTestSupport {
     static final String SESSION_TOKEN = "TestSessionToken"
     static final String XSS_SCRIPT = "<script>alert(1)</script>"
     static final String SQLI_OR = "' OR '1'='1"
+    static final String SMT_ID = "SEC_SMT_TEST"
+    static final String SMR_HMAC = "SEC_SMR_HMAC"
+    static final String SMR_HMAC_TS = "SEC_SMR_HMAC_TS"
+    static final String HMAC_SECRET = "sec-hmac-test-secret"
+    static final String HMAC_HEADER = "X-Moqui-Signature"
+    static final String EMAIL_PIXEL_ID = "SEC_EMAIL_PIXEL"
 
     static void logout(ExecutionContext ec) {
         if (ec.user.userId) ec.user.logoutUser()
@@ -60,6 +66,39 @@ class SecurityTestSupport {
             ensureUser(ec, ALL_USER_ID, ALL_USERNAME, ALL_PASSWORD, ALL_GROUP_ID)
             ensureUser(ec, LOCK_USER_ID, LOCK_USERNAME, LOCK_PASSWORD, VIEW_GROUP_ID)
             ensureUser(ec, NONE_USER_ID, NONE_USERNAME, NONE_PASSWORD, NONE_GROUP_ID)
+            ensureSystemMessageTestRemotes(ec)
+            ensureEmailPixel(ec)
+        }
+    }
+
+    static void ensureSystemMessageTestRemotes(ExecutionContext ec) {
+        if (ec.entity.find("moqui.service.message.SystemMessageType").condition("systemMessageTypeId", SMT_ID).one() == null) {
+            ec.entity.makeValue("moqui.service.message.SystemMessageType")
+                    .setAll([systemMessageTypeId: SMT_ID, description: "Security test message type"]).create()
+        }
+        if (ec.entity.find("moqui.service.message.SystemMessageRemote").condition("systemMessageRemoteId", SMR_HMAC).one() == null) {
+            ec.entity.makeValue("moqui.service.message.SystemMessageRemote").setAll([
+                    systemMessageRemoteId: SMR_HMAC, description: "Security test HMAC",
+                    systemMessageTypeId: SMT_ID, messageAuthEnumId: "SmatHmacSha256",
+                    authHeaderName: HMAC_HEADER, sharedSecret: HMAC_SECRET]).create()
+        }
+        if (ec.entity.find("moqui.service.message.SystemMessageRemote").condition("systemMessageRemoteId", SMR_HMAC_TS).one() == null) {
+            ec.entity.makeValue("moqui.service.message.SystemMessageRemote").setAll([
+                    systemMessageRemoteId: SMR_HMAC_TS, description: "Security test HMAC timestamp",
+                    systemMessageTypeId: SMT_ID, messageAuthEnumId: "SmatHmacSha256Timestamp",
+                    authHeaderName: HMAC_HEADER, sharedSecret: HMAC_SECRET]).create()
+        }
+    }
+
+    static void ensureEmailPixel(ExecutionContext ec) {
+        def existing = ec.entity.find("moqui.basic.email.EmailMessage").condition("emailMessageId", EMAIL_PIXEL_ID).one()
+        if (existing == null) {
+            ec.entity.makeValue("moqui.basic.email.EmailMessage").setAll([
+                    emailMessageId: EMAIL_PIXEL_ID, statusId: "ES_SENT",
+                    subject: "sec pixel", toAddresses: "sec@example.com", fromAddress: "noreply@example.com"]).create()
+        } else if (existing.statusId == "ES_VIEWED") {
+            existing.statusId = "ES_SENT"
+            existing.update()
         }
     }
 

@@ -7,10 +7,14 @@ import org.moqui.context.ExecutionContext
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.screen.WebFacadeStub
 import org.moqui.util.MNode
+import org.moqui.impl.context.UserFacadeImpl
 import org.moqui.util.WebUtilities
 import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Unroll
+
+import jakarta.servlet.ServletContext
+import jakarta.servlet.http.HttpServletRequest
 
 class SecurityMisconfigTests extends Specification {
     @Shared ExecutionContext ec
@@ -154,6 +158,34 @@ class SecurityMisconfigTests extends Specification {
         text.contains("artifactGroupId=\"ALL_SCREENS\"")
         text.contains("maxHitsCount=\"120\"")
         text.contains("userGroupId=\"ALL_USERS\"")
+    }
+
+    def "getClientIp ignores X-Forwarded-For when client-ip-header is empty"() {
+        given:
+        def sc = Stub(ServletContext) { getInitParameter("moqui-name") >> "webroot" }
+        def req = Stub(HttpServletRequest) {
+            getServletContext() >> sc
+            getRemoteAddr() >> "203.0.113.9"
+            getHeader("X-Forwarded-For") >> "127.0.0.1"
+            getHeader("X-Real-IP") >> "198.51.100.7"
+        }
+        expect:
+        UserFacadeImpl.getClientIp(req, null, ecfi) == "203.0.113.9"
+    }
+
+    def "simplifyRequestParameters bodyOnly drops query-string keys"() {
+        given:
+        def req = Stub(HttpServletRequest) {
+            getQueryString() >> "sql=SELECT+1"
+            getParameterMap() >> [sql: ["SELECT 1"] as String[], groupName: ["transactional"] as String[]]
+        }
+        when:
+        Map body = WebUtilities.simplifyRequestParameters(req, true)
+        Map all = WebUtilities.simplifyRequestParameters(req, false)
+        then:
+        !body.containsKey("sql")
+        body.groupName == "transactional"
+        all.sql == "SELECT 1"
     }
 
     def "GroovyShell websocket endpoint is enabled by default"() {

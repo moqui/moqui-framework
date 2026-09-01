@@ -5,6 +5,7 @@
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
 import org.moqui.impl.context.ExecutionContextFactoryImpl
+import org.moqui.impl.context.WebFacadeImpl
 import spock.lang.Shared
 import spock.lang.Specification
 
@@ -146,5 +147,26 @@ class SecurityIntegrityTests extends Specification {
         SecurityTestSupport.logout(ec)
         ec.message.clearAll()
         // Unique timestamped username; UserAccount is in a DataFeed so a raw delete is not worth it here.
+    }
+
+    def "email tracking pixel marks a known message viewed"() {
+        given:
+        String id = SecurityTestSupport.EMAIL_PIXEL_ID
+        SecurityTestSupport.withAuthzDisabled(ec) {
+            def em = ec.entity.find("moqui.basic.email.EmailMessage").condition("emailMessageId", id).one()
+            if (em != null && em.statusId != "ES_SENT") {
+                ec.service.sync().name("update#moqui.basic.email.EmailMessage")
+                        .parameters([emailMessageId: id, statusId: "ES_SENT"]).disableAuthz().requireNewTransaction(true).call()
+            }
+        }
+        when:
+        WebFacadeImpl.markEmailMessageViewed(SecurityTestSupport.eci(ec), id + ".png")
+        def after = null
+        SecurityTestSupport.withAuthzDisabled(ec) {
+            after = ec.entity.find("moqui.basic.email.EmailMessage").condition("emailMessageId", id).one()
+        }
+        then:
+        after != null
+        after.statusId == "ES_VIEWED"
     }
 }

@@ -287,7 +287,6 @@ class UserFacadeImpl implements UserFacade {
         }
 
         Map<String, List<String>> headers = request.getHeaders()
-        Map<String, List<String>> parameters = request.getParameterMap()
         String authzHeader = headers.get("Authorization") ? headers.get("Authorization").get(0) : null
         if (authzHeader != null && authzHeader.length() > 6 && authzHeader.substring(0, 6).equals("Basic ")) {
             String basicAuthEncoded = authzHeader.substring(6).trim()
@@ -306,19 +305,8 @@ class UserFacadeImpl implements UserFacade {
             if (loginKey != null && !loginKey.isEmpty() && !"null".equals(loginKey) && !"undefined".equals(loginKey))
                 this.loginUserKey(loginKey)
         }
-        if (currentInfo.username == null && (parameters.api_key || parameters.login_key)) {
-            String loginKey = parameters.api_key ? parameters.api_key.get(0) : (parameters.login_key ? parameters.login_key.get(0) : null)
-            loginKey = loginKey.trim()
-            if (loginKey != null && !loginKey.isEmpty() && !"null".equals(loginKey) && !"undefined".equals(loginKey))
-                this.loginUserKey(loginKey)
-        }
-        if (currentInfo.username == null && parameters.authUsername) {
-            // try the Moqui-specific parameters for instant login
-            // if we have credentials coming in anywhere other than URL parameters, try logging in
-            String authUsername = parameters.authUsername.get(0)
-            String authPassword = parameters.authPassword ? parameters.authPassword.get(0) : null
-            this.loginUser(authUsername, authPassword)
-        }
+        // Do not read api_key / login_key / authUsername from the upgrade query string (same as HTTP body-only).
+        // Callers should send those as headers or rely on the existing HTTP session cookie.
     }
     void initFromHttpSession(HttpSession session) {
         this.session = session
