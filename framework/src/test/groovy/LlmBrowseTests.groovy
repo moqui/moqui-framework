@@ -15,6 +15,8 @@
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
 import org.moqui.impl.llm.BrowseTool
+import org.moqui.impl.llm.LlmGateway
+import org.moqui.impl.llm.SkillIndex
 import spock.lang.IgnoreIf
 import spock.lang.Shared
 import spock.lang.Specification
@@ -39,6 +41,14 @@ class LlmBrowseTests extends Specification {
     }
     def setup() {
         if (!ec.user.userId) assert ec.user.loginUser("john.doe", "moqui")
+    }
+
+    def "requestScreenPath maps qapps and vapps to apps"() {
+        expect:
+        BrowseTool.requestScreenPath("/qapps/marble/Asset") == "/apps/marble/Asset"
+        BrowseTool.requestScreenPath("/vapps/marble/Asset") == "/apps/marble/Asset"
+        BrowseTool.requestScreenPath("/apps/marble/Asset") == "/apps/marble/Asset"
+        BrowseTool.requestScreenPath("/qapps") == "/apps"
     }
 
     def "matches searches serviceName and parameter strings"() {
@@ -165,5 +175,96 @@ class LlmBrowseTests extends Specification {
         out.leaf.inParameters.contains("newPassword")
         out.leaf.form == "CreateUserAccount"
         out.leaf.formFields.contains("username")
+    }
+
+    def "UserAccountList does not list the automatic actions transition"() {
+        when:
+        Map out = (Map) new BrowseTool().execute(
+                [path: "/qapps/system/Security/UserAccount/UserAccountList"], ec)
+        then:
+        ((List) out.children).find { it.name == "actions" } == null
+    }
+
+    def "FindAsset lists ListAssets form-list with jsonPath"() {
+        when:
+        Map out = (Map) new BrowseTool().execute(
+                [path: "/qapps/marble/Asset/Asset/FindAsset"], ec)
+        Map hit = ((List) out.children).find { it.name == "ListAssets" }
+        Map actions = ((List) out.children).find { it.name == "actions" }
+
+        then:
+        hit != null
+        hit.kind == "form-list"
+        hit.method == "GET"
+        hit.jsonPath.toString() == "/apps/marble/Asset/Asset/FindAsset/actions/ListAssets"
+        hit.path.toString() == "/apps/marble/Asset/Asset/FindAsset/actions/ListAssets"
+        hit.entityName == "mantle.product.asset.AssetFindView"
+        hit.fields.contains("productId")
+        hit.fields.contains("quantityOnHandTotal") || hit.fields.contains("availableToPromiseTotal")
+        actions == null
+    }
+
+    def "FindAsset detail forms include jsonPath and skip actions transition"() {
+        when:
+        Map out = (Map) new BrowseTool().execute(
+                [path: "/qapps/marble/Asset/Asset/FindAsset", detail: true], ec)
+        Map form = ((List) out.leaf.forms).find { it.name == "ListAssets" }
+        Map actions = ((List) out.leaf.transitions).find { it.name == "actions" }
+
+        then:
+        form != null
+        form.type == "form-list"
+        form.jsonPath.toString() == "/apps/marble/Asset/Asset/FindAsset/actions/ListAssets"
+        form.method == "GET"
+        form.entityName == "mantle.product.asset.AssetFindView"
+        actions == null
+    }
+
+    def "match quantityOnHand finds ListAssets form-list under Asset"() {
+        when:
+        Map out = (Map) new BrowseTool().execute(
+                [path: "/qapps/marble/Asset", match: "quantityOnHand", depth: 3], ec)
+        Map hit = ((List) out.children).find { it.name == "ListAssets" && it.kind == "form-list" }
+
+        then:
+        hit != null
+        hit.jsonPath.toString() == "/apps/marble/Asset/Asset/FindAsset/actions/ListAssets"
+    }
+
+    def "AssistSystem documents screen-first ladder and find-form jsonPath"() {
+        when:
+        def f = new File("../runtime/base-component/tools/prompt/AssistSystem.ftl")
+        String text = f.exists() ? f.text : ""
+
+        then:
+        f.exists()
+        text.contains("/actions/{formName}")
+        text.contains("Catalog search order")
+        text.contains("/rest/s1")
+        text.contains("/rest/e1")
+        text.contains("Find forms")
+        text.indexOf("/qapps") < text.indexOf("/rest/s1")
+    }
+
+    def "SkillInject FTL miss and hit render through ResourceFacade"() {
+        when:
+        String miss = SkillIndex.formatInject(ec, [])
+        SkillIndex.SkillDoc doc = new SkillIndex.SkillDoc()
+        doc.name = "create-user-account"
+        doc.title = "Create user"
+        doc.risk = "confirm"
+        doc.description = "Create a UserAccount"
+        doc.body = "Call run_service create#UserAccount"
+        String hit = SkillIndex.formatInject(ec, [doc])
+        String sim = LlmGateway.renderPrompt(ec, LlmGateway.PROMPT_SIM, [goal: "place order", successCriteria: "orderId"])
+
+        then:
+        miss.contains("enter_sim")
+        hit.contains("create-user-account")
+        hit.contains("create#UserAccount")
+        !hit.contains("No matching skill")
+        sim.contains("You are in sim")
+        sim.contains("place order")
+        sim.contains("orderId")
     }
 }

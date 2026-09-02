@@ -44,9 +44,12 @@ Call run_service
         SkillIndex.score(named, "place sales order") > SkillIndex.score(other, "place sales order")
     }
 
-    def "formatInject empty tells the agent to enter_sim"() {
-        expect:
-        SkillIndex.formatInject([]) ==~ /.*enter_sim.*/
+    def "SkillInject prompt tells the agent to enter_sim on miss"() {
+        when:
+        def f = new File("../runtime/base-component/tools/prompt/SkillInject.ftl")
+        then:
+        f.exists()
+        f.text.contains("enter_sim")
     }
 
     def "shipped create-user-account skill file parses"() {

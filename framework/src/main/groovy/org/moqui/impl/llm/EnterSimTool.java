@@ -31,13 +31,6 @@ import java.util.Map;
 public class EnterSimTool implements LlmTool {
     private static final Logger logger = LoggerFactory.getLogger(EnterSimTool.class);
     static final String NAME = "enter_sim";
-    static final String SIM_SYSTEM =
-            "You are in sim. Overlay writes never commit. Authz stays on. " +
-            "At most 2 browses, then run_service or request to test the write. " +
-            "As soon as a write succeeds (or you know the exact service), STOP and reply with ONLY a markdown skill, no other prose:\n" +
-            "---\nname: kebab-case-name\ntitle: short title\ndescription: one line\nrisk: reversible\n---\n" +
-            "# Steps\n- run_service create#... with the parameters that worked\n" +
-            "Do not call write_ui or enter_sim. Do not keep browsing after a successful write.";
     private static final Map<String, Object> SCHEMA;
     static {
         Map<String, Object> props = new LinkedHashMap<>();
@@ -113,8 +106,12 @@ public class EnterSimTool implements LlmTool {
                 nested.tool(LlmTool.runService());
                 nested.maxIterations(maxIter);
             }
-            nested.system(SIM_SYSTEM);
-            nested.user("Goal: " + goal + (criteria.isEmpty() ? "" : "\nSuccess criteria: " + criteria));
+            Map<String, Object> promptCtx = new LinkedHashMap<>();
+            promptCtx.put("goal", goal);
+            promptCtx.put("successCriteria", criteria);
+            String simSystem = LlmGateway.renderPrompt(ec, LlmGateway.PROMPT_SIM, promptCtx);
+            if (simSystem != null && !simSystem.isBlank()) nested.system(simSystem);
+            nested.user(goal != null && !goal.isBlank() ? goal : "Go.");
             LlmResponse resp = LlmGateway.withoutCallerTx(ec, nested::call);
             String content = resp != null ? resp.getContent() : null;
             result.put("content", content);

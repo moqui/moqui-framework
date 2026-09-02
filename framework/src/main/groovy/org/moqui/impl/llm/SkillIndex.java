@@ -148,21 +148,29 @@ public class SkillIndex {
         return out;
     }
 
-    public static String formatInject(List<SkillDoc> docs) {
-        if (docs == null || docs.isEmpty()) {
-            return "No matching skill. Call enter_sim before run_service or request writes. Assist may write_ui a clarification form without sim.";
+    public static String formatInject(ExecutionContext ec, List<SkillDoc> docs) {
+        List<Map<String, Object>> skills = new ArrayList<>();
+        if (docs != null) {
+            int remaining = INJECT_CHARS;
+            for (SkillDoc d : docs) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("name", d.name);
+                m.put("title", d.title);
+                m.put("description", d.description);
+                m.put("risk", d.risk);
+                m.put("body", d.body);
+                skills.add(m);
+                int approx = (d.body != null ? d.body.length() : 0) + 80;
+                remaining -= approx;
+                if (remaining <= 0) break;
+            }
         }
-        StringBuilder sb = new StringBuilder("Follow a matching skill before browse. Skills:\n");
-        for (SkillDoc d : docs) {
-            sb.append("\n## ").append(d.name);
-            if (d.title != null && !d.title.equals(d.name)) sb.append(" — ").append(d.title);
-            sb.append("\nrisk=").append(d.risk);
-            if (d.description != null && !d.description.isEmpty()) sb.append("\n").append(d.description);
-            sb.append("\n\n").append(d.body).append("\n");
-            if (sb.length() > INJECT_CHARS) break;
-        }
-        if (sb.length() > INJECT_CHARS) return sb.substring(0, INJECT_CHARS);
-        return sb.toString();
+        Map<String, Object> ctx = new LinkedHashMap<>();
+        ctx.put("skills", skills);
+        String text = LlmGateway.renderPrompt(ec, LlmGateway.PROMPT_SKILL_INJECT, ctx);
+        if (text == null) return "";
+        if (text.length() > INJECT_CHARS) return text.substring(0, INJECT_CHARS);
+        return text;
     }
 
     static int score(SkillDoc doc, String q) {

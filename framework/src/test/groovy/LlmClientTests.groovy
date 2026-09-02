@@ -997,6 +997,25 @@ class LlmClientTests extends Specification {
         enriched.kind == "form"
     }
 
+    def "write_ui enricher drops map and list defaultValue"() {
+        given:
+        WriteUiTool tool = new WriteUiTool()
+        when:
+        def enriched = tool.enrichForClient([
+                fields: [
+                        [name: "productId", widget: "text-line", defaultValue: [:]],
+                        [name: "limit", widget: "text-line", defaultValue: ["x"]],
+                        [name: "ok", widget: "text-line", defaultValue: "10297"],
+                        [name: "n", widget: "text-line", defaultValue: 10]
+                ]
+        ], null)
+        then:
+        !enriched.fields[0].containsKey("defaultValue")
+        !enriched.fields[1].containsKey("defaultValue")
+        enriched.fields[2].defaultValue == "10297"
+        enriched.fields[3].defaultValue == 10
+    }
+
     def "write_ui writeThrough merges fields and honors removeFields"() {
         given:
         def conv = LlmConversationImpl.create(null, "default", null)

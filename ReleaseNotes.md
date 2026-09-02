@@ -90,12 +90,16 @@ Other production notes:
   is authorized to hit. Profile `allow-unprefixed-request="true"` (Assist) attaches that unprefixed tool;
   operators may still add `allowed-path` prefixes to **narrow** it.
 - Assist Universal Screen (`/qapps/assist`, tools component): chat + generated canvas. Profile
-  `assist` uses a server-owned SYSTEM file (`system-location`), ignores client `system`, and enables
+  `assist` uses a server-owned SYSTEM FTL (`system-location` under `component://tools/prompt/`,
+  rendered with ResourceFacade `template()`), ignores client `system`, and enables
   `write_ui`, `browse`, `run_service`, and unprefixed `request`. `browse` lists screens/REST/services/entities
-  the current user can VIEW (depth 1 default). Screen listings include parameters and forms; transition
-  children include `method`, parameters, form fields, and `serviceName` when the transition is a single
-  `service-call`. `match` searches those as well as name/title. Prefer `run_service` or `request` POST to
-  that transition over `/rest/e1`. Entity rows include `createService` (`create#EntityName`). `write_ui` schemaVersion 3 is
+  the current user can VIEW (depth 1 default). Screen listings include parameters and forms; form-list
+  children with data prep include `jsonPath` (`GET /apps/{screen}/actions/{formName}`, not `/qapps`) for find/list rows.
+  Transition children include `method`, parameters, form fields, and `serviceName` when the transition is a
+  single `service-call`. `match` searches those as well as name/title. Search screens exhaustively, then
+  `/rest/s1`, then `run_service`, then `/rest/e1` last. Entity rows include `createService`
+  (`create#EntityName`). Find forms: `write_ui` then GET `jsonPath` and `writeThrough` columns/rows (reads,
+  no `enter_sim`). `write_ui` schemaVersion 3 is
   `kind=form` (xml-form widgets, list columns/rows) or `kind=vue-sfc` (Vue 2 SFC parsed with
   `httpVueLoader.parse` and mounted as a sub-component of Assist.qvue). `actions[]` and `writeThrough`
   apply to both kinds (SFC source is replaced as a unit; omitted source is kept). Script mode runs

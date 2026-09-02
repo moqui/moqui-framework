@@ -45,7 +45,8 @@ public class RunServiceTool implements LlmTool {
     @Override public String getName() { return NAME; }
     @Override public String getDescription() {
         return "Call a Moqui service as the current user (authz ON). "
-                + "Prefer /rest/s1 via request when a REST path exists. "
+                + "Use after screen jsonPath and /rest/s1 have no path. "
+                + "Returns {ok, serviceName, result} — read result, not just ok. "
                 + "serviceName is package.verb#noun. Do not pass authUsername/authPassword.";
     }
     @Override public Map<String, Object> getParametersSchema() { return SCHEMA; }

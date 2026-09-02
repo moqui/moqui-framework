@@ -42,7 +42,10 @@ import java.util.Set;
  */
 public class RequestTool implements LlmTool {
     static final String NAME = "request";
-    static final String HTML_ERROR = "use /actions or a named transition; HTML screens are not valid tool results";
+    static final String HTML_ERROR = "HTML screens are not valid tool results. " +
+            "Use /apps (not /qapps). GET {screen}/actions for screen JSON, GET {screen}/actions/{formListName} " +
+            "for form-list rows (browse jsonPath), or POST {screen}/{transitionName} for a named transition " +
+            "from browse (not /actions/{transition})";
     static final String PATH_NOT_ALLOWED = "path not allowed";
     private static final Set<String> METHODS = new LinkedHashSet<>(
             Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE"));
@@ -80,7 +83,9 @@ public class RequestTool implements LlmTool {
 
     @Override public String getName() { return NAME; }
     @Override public String getDescription() {
-        return "Call a Moqui screen, transition, or /rest path as the current user. Path only (no host). JSON in/out.";
+        return "Call a Moqui screen, transition, or /rest path as the current user. Path only (no host). JSON in/out. " +
+                "Form-list finds: GET {screen}/actions/{formName} (browse jsonPath). Named transitions: POST " +
+                "{screen}/{transition}. HTML screens are rejected.";
     }
     @Override public Map<String, Object> getParametersSchema() { return SCHEMA; }
     @Override public Execution getExecution() { return Execution.SERVER; }

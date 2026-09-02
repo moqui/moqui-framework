@@ -82,6 +82,20 @@ class LlmRequestToolTests extends Specification {
         then:
         result.status == 400
         result.text == RequestTool.HTML_ERROR
+        result.text.contains("actions/{formListName}")
+        result.text.contains("not /actions/{transition}")
+        result.text.contains("not /qapps")
+    }
+
+    def "GET FindAsset form-list jsonPath returns JSON array"() {
+        when:
+        def result = LlmTool.request().execute(
+                [method: "GET", path: "/apps/marble/Asset/Asset/FindAsset/actions/ListAssets",
+                 query: [productId: "10297"]], ec)
+        then:
+        result.status == 200
+        result.json instanceof List
+        result.text == null || !result.text.toString().toLowerCase().contains("<html")
     }
 
     def "POST rest create as non-admin is 403 and does not write"() {

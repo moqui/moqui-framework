@@ -204,7 +204,9 @@ public class WriteUiTool implements LlmTool {
                 + "kind=vue-sfc: Vue 2 SFC (sfc, or template+script+style) mounted as a sub-component; "
                 + "use module.exports (not export default / script setup), Quasar v1, and Assist m-* widgets "
                 + "(see system prompt). Always declare actions[] (method+path) and keep fields[].name in sync "
-                + "with values. Wait for the user to submit; values in the tool result are the only source of truth. "
+                + "with values. Find/list: actions[].path is GET {screen}/actions/{formName} from browse jsonPath; "
+                + "after submit writeThrough columns/rows. Scalar defaultValue only. "
+                + "Wait for the user to submit; values in the tool result are the only source of truth. "
                 + "The server never submits. Set writeThrough=true to edit the current canvas: omitted "
                 + "fields/actions/SFC source are kept; use removeFields/removeActions to drop them. "
                 + "The resume tool result includes canvas (current schema with user values).";
@@ -251,8 +253,12 @@ public class WriteUiTool implements LlmTool {
                 if (wt != null && !DATE_TYPES.contains(wt)) field.remove("widgetType");
                 sanitizeString(field, "label");
                 sanitizeString(field, "help");
-                if (field.get("defaultValue") instanceof CharSequence)
-                    field.put("defaultValue", clean(field.get("defaultValue").toString()));
+                Object dv = field.get("defaultValue");
+                if (dv instanceof Map || dv instanceof List) field.remove("defaultValue");
+                else if (dv instanceof CharSequence)
+                    field.put("defaultValue", clean(dv.toString()));
+                else if (dv != null && !(dv instanceof Number) && !(dv instanceof Boolean))
+                    field.put("defaultValue", clean(dv.toString()));
                 Object options = field.get("options");
                 if (options instanceof List) {
                     List<Map<String, Object>> cleanOpts = new ArrayList<>();

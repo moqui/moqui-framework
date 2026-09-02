@@ -370,6 +370,7 @@
         <!-- renderer class needs to implement the org.moqui.context.TemplateRenderer interface -->
         <template-renderer extension="ftl" class="org.moqui.impl.context.renderer.FtlTemplateRenderer"/>
         <template-renderer extension="html.ftl" class="org.moqui.impl.context.renderer.FtlTemplateRenderer"/>
+        <template-renderer extension="json.ftl" class="org.moqui.impl.context.renderer.FtlTemplateRenderer"/>
         <template-renderer extension="gstring" class="org.moqui.impl.context.renderer.GStringTemplateRenderer"/>
         <template-renderer extension="html.gstring" class="org.moqui.impl.context.renderer.GStringTemplateRenderer"/>
 

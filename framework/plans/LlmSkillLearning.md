@@ -54,7 +54,7 @@ Already on `llm-client`:
 - `LlmClient` / `LlmAgentLoop` sequential tool loop
 - Tools: `request` (ScreenRender, authz on), `run_service`, `browse`, `write_ui`
 - Conversations: `LlmConversation` / `LlmMessage` / `LlmCallLog`
-- Assist profile (`component://tools/template/AssistSystem.md`) currently **inlines** the playbooks (create user, sales order). Those *are* skills stuck in the system prompt.
+- Assist profile (`component://tools/prompt/AssistSystem.ftl`) currently **inlines** the playbooks (create user, sales order). Those *are* skills stuck in the system prompt.
 - `TransactionCache` — per-JTA-TX map overlay (`Synchronization.flush` on commit). Documented holes: view-entities, counts, DB limit, some iterators. This is the shape to extend, not the sim itself.
 - `ArtifactExecutionFacade` already has `disableEntityEca`, `disableEntityDataFeed`, `disableAuthz`, audit-log disable.
 - `sequencedIdPrimary` banks IDs in `runRequireNew` against `SequenceValueItem` — a sim that calls this **burns production sequences**.
@@ -124,7 +124,7 @@ Do not auto-promote sim-only dynamics to world truth.
 3. If no hits and the turn is a task (not a pure question): inject "no skill — call `enter_sim` before `run_service`/`request` writes". Assist may still `write_ui` a clarification form without sim.
 4. After world pass following a proposed skill: admit.
 
-Move the create-user and sales-order playbooks out of `AssistSystem.md` into shipped skills. The system file shrinks to: build a canvas, follow skills, else sim.
+Move the create-user and sales-order playbooks out of `AssistSystem.ftl` into shipped skills. The system file shrinks to: build a canvas, follow skills, else sim.
 
 ## Sim overlay: `TransactionCacheDb` (H2 working set)
 
@@ -319,7 +319,7 @@ None blocking:
 
 ### PR 1 — Skill store, retrieve, Assist playbooks as skills
 
-- **Files:** `framework/entity/LlmEntities.xml`, `framework/data/LlmTypeData.xml`, skill index + `FindSkillTool`, `LlmGateway` inject, `runtime/base-component/tools/skill/*.md`, shrink `AssistSystem.md`, Spock tests
+- **Files:** `framework/entity/LlmEntities.xml`, `framework/data/LlmTypeData.xml`, skill index + `FindSkillTool`, `LlmGateway` inject, `runtime/base-component/tools/skill/*.md`, shrink `AssistSystem.ftl`, Spock tests
 - **Depends on:** nothing
 - **What:** `LlmSkill` / `LlmSkillUse` / `LlmLesson`; scan `component://*/skill/*.md`; `find_skill`; inject top-k; move create-user and sales-order out of the system file
 
