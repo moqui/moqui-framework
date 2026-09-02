@@ -376,6 +376,22 @@ class SecurityIntegrityTests extends Specification {
         // Unique timestamped username; UserAccount is in a DataFeed so a raw delete is not worth it here.
     }
 
+    def "generic entity REST does not find UserAuthcFactor"() {
+        when:
+        SecurityTestSupport.login(ec, SecurityTestSupport.ENT_ALL_USERNAME, SecurityTestSupport.ENT_ALL_PASSWORD)
+        Throwable thrown = null
+        Object result = null
+        try {
+            result = ec.entity.rest("get", ["moqui.security.UserAuthcFactor"], [:], false)
+        } catch (Throwable t) { thrown = t }
+        then:
+        thrown instanceof ArtifactAuthorizationException
+        result == null
+        cleanup:
+        SecurityTestSupport.logout(ec)
+        ec.message.clearAll()
+    }
+
     def "generic entity REST does not create UserLoginKey"() {
         when:
         SecurityTestSupport.login(ec, SecurityTestSupport.ENT_ALL_USERNAME, SecurityTestSupport.ENT_ALL_PASSWORD)
@@ -428,6 +444,19 @@ class SecurityIntegrityTests extends Specification {
                     .condition("userPermissionId", "REST_SCHEMA").one()
             leftover?.delete()
         }
+    }
+
+    def "import EntityDataSnapshot rejects parent-segment zipFilename"() {
+        when:
+        Throwable thrown = null
+        try {
+            ec.service.sync().name("org.moqui.impl.EntityServices.import#EntityDataSnapshot")
+                    .parameter("zipFilename", "../../conf/MoquiProductionConf.xml").disableAuthz().call()
+        } catch (Throwable t) { thrown = t }
+        then:
+        thrown != null || ec.message.hasError()
+        cleanup:
+        ec.message.clearAll()
     }
 
     def "data loader restrictSensitiveEntities rejects UserLoginKey"() {

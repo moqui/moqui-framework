@@ -184,6 +184,17 @@ class SecurityAccessControlTests extends Specification {
         SecurityTestSupport.looksLikeAuthzFailure(str) || SecurityTestSupport.looksLikeAuthnFailure(str)
     }
 
+    def "AutoFind of UserAuthcFactor is refused"() {
+        when:
+        SecurityTestSupport.login(ec, SecurityTestSupport.VIEW_USERNAME, SecurityTestSupport.VIEW_PASSWORD)
+        ScreenTestRender str = tools.render("AutoScreen/AutoFind",
+                [aen: "moqui.security.UserAuthcFactor"], "get")
+        String all = ((str.errorMessages ?: []) + [str.output ?: ""]).join("\n").toLowerCase()
+        then:
+        all.contains("not available through this tool") || SecurityTestSupport.looksLikeAuthzFailure(str)
+        !all.contains("factoroption")
+    }
+
     def "AutoFind of SystemMessageRemote is refused"() {
         when:
         SecurityTestSupport.login(ec, SecurityTestSupport.VIEW_USERNAME, SecurityTestSupport.VIEW_PASSWORD)

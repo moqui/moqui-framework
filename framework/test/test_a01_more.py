@@ -376,6 +376,46 @@ def test_datasnapshot_parent_segment_filename_is_not_found(http, base_url, requi
     assert "crypt-pass" not in body
 
 
+def test_datasnapshot_parent_segment_delete_is_rejected(http, base_url, require_server, username, password):
+    login_r = require_screen_login(http, base_url, username, password)
+    tok = csrf_token(login_r)
+    if not tok:
+        pytest.skip("no CSRF token after login")
+    r = http.post(
+        base_url + "/apps/tools/Entity/DataSnapshot/deleteSnapshot",
+        data={"filename": "../../conf/MoquiProductionConf.xml", "moquiSessionToken": tok},
+        headers={"X-CSRF-Token": tok},
+        timeout=15,
+        allow_redirects=False,
+    )
+    if r.status_code in (401, 403):
+        pytest.skip("user cannot open DataSnapshot")
+    body = (r.text or "").lower()
+    assert "crypt-pass" not in body
+    assert "moqui-conf" not in body
+    assert r.status_code != 500
+
+
+def test_datasnapshot_parent_segment_import_is_rejected(http, base_url, require_server, username, password):
+    login_r = require_screen_login(http, base_url, username, password)
+    tok = csrf_token(login_r)
+    if not tok:
+        pytest.skip("no CSRF token after login")
+    r = http.post(
+        base_url + "/apps/tools/Entity/DataSnapshot/importSnapshot",
+        data={"zipFilename": "../../conf/MoquiProductionConf.xml", "moquiSessionToken": tok},
+        headers={"X-CSRF-Token": tok},
+        timeout=15,
+        allow_redirects=False,
+    )
+    if r.status_code in (401, 403):
+        pytest.skip("user cannot open DataSnapshot")
+    body = (r.text or "").lower()
+    assert "crypt-pass" not in body
+    assert "moqui-conf" not in body
+    assert r.status_code != 500
+
+
 def test_elfinder_component_webroot_put_does_not_write_screen(http, base_url, require_server, username, password):
     from pathlib import Path
     login_r = require_screen_login(http, base_url, username, password)

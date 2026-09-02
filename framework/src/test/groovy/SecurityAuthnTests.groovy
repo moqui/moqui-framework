@@ -311,6 +311,48 @@ class SecurityAuthnTests extends Specification {
         ec.message.clearAll()
     }
 
+    def "update Password rejects resetPassword when resetPasswordSetDate is missing"() {
+        given:
+        String uname = "sec.rstexp." + System.currentTimeMillis()
+        String origPw = "SecRstExp1!!"
+        String resetPw = "ResetOld1!!"
+        ec.message.clearAll()
+        def created = ec.service.sync().name("org.moqui.impl.UserServices.create#UserAccount")
+                .parameters([username: uname, newPassword: origPw, newPasswordVerify: origPw,
+                             userFullName: uname, emailAddress: uname + "@example.com"]).disableAuthz().call()
+        SecurityTestSupport.withAuthzDisabled(ec) {
+            def ua = ec.entity.find("moqui.security.UserAccount").condition("username", uname).one()
+            String hash = ((org.moqui.impl.context.ExecutionContextImpl) ec).ecfi
+                    .getSimpleHash(resetPw, (String) ua.passwordSalt, (String) ua.passwordHashType,
+                            "Y".equals(ua.passwordBase64))
+            ua.resetPassword = hash
+            ua.resetPasswordSetDate = null
+            ua.update()
+        }
+        when:
+        ec.message.clearAll()
+        ec.service.sync().name("org.moqui.impl.UserServices.update#Password")
+                .parameters([username: uname, oldPassword: resetPw,
+                             newPassword: "SecNew9!!", newPasswordVerify: "SecNew9!!"]).call()
+        String currentHash = null
+        String origHash = null
+        String msgs = ((ec.message.publicMessages ?: []) + (ec.message.messages ?: [])).join("\n")
+        SecurityTestSupport.withAuthzDisabled(ec) {
+            def ua = ec.entity.find("moqui.security.UserAccount").condition("username", uname).one()
+            currentHash = ua?.currentPassword
+            origHash = ((org.moqui.impl.context.ExecutionContextImpl) ec).ecfi
+                    .getSimpleHash(origPw, (String) ua.passwordSalt, (String) ua.passwordHashType,
+                            "Y".equals(ua.passwordBase64))
+        }
+        then:
+        created?.userId
+        msgs.toLowerCase().contains("could not be updated")
+        currentHash == origHash
+        cleanup:
+        SecurityTestSupport.logout(ec)
+        ec.message.clearAll()
+    }
+
     def "logoutUser sets hasLoggedOut on the account"() {
         when:
         SecurityTestSupport.login(ec, SecurityTestSupport.ALL_USERNAME, SecurityTestSupport.ALL_PASSWORD)

@@ -163,6 +163,8 @@ class SecurityMisconfigTests extends Specification {
         "backslash"                   | "/\\evil.example"                    | false
         "userinfo"                    | "https://localhost@evil.example/"    | false
         "empty"                       | ""                                   | false
+        "crlf path"                   | "/apps\r\nLocation: https://evil.example" | false
+        "nul path"                    | "/apps\0evil"                        | false
     }
 
     def "isSameOriginRedirect rejects absolute URLs when configured host is empty"() {
@@ -190,6 +192,8 @@ class SecurityMisconfigTests extends Specification {
         "EmailServer"            | "moqui.basic.email.EmailServer"           | true       | false    | true
         "SystemMessageRemote"    | "moqui.service.message.SystemMessageRemote"| true      | false    | true
         "Enumeration"            | "moqui.basic.Enumeration"                 | false      | false    | false
+        "UserAuthcFactor"        | "moqui.security.UserAuthcFactor"          | true       | true     | false
+        "UserPasswordHistory"    | "moqui.security.UserPasswordHistory"      | true       | true     | false
         "empty"                  | ""                                        | false      | false    | false
     }
 
@@ -206,8 +210,37 @@ class SecurityMisconfigTests extends Specification {
         "not suffix"       | "notexample.com"      | "example.com"        | false
         "other host"       | "127.0.0.1"           | "example.com"        | false
         "ip exact"         | "127.0.0.1"           | "127.0.0.1"          | true
+        "ip suffix 1"      | "127.0.0.1"           | "1"                  | false
+        "ip suffix 0.1"    | "10.0.0.1"            | "0.1"                | false
         "blank host"       | ""                    | "example.com"        | false
         "case"             | "SMTP.Example.COM"    | "example.com"        | true
+    }
+
+    @Unroll
+    def "isSafeSinglePathSegment #label"() {
+        expect:
+        WebUtilities.isSafeSinglePathSegment(name) == ok
+        where:
+        label            | name                                      | ok
+        "zip"            | "MoquiSnapshot-20260101.zip"              | true
+        "parent"         | "../../conf/MoquiProductionConf.xml"      | false
+        "slash"          | "a/b.zip"                                 | false
+        "backslash"      | "a\\b.zip"                                | false
+        "colon"          | "C:foo.zip"                               | false
+        "dotdot"         | ".."                                      | false
+        "empty"          | ""                                        | false
+        "crlf"           | "foo.zip\r\n"                             | false
+    }
+
+    def "hmac replay cache putIfAbsent rejects a second put"() {
+        given:
+        def cache = ec.cache.getCache("moqui.security.hmac.replay")
+        String key = "test-replay-" + System.currentTimeMillis()
+        expect:
+        cache.putIfAbsent(key, Boolean.TRUE)
+        !cache.putIfAbsent(key, Boolean.TRUE)
+        cleanup:
+        cache.remove(key)
     }
 
     def "default email_allowed_hosts is empty"() {

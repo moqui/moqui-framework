@@ -60,6 +60,7 @@ public class ServiceJsonRpcDispatcher {
                 } else {
                     jsonRespList.add(callSingle(null, callSingleObj, null))
                 }
+                eci.getMessage().clearAll()
             }
             eci.getWeb().sendJsonResponse(jsonRespList)
         } else {

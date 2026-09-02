@@ -53,6 +53,7 @@ import jakarta.servlet.http.HttpSession
 import java.nio.charset.StandardCharsets
 import java.sql.Timestamp
 
+import javax.cache.Cache
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
@@ -1287,13 +1288,12 @@ class WebFacadeImpl implements WebFacade {
                 }
 
                 String replayKey = systemMessageRemoteId + ":" + timestamp + ":" + incomingSignature
-                def replayCache = eci.cacheFacade.getCache("moqui.security.hmac.replay")
-                if (replayCache.containsKey(replayKey)) {
+                Cache replayCache = eci.cacheFacade.getCache("moqui.security.hmac.replay")
+                if (!replayCache.putIfAbsent(replayKey, Boolean.TRUE)) {
                     logger.warn("System message receive HMAC replay for remote ${systemMessageRemoteId}")
                     response.sendError(HttpServletResponse.SC_FORBIDDEN, "HMAC replay rejected")
                     return
                 }
-                replayCache.put(replayKey, Boolean.TRUE)
 
                 // login anonymous if not logged in
                 eci.userFacade.loginAnonymousIfNoUser()

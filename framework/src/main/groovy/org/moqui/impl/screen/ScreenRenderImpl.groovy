@@ -227,6 +227,7 @@ class ScreenRenderImpl implements ScreenRender {
      * When webapp http-host is not configured, send a path-only Location instead. */
     void sendHttpRedirect(String location) {
         if (response == null || location == null) return
+        location = WebUtilities.sanitizeRedirectLocation(location)
         ExecutionContextFactoryImpl.WebappInfo wi = webappName ? ec.ecfi.getWebappInfo(webappName) : null
         String configured = wi?.httpHost
         if ((configured == null || configured.isEmpty()) &&

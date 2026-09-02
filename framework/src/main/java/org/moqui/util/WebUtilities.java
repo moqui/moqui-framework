@@ -422,6 +422,7 @@ public class WebUtilities {
         if (p.isEmpty()) return false;
         String lower = p.toLowerCase(Locale.ROOT);
         if (p.indexOf('\\') >= 0) return false;
+        if (containsIsoControl(p)) return false;
         if (lower.startsWith("javascript:") || lower.startsWith("data:") || lower.startsWith("vbscript:")) return false;
         if (p.startsWith("//")) return false;
         if (p.startsWith("/")) return true;
@@ -436,6 +437,47 @@ public class WebUtilities {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    /** Drop CR/LF/NUL from a Location value so sendRedirect cannot split headers. */
+    public static String sanitizeRedirectLocation(String location) {
+        if (location == null) return null;
+        StringBuilder sb = new StringBuilder(location.length());
+        for (int i = 0; i < location.length(); i++) {
+            char c = location.charAt(i);
+            if (c == '\r' || c == '\n' || c == '\0') continue;
+            sb.append(c);
+        }
+        String out = sb.toString().trim();
+        return out.isEmpty() ? "/" : out;
+    }
+
+    /**
+     * True for a single filesystem/resource path segment: no parent, separator, scheme, or ISO control.
+     * Used for DataSnapshot filename / zipFilename (download, delete, import, upload).
+     */
+    public static boolean isSafeSinglePathSegment(String name) {
+        if (name == null || name.isEmpty()) return false;
+        if (".".equals(name) || "..".equals(name)) return false;
+        if (name.contains("..") || name.contains("/") || name.contains("\\") || name.contains(":")) return false;
+        return !containsIsoControl(name);
+    }
+
+    /** Last segment of a client filename; backslash treated as a separator. Null-safe. */
+    public static String lastPathSegment(String name) {
+        if (name == null) return null;
+        String n = name.replace('\\', '/');
+        int slash = n.lastIndexOf('/');
+        if (slash >= 0) n = n.substring(slash + 1);
+        return n;
+    }
+
+    private static boolean containsIsoControl(String s) {
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c < 32 || c == 127) return true;
+        }
+        return false;
     }
 
     /** UserAccount fields that are password material. Omitted from REST JSON and not accepted on generic entity writes. */
@@ -456,7 +498,8 @@ public class WebUtilities {
     private static final Set<String> IDENTITY_ADMIN_ENTITY_KEYS = new HashSet<>(Arrays.asList(
             "userloginkey", "usergroupmember", "usergrouppermission", "userpermission",
             "artifactauthz", "artifactgroup", "artifactgroupmember", "artifacttarpit",
-            "usergrouppermissions", "userpermissions", "artifactgroups"));
+            "usergrouppermissions", "userpermissions", "artifactgroups",
+            "userauthcfactor", "userpasswordhistory"));
 
     private static final Set<String> SECRET_CONFIG_ENTITY_KEYS = new HashSet<>(Arrays.asList(
             "emailserver", "systemmessageremote"));
@@ -475,7 +518,7 @@ public class WebUtilities {
                 || entityName.endsWith(".UserAccount");
     }
 
-    /** UserLoginKey, group membership/permissions, and artifact authz. Not UserAccount. */
+    /** UserLoginKey, group membership/permissions, artifact authz, MFA factors, password history. Not UserAccount. */
     public static boolean isIdentityAdminEntity(String entityName) {
         return IDENTITY_ADMIN_ENTITY_KEYS.contains(simpleEntityKey(entityName));
     }
@@ -508,8 +551,9 @@ public class WebUtilities {
 
     /**
      * Connect-host allow-list. Empty/null allowedList permits any host.
-     * A list entry matches an exact hostname/IP (case-insensitive) or a DNS subdomain
-     * ({@code smtp.example.com} matches {@code example.com}; {@code notexample.com} does not).
+     * A list entry matches an exact hostname/IP (case-insensitive). DNS names also match
+     * a subdomain ({@code smtp.example.com} matches {@code example.com}; {@code notexample.com} does not).
+     * IPv4/IPv6 and numeric suffixes are exact only ({@code 127.0.0.1} does not match {@code 1}).
      */
     public static boolean hostAllowedByConf(String host, String allowedList) {
         if (allowedList == null || allowedList.trim().isEmpty()) return true;
@@ -522,7 +566,18 @@ public class WebUtilities {
             String d = parts[i].trim().toLowerCase(Locale.ROOT);
             if (d.isEmpty()) continue;
             if (d.endsWith(".")) d = d.substring(0, d.length() - 1);
-            if (h.equals(d) || h.endsWith("." + d)) return true;
+            if (h.equals(d)) return true;
+            if (isDnsNameForSuffix(d) && h.endsWith("." + d)) return true;
+        }
+        return false;
+    }
+
+    /** Suffix match is for DNS labels, not IPv4 fragments ({@code 1}, {@code 0.1}) or IPv6. */
+    private static boolean isDnsNameForSuffix(String d) {
+        if (d.indexOf(':') >= 0) return false;
+        for (int i = 0; i < d.length(); i++) {
+            char c = d.charAt(i);
+            if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) return true;
         }
         return false;
     }

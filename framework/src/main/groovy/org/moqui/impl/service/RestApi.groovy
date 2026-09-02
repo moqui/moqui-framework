@@ -367,6 +367,9 @@ class RestApi {
             }
 
             try {
+                if (operation in ['one', 'list', 'count'] && WebUtilities.isRestrictedGenericEntity(entityName)) {
+                    throw new ArtifactAuthorizationException("Entity ${entityName} is not available through this REST resource")
+                }
                 if (operation == 'one') {
                     EntityFind ef = ec.entity.find(entityName).searchFormMap(ec.context, null, null, null, false)
                     if (masterName) {

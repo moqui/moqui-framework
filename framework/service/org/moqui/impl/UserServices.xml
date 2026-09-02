@@ -219,12 +219,12 @@ along with this software (see the LICENSE.md file). If not, see
                     </script>
                     <if condition="!userAccount.currentPassword || !ec.ecfi.getCredentialsMatcher(userAccount.passwordHashType, 'Y'.equals(userAccount.passwordBase64)).doCredentialsMatch(token, info)">
                         <if condition="userAccount.resetPassword"><then>
-                            <!-- try the resetPassword; honour password.@email-expire-hours when resetPasswordSetDate is set -->
-                            <set field="resetStillValid" from="true" type="Boolean"/>
-                            <set field="expireHours" from="ec.ecfi.confXmlRoot.first('user-facade').first('password').attribute('email-expire-hours')" default-value="48" type="Integer"/>
-                            <if condition="userAccount.resetPasswordSetDate &amp;&amp; expireHours">
+                            <!-- try the resetPassword; honour password.@email-expire-hours; missing set date is expired -->
+                            <set field="resetStillValid" from="false" type="Boolean"/>
+                            <if condition="userAccount.resetPasswordSetDate">
+                                <set field="expireHours" from="ec.ecfi.confXmlRoot.first('user-facade').first('password').attribute('email-expire-hours')" default-value="48" type="Integer"/>
                                 <set field="resetExpireAt" from="new java.sql.Timestamp(userAccount.resetPasswordSetDate.time + (expireHours * 3600000L))"/>
-                                <if condition="ec.user.nowTimestamp.after(resetExpireAt)"><set field="resetStillValid" from="false" type="Boolean"/></if>
+                                <if condition="!ec.user.nowTimestamp.after(resetExpireAt)"><set field="resetStillValid" from="true" type="Boolean"/></if>
                             </if>
                             <script>
                                 if (resetStillValid) {

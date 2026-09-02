@@ -118,9 +118,9 @@ Default seed: `ADMIN` inherit-all on the app root. Extra `UserPermission` gates 
 | --- | --- | --- |
 | Groovy Shell | `GROOVY_SHELL_WEB` + AUTHZA_ALL on the screen; also `/groovysh` WS | RCE in the JVM |
 | SQL Runner, SQL Script Runner | `SQL_RUNNER_WEB` + AUTHZA_ALL; SQL from secure (body) parameters | Arbitrary SQL on a datasource |
-| Entity Data Import | inherit-all | XML/JSON/CSV/location load — bulk entity writes. Identity-admin and secret-config entities (UserLoginKey, UserGroupMember, EmailServer, …) are refused; use System/Security screens or seed data. UserAccount is still allowed here. |
-| Entity Data Export, Data Snapshot | inherit-all | Bulk read / dump of entity data |
-| Auto Screen, Data Edit, Data View | inherit-all | Generic entity CRUD UI. Identity-admin and secret-config entities are refused (VIEW-only inherit is not a dump of HMAC secrets or login keys). UserAccount remains available; identity-admin changes go through System/Security. |
+| Entity Data Import | inherit-all | XML/JSON/CSV/location load — bulk entity writes. Identity-admin and secret-config entities (UserLoginKey, UserAuthcFactor, UserPasswordHistory, UserGroupMember, EmailServer, …) are refused; use System/Security screens or seed data. UserAccount is still allowed here. |
+| Entity Data Export, Data Snapshot | inherit-all | Bulk read / dump of entity data. Snapshot download/delete/import/upload take a single path segment under `db/snapshot/`. Import may disable EECAs (form default) so a Tools update user can restore security rows; that is a restore path, not a SYSTEM_APP hole. |
+| Auto Screen, Data Edit, Data View | inherit-all | Generic entity CRUD UI. Identity-admin and secret-config entities are refused (VIEW-only inherit is not a dump of HMAC secrets, login keys, or TOTP factors). UserAccount remains available; identity-admin changes go through System/Security. |
 | Service Run | inherit-all | Call any authorized service by name |
 | Service Load Runner | `SERVICE_LOAD_RUNNER` + AUTHZA_ALL | Load generator against services |
 | Artifact Stats, Speed Test | inherit-all | Stats / load; Speed Test is disabled on demo.moqui.org |

@@ -70,7 +70,7 @@ and clarifies security details that have been more scattered and less formal.
 - REST schema dumps (`entity.json` / swagger / raml) require the `REST_SCHEMA`
   permission (seeded on ADMIN). Swagger no longer sets `Access-Control-Allow-Origin: *`.
 - Timestamped system-message HMAC rejects a repeated signature inside the
-  window.
+  window (atomic `putIfAbsent`).
 - WebSocket endpoint ExecutionContext handling: each upgrade starts with a
   fresh context on the dispatch thread; handshake auth applies only to that
   connection.
@@ -84,8 +84,14 @@ and clarifies security details that have been more scattered and less formal.
   Generic entity REST does not create or list `UserLoginKey`.
 - Auto Screen, Data Edit, Data Import, and `put#EntitySyncData` refuse
   identity-admin and secret-config entities (UserGroupMember, ArtifactAuthz,
-  EmailServer, and similar). UserAccount remains available through Data Edit.
-  System/Security screens are unchanged.
+  UserAuthcFactor, UserPasswordHistory, EmailServer, and similar). UserAccount
+  remains available through Data Edit. System/Security screens are unchanged.
+- DataSnapshot download, delete, import, and upload take a single path segment
+  under `db/snapshot/`.
+- Login redirects reject CR/LF in the path; `email_allowed_hosts` suffix match
+  is DNS-only (IPv4 fragments are exact).
+- A leftover `resetPassword` with no `resetPasswordSetDate` is treated as
+  expired (`password.@email-expire-hours`).
 - `PATCH /rest/s1/moqui/users` identity fields (`disabled`, `username`,
   `emailAddress`, and similar) require the ADMIN group. `MOQUI_API` ALL can
   still update display fields. EmailServer host/port/password writes through

@@ -118,24 +118,24 @@ The two runners cannot share the database at the same time (Moqui locks `btm2.tl
 | `MNode` parse of a stream / file and external DTD subset does not expand external entities | A05 | `SecurityIntegrityTests` | N/A |
 | Notification listener registers an endpoint that has a userId (positive control) | A01 | `SecurityHandshakeTests` | N/A |
 | `ScreenTest` `WebFacadeStub` session token matches the CSRF fixture token (positive-control guard) | A01 | `SecurityMisconfigTests` | N/A |
-| DataSnapshot download rejects `..` / `/` in `filename`; VIEW-only cannot download (`authz-action="update"`) | A01 | N/A | `test_a01_more.py` |
+| DataSnapshot download/delete/import reject `..` / `/` in `filename` / `zipFilename`; VIEW-only cannot download (`authz-action="update"`) | A01 | `SecurityIntegrityTests` (import service) | `test_a01_more.py` |
 | `/fop` `filename` with a quote does not split `Content-Disposition`; `contentType` is PDF/PS only | A03 | N/A | `test_a01_more.py` |
 | `hasLoggedOut` is set on logout | A07 | `SecurityAuthnTests` | N/A |
 | `POST /rest/login` failed credentials are 401 with the generic public text | A10 | N/A | `test_a07_more.py` |
-| Login `returnTo` with a mismatched `Host` header does not redirect off-site | A01 | `SecurityMisconfigTests` | `test_a01_redirect.py` |
+| Login `returnTo` with a mismatched `Host` header does not redirect off-site; CR/LF in a path is rejected | A01 | `SecurityMisconfigTests` | `test_a01_redirect.py` |
 | `POST` + `X-HTTP-Method-Override` is authorized as the override action | A01 | N/A | `test_api_rest.py` |
 | `PATCH /rest/s1/moqui/users` does not store `currentPassword` | A01 | N/A | `test_api_rest.py` |
 | `GET /rest/s1/moqui/users` and entity REST UserAccount omit password hash fields | A01 | `SecurityMisconfigTests` | `test_api_rest.py` |
 | Screen JSON `currentParameters` omits password / credential fields | A02 | `SecurityMisconfigTests` | `test_a07_more.py` |
 | REST schema dumps: anonymous 401, no `REST_SCHEMA` 403, no `ACAO: *` | A01 | N/A | `test_api_rest.py` |
-| `/rest/sm` timestamped HMAC rejects a repeated signature inside the window | A02 | fixtures in `SecurityTestSupport` | `test_api_rest.py` |
-| Generic entity REST does not create or list `UserLoginKey`; `getLoginKey` remains the mint path | A01 | `SecurityIntegrityTests`, `SecurityAuthnTests` | `test_api_rest.py` |
-| Auto Screen / Data Edit refuse identity-admin and secret-config entities; Enumeration AutoFind still renders | A01 | `SecurityAccessControlTests`, `SecurityMisconfigTests` | N/A |
+| `/rest/sm` timestamped HMAC rejects a repeated signature inside the window (`putIfAbsent`) | A02 | `SecurityMisconfigTests` (cache primitive), fixtures in `SecurityTestSupport` | `test_api_rest.py` |
+| Generic entity REST does not create or list `UserLoginKey` or `UserAuthcFactor`; `getLoginKey` remains the mint path | A01 | `SecurityIntegrityTests`, `SecurityAuthnTests` | `test_api_rest.py` |
+| Auto Screen / Data Edit refuse identity-admin and secret-config entities (including UserAuthcFactor / UserPasswordHistory); Enumeration AutoFind still renders | A01 | `SecurityAccessControlTests`, `SecurityMisconfigTests` | N/A |
 | `put#EntitySyncData` and Data Import do not store those entities (Enumeration companion stays) | A01 | `SecurityIntegrityTests` | `test_api_rest.py` |
 | `PATCH /moqui/users` identity fields (`disabled`, `emailAddress`, …) need ADMIN; `userFullName` still stores | A01 | `SecurityMisconfigTests` | `test_api_rest.py` |
 | EmailServer host/port not writable with `MOQUI_API` ALL alone; GET list still works | A01 | N/A | `test_api_rest.py` |
 | SYSTEM_APP ALL cannot add `ADMIN` / `ADMIN_ADV` membership or grant sealed permissions; can still add members to its own group | A01 | `SecurityAccessControlTests` | N/A |
-| `email_allowed_hosts` default empty (any host); matcher is exact or DNS subdomain | A02 | `SecurityMisconfigTests` | N/A |
+| `email_allowed_hosts` default empty (any host); matcher is exact or DNS subdomain (IPv4 suffixes are exact only) | A02 | `SecurityMisconfigTests` | N/A |
 
 ### Designed exposure (documented, not a control)
 
@@ -186,3 +186,6 @@ Still open; not public failing PoCs:
 - **`simplifyRequestParameters` encoded query names**: HTTP probes with `sq%6c` / `%73ql` on SqlRunner did not
   execute SQL (the raw-vs-decoded name comparison is fragile, not currently bypassable). Still worth decoding
   the query-string name before comparing.
+- **DataSnapshot import with `disableEntityEca`:** the form defaults ECA off so a Tools update user can restore
+  security rows (UserGroupMember, UserLoginKey, …). That bypasses the privileged-group EECA and the generic
+  denylist. It is a restore path, not a SYSTEM_APP hole. Cluster-wide HMAC replay uses a local cache only.

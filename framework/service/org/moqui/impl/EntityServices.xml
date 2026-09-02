@@ -306,6 +306,8 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <out-parameters><parameter name="recordsLoaded" type="Long"/></out-parameters>
         <actions>
+            <if condition="!org.moqui.util.WebUtilities.isSafeSinglePathSegment(zipFilename)">
+                <return error="true" message="Snapshot file not found"/></if>
             <script><![CDATA[
                 import org.moqui.entity.EntityDataLoader
                 import org.moqui.context.ExecutionContext
