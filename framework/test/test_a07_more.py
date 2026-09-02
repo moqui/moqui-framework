@@ -1,6 +1,10 @@
 """A07 additional authn proofs."""
 import pytest
-from conftest import logged_in_json, require_sec_fixtures, require_sec_user, rest_login
+from conftest import csrf_token, logged_in_json, require_sec_fixtures, require_sec_user, rest_login
+
+MFA_USERNAME = "sec.mfa.totp"
+MFA_PASSWORD = "SecMfaTotp1!!"
+MFA_CODE = "87654321"
 
 
 def test_rest_login_wrong_password_is_401(http, base_url, require_server, username):
@@ -37,17 +41,50 @@ def test_sendOtp_without_preauth_is_rejected(http, base_url, require_server):
 
 
 def test_verifyOtp_without_preauth_does_not_log_in(http, base_url, require_server):
-    http.get(base_url + "/Login", timeout=10)
-    token = None
-    # session token from login page headers or cookie jar is enough to POST
+    r0 = http.get(base_url + "/Login", timeout=10)
+    tok = csrf_token(r0)
     r = http.post(
         base_url + "/rest/verifyOtp",
         json={"code": "000000"},
+        headers={"X-CSRF-Token": tok} if tok else {},
         timeout=10,
     )
-    body = (r.text or "").lower().replace(" ", "")
-    assert '"loggedin":true' not in body
-    assert r.status_code in (401, 403) or r.status_code != 200 or "true" not in body
+    body = (r.text or "").lower()
+    assert not logged_in_json(r)
+    assert r.status_code in (401, 403) or "pre-auth" in body or "not valid" in body
+
+
+def test_mfa_password_only_does_not_fully_log_in(http, base_url, require_server):
+    require_sec_user(base_url, MFA_USERNAME, MFA_PASSWORD)
+    r = rest_login(http, base_url, MFA_USERNAME, MFA_PASSWORD)
+    assert r.status_code == 200
+    assert not logged_in_json(r)
+    body = (r.text or "").lower()
+    assert "factor" in body or "authc" in body
+
+
+def test_mfa_login_with_wrong_code_does_not_log_in(http, base_url, require_server):
+    """Run before the success test: a valid single-use code is consumed on verify."""
+    require_sec_user(base_url, MFA_USERNAME, MFA_PASSWORD)
+    r = http.post(
+        base_url + "/rest/login",
+        json={"username": MFA_USERNAME, "password": MFA_PASSWORD, "code": "000000"},
+        timeout=10,
+    )
+    assert not logged_in_json(r)
+
+
+def test_mfa_login_with_code_succeeds(http, base_url, require_server):
+    require_sec_user(base_url, MFA_USERNAME, MFA_PASSWORD)
+    r = rest_login(http, base_url, MFA_USERNAME, MFA_PASSWORD)
+    if r.status_code != 200:
+        pytest.skip("MFA fixture not loaded")
+    r2 = http.post(
+        base_url + "/rest/login",
+        json={"username": MFA_USERNAME, "password": MFA_PASSWORD, "code": MFA_CODE},
+        timeout=10,
+    )
+    assert logged_in_json(r2)
 
 
 def test_create_initial_admin_http_fails_when_users_exist(http, base_url, require_server):

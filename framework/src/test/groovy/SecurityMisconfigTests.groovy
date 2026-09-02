@@ -397,6 +397,76 @@ class SecurityMisconfigTests extends Specification {
         all.sql == "SELECT 1"
     }
 
+    def "simplifyRequestParameters bodyOnly drops percent-encoded query names"() {
+        given:
+        def req = Stub(HttpServletRequest) {
+            getQueryString() >> "sq%6c=SELECT+1"
+            getParameterMap() >> [sql: ["SELECT 1"] as String[], groupName: ["transactional"] as String[]]
+        }
+        when:
+        Map body = WebUtilities.simplifyRequestParameters(req, true)
+        then:
+        !body.containsKey("sql")
+        body.groupName == "transactional"
+    }
+
+    def "shebang is executable and ZIP is not"() {
+        expect:
+        WebUtilities.isExecutable([(byte) 0x23, (byte) 0x21, (byte) 0x2f, (byte) 0x62] as byte[])
+        !WebUtilities.isExecutable([(byte) 0x50, (byte) 0x4b, 0x03, 0x04] as byte[])
+        !WebUtilities.isExecutable(new byte[0])
+        !WebUtilities.isExecutable([(byte) 0x23] as byte[])
+    }
+
+    def "hmac helpers match Base64 and timestamp header algorithms"() {
+        given:
+        String secret = SecurityTestSupport.HMAC_SECRET
+        String body = '{"probe":true}'
+        expect:
+        WebUtilities.hmacSha256Base64(secret, body) ==
+                java.util.Base64.encoder.encodeToString(WebUtilities.hmacSha256(secret, body))
+        WebUtilities.hmacSha256TimestampHeader(secret, body, 1492774577L) ==
+                "t=1492774577,v1=" + WebUtilities.hmacSha256Hex(secret, "1492774577." + body)
+    }
+
+    def "webSocketOriginAllowed empty Origin and same host"() {
+        expect:
+        WebUtilities.webSocketOriginAllowed(null, "localhost:8080", [], null, null)
+        WebUtilities.webSocketOriginAllowed("", "localhost:8080", [], null, null)
+        WebUtilities.webSocketOriginAllowed("http://localhost:8080", "localhost:8080", [], null, null)
+        !WebUtilities.webSocketOriginAllowed("https://evil.example", "localhost:8080", [], null, null)
+        WebUtilities.webSocketOriginAllowed("https://evil.example", "localhost:8080", ["*"], null, null)
+        WebUtilities.webSocketOriginAllowed("https://evil.example", "localhost:8080", ["https://evil.example"], null, null)
+    }
+
+    def "production remote data load is blocked only in production"() {
+        given:
+        String oldPurpose = System.getProperty("instance_purpose")
+        when:
+        System.setProperty("instance_purpose", "production")
+        then:
+        WebUtilities.isProductionRemoteDataLoadBlocked("http://127.0.0.1:9/sec-ssrf")
+        WebUtilities.isProductionRemoteDataLoadBlocked("https://example.com/data.xml")
+        !WebUtilities.isProductionRemoteDataLoadBlocked("component://webroot/data/Foo.xml")
+        !WebUtilities.isProductionRemoteDataLoadBlocked("/tmp/local.xml")
+        when:
+        System.setProperty("instance_purpose", "dev")
+        then:
+        !WebUtilities.isProductionRemoteDataLoadBlocked("http://127.0.0.1:9/sec-ssrf")
+        cleanup:
+        if (oldPurpose != null) System.setProperty("instance_purpose", oldPurpose)
+        else System.clearProperty("instance_purpose")
+    }
+
+    def "hmac replay cache is configured distributed"() {
+        when:
+        MNode cache = SecurityTestSupport.defaultConfRoot().first("cache-list")?.children("cache")
+                ?.find { it.attribute("name") == "moqui.security.hmac.replay" }
+        then:
+        cache != null
+        cache.attribute("type") == "distributed"
+    }
+
     def "GroovyShell websocket endpoint is enabled by default"() {
         when:
         MNode ep = webapp.children("endpoint")?.find { it.attribute("path") == "/groovysh" }

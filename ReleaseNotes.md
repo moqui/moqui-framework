@@ -103,6 +103,19 @@ and clarifies security details that have been more scattered and less formal.
   properties. Seed/install is unchanged.
 - `email_allowed_hosts` (empty by default) limits the hosts poll/send may
   connect to. Recipient filtering remains `EmailServer.allowedToDomains`.
+- `send#SystemMessageRest` signs `SmatHmacSha256` and `SmatHmacSha256Timestamp`.
+  `/rest/sm` returns JSON `{systemMessageIdList:[...]}` so send can store
+  `remoteMessageId`. `SmatNone` is real no-auth ingest (`loginAnonymousIfNoUser`).
+- Data Import remote `location=` (http/https/ftp) is refused when
+  `instance_purpose` is production.
+- Artifact tarpit hit windows use milliseconds (`maxHitsDuration` seconds).
+- WebSocket handshake Origin must be empty, same-origin, or in CORS
+  `allow-origins`.
+- Upload executable check also treats `#!` as executable (ZIP/JAR still allowed).
+- `simplifyRequestParameters` (body-only) decodes query-string names before
+  comparing them to the parameter map.
+- HMAC replay cache is `type="distributed"` (effective when a distributed
+  factory is configured).
 
 ## Release 4.0.0 - 27 Feb 2026
 

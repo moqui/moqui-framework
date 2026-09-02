@@ -453,3 +453,70 @@ def test_elfinder_component_webroot_put_does_not_write_screen(http, base_url, re
     after = set(p.name for p in screen_dir.glob("*.xml")) if screen_dir.is_dir() else set()
     assert after == before
     assert "write not allowed" in body or r.status_code != 200 or "error" in body
+
+
+def test_anonymous_tools_csv_is_not_a_data_dump(http, base_url, require_server):
+    r = http.get(base_url + "/apps/tools/dashboard.csv", timeout=10, allow_redirects=False)
+    ctype = (r.headers.get("Content-Type") or "").lower()
+    body = r.text or ""
+    assert r.status_code in (401, 403, 302, 303) or "login" in body.lower()
+    if r.status_code == 200:
+        assert "text/csv" not in ctype
+        assert "auto screen" not in body.lower()
+
+
+def test_view_only_tools_csv_is_not_a_privilege_escalation(http, base_url, require_server):
+    require_sec_user(base_url, "sec.view.only", "SecView1!!")
+    require_screen_login(http, base_url, "sec.view.only", "SecView1!!")
+    r = http.get(base_url + "/apps/tools/dashboard.csv", timeout=10, allow_redirects=False)
+    # VIEW-only may render CSV of what they can already view; it must not be an unauthenticated dump
+    # and must not run mutating tools. 403/empty/csv-of-dashboard are all fine.
+    assert r.status_code != 500
+    body = (r.text or "").lower()
+    assert "sql runner" not in body or r.status_code in (401, 403)
+
+
+def test_authorized_tools_csv_is_csv(http, base_url, require_server, username, password):
+    require_screen_login(http, base_url, username, password)
+    r = http.get(base_url + "/apps/tools/dashboard.csv", timeout=10, allow_redirects=False)
+    if r.status_code in (401, 403):
+        pytest.skip("user cannot open Tools dashboard")
+    ctype = (r.headers.get("Content-Type") or "").lower()
+    assert r.status_code == 200
+    assert "csv" in ctype or "," in (r.text or "") or "text/plain" in ctype
+
+
+def test_production_data_import_rejects_remote_location(http, base_url, require_server, username, password):
+    login_r = require_screen_login(http, base_url, username, password)
+    tok = csrf_token(login_r)
+    if not tok:
+        pytest.skip("no CSRF token after login")
+    r = http.post(
+        base_url + "/apps/tools/Entity/DataImport/load",
+        data={"location": "http://127.0.0.1:9/sec-ssrf", "moquiSessionToken": tok},
+        headers={"X-CSRF-Token": tok},
+        timeout=10,
+        allow_redirects=True,
+    )
+    body = (r.text or "").lower()
+    assert r.status_code != 500
+    assert "not allowed" in body or "production" in body or r.status_code in (401, 403)
+
+
+def test_multipart_executable_upload_is_rejected(http, base_url, require_server, username, password):
+    login_r = require_screen_login(http, base_url, username, password)
+    tok = csrf_token(login_r)
+    if not tok:
+        pytest.skip("no CSRF token after login")
+    files = {"snapshotFile": ("evil.exe", b"MZ\x00\x00" + b"X" * 32, "application/octet-stream")}
+    r = http.post(
+        base_url + "/apps/tools/Entity/DataSnapshot/uploadSnapshot",
+        data={"moquiSessionToken": tok},
+        files=files,
+        headers={"X-CSRF-Token": tok},
+        timeout=15,
+        allow_redirects=False,
+    )
+    body = (r.text or "").lower()
+    assert r.status_code == 415 or "executable" in body or "not allowed" in body
+    assert r.status_code != 200

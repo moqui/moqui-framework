@@ -498,4 +498,108 @@ class SecurityIntegrityTests extends Specification {
         after != null
         after.statusId == "ES_VIEWED"
     }
+
+    def "EntityDataLoader rejects http location in production"() {
+        given:
+        String oldPurpose = System.getProperty("instance_purpose")
+        System.setProperty("instance_purpose", "production")
+        when:
+        Throwable thrown = null
+        try {
+            ec.entity.makeDataLoader().location("http://127.0.0.1:9/sec-ssrf")
+        } catch (Throwable t) { thrown = t }
+        then:
+        thrown != null
+        (thrown.message ?: "").toLowerCase().contains("production")
+        cleanup:
+        if (oldPurpose != null) System.setProperty("instance_purpose", oldPurpose)
+        else System.clearProperty("instance_purpose")
+    }
+
+    def "EntityDataLoader with disableEntityEca can restore privileged group membership"() {
+        given:
+        String uid = SecurityTestSupport.userIdForUsername(ec, SecurityTestSupport.NONE_USERNAME)
+        String fromDate = "2001-02-03 04:05:06.0"
+        String xml = '<entity-facade-xml><moqui.security.UserGroupMember userId="' + uid +
+                '" userGroupId="ADMIN" fromDate="' + fromDate + '"/></entity-facade-xml>'
+        SecurityTestSupport.login(ec, SecurityTestSupport.ENT_ALL_USERNAME, SecurityTestSupport.ENT_ALL_PASSWORD)
+        when:
+        ec.message.clearAll()
+        ec.entity.makeDataLoader().xmlText(xml).disableEntityEca(true).load()
+        def row = null
+        SecurityTestSupport.withAuthzDisabled(ec) {
+            row = ec.entity.find("moqui.security.UserGroupMember")
+                    .condition("userId", uid).condition("userGroupId", "ADMIN")
+                    .condition("fromDate", ec.l10n.parseTimestamp(fromDate, "yyyy-MM-dd HH:mm:ss.S")).one()
+        }
+        then:
+        row != null
+        cleanup:
+        SecurityTestSupport.withAuthzDisabled(ec) {
+            if (row != null) row.delete()
+            else {
+                ec.entity.find("moqui.security.UserGroupMember")
+                        .condition("userId", uid).condition("userGroupId", "ADMIN").deleteAll()
+            }
+        }
+        SecurityTestSupport.logout(ec)
+        ec.message.clearAll()
+    }
+
+    def "EntityDataLoader with ECA on does not restore privileged group membership"() {
+        given:
+        String uid = SecurityTestSupport.userIdForUsername(ec, SecurityTestSupport.NONE_USERNAME)
+        String fromDate = "2001-02-03 04:05:07.0"
+        String xml = '<entity-facade-xml><moqui.security.UserGroupMember userId="' + uid +
+                '" userGroupId="ADMIN" fromDate="' + fromDate + '"/></entity-facade-xml>'
+        SecurityTestSupport.login(ec, SecurityTestSupport.ENT_ALL_USERNAME, SecurityTestSupport.ENT_ALL_PASSWORD)
+        when:
+        ec.message.clearAll()
+        Throwable thrown = null
+        try {
+            ec.entity.makeDataLoader().xmlText(xml).disableEntityEca(false).load()
+        } catch (Throwable t) { thrown = t }
+        def row = null
+        SecurityTestSupport.withAuthzDisabled(ec) {
+            row = ec.entity.find("moqui.security.UserGroupMember")
+                    .condition("userId", uid).condition("userGroupId", "ADMIN")
+                    .condition("fromDate", ec.l10n.parseTimestamp(fromDate, "yyyy-MM-dd HH:mm:ss.S")).one()
+        }
+        then:
+        row == null
+        thrown != null
+        cleanup:
+        SecurityTestSupport.withAuthzDisabled(ec) {
+            ec.entity.find("moqui.security.UserGroupMember")
+                    .condition("userId", uid).condition("userGroupId", "ADMIN")
+                    .condition("fromDate", ec.l10n.parseTimestamp(fromDate, "yyyy-MM-dd HH:mm:ss.S")).deleteAll()
+        }
+        SecurityTestSupport.logout(ec)
+        ec.message.clearAll()
+    }
+
+    def "denied entity find writes ArtifactAuthzFailure"() {
+        given:
+        String uid = SecurityTestSupport.userIdForUsername(ec, SecurityTestSupport.ENT_VIEW_USERNAME)
+        long before = 0
+        SecurityTestSupport.withAuthzDisabled(ec) {
+            before = ec.entity.find("moqui.security.ArtifactAuthzFailure").condition("userId", uid).count()
+        }
+        when:
+        SecurityTestSupport.login(ec, SecurityTestSupport.ENT_VIEW_USERNAME, SecurityTestSupport.ENT_VIEW_PASSWORD)
+        Throwable thrown = null
+        try {
+            ec.entity.find("moqui.security.UserAccount").condition("username", SecurityTestSupport.ENT_VIEW_USERNAME).one()
+        } catch (Throwable t) { thrown = t }
+        long after = before
+        SecurityTestSupport.withAuthzDisabled(ec) {
+            after = ec.entity.find("moqui.security.ArtifactAuthzFailure").condition("userId", uid).count()
+        }
+        then:
+        thrown instanceof ArtifactAuthorizationException
+        after > before
+        cleanup:
+        SecurityTestSupport.logout(ec)
+        ec.message.clearAll()
+    }
 }

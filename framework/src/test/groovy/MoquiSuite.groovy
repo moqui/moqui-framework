@@ -28,7 +28,8 @@ import org.moqui.context.ExecutionContext
         SystemScreenRenderTests.class, ToolsRestApiTests.class, ToolsScreenRenderTests.class,
         SecurityAccessControlTests.class, SecurityAuthnTests.class, SecurityInjectionTests.class,
         SecurityMisconfigTests.class, SecurityCryptoTests.class, SecurityIntegrityTests.class,
-        SecurityLoggingTests.class, SecurityErrorTests.class, SecurityHandshakeTests.class])
+        SecurityLoggingTests.class, SecurityErrorTests.class, SecurityHandshakeTests.class,
+        SecurityTarpitTests.class])
 class MoquiSuite {
     @AfterAll
     static void destroyMoqui() {
@@ -37,6 +38,7 @@ class MoquiSuite {
         try {
             ec = Moqui.getExecutionContext()
             SecurityTestSupport.resetLockAccount(ec)
+            SecurityTestSupport.withAuthzDisabled(ec) { SecurityTestSupport.ensureMfaFactor(ec) }
         } catch (Throwable t) {
             System.err.println("MoquiSuite: could not reset sec.lock.test: " + t)
         } finally {

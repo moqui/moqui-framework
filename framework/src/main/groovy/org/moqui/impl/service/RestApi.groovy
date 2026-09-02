@@ -367,7 +367,10 @@ class RestApi {
             }
 
             try {
-                if (operation in ['one', 'list', 'count'] && WebUtilities.isRestrictedGenericEntity(entityName)) {
+                // Identity-admin (login keys, MFA factors, …) is never readable through Service REST.
+                // Secret-config (EmailServer, SystemMessageRemote) GET is allowed on declared resources;
+                // writes still need ADMIN below.
+                if (operation in ['one', 'list', 'count'] && WebUtilities.isIdentityAdminEntity(entityName)) {
                     throw new ArtifactAuthorizationException("Entity ${entityName} is not available through this REST resource")
                 }
                 if (operation == 'one') {

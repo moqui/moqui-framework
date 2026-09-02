@@ -216,6 +216,7 @@ def test_system_message_hmac_valid_does_not_require_login(http, base_url, requir
         pytest.skip(HMAC_SKIP)
     assert r.status_code == 200
     assert "hmac verify failed" not in (r.text or "").lower()
+    assert "systemMessageIdList" in (r.text or "") or "systemmessageidlist" in (r.text or "").lower()
 
 
 def test_system_message_hmac_timestamp_outside_window_is_403(http, base_url, require_server):
@@ -248,11 +249,11 @@ def test_system_message_hmac_timestamp_in_window_is_accepted(http, base_url, req
     if r.status_code == 400 and "not valid" in (r.text or "").lower():
         pytest.skip(HMAC_SKIP)
     assert r.status_code == 200
+    assert "systemMessageIdList" in (r.text or "") or "systemmessageidlist" in (r.text or "").lower()
 
 
-def test_system_message_smat_none_does_not_accept_anonymous(http, base_url, require_server):
-    """SmatNone is an explicit no-auth remote config, but receive#IncomingSystemMessage still requires a
-    user, so an anonymous POST must not be accepted. Do not pin 500; 401/403 is also a pass."""
+def test_system_message_smat_none_accepts_anonymous(http, base_url, require_server):
+    """SmatNone is explicit no-auth: anonymous POST is accepted (loginAnonymousIfNoUser)."""
     r = http.post(
         base_url + "/rest/sm/" + SEC_SMT + "/SEC_SMR_NONE",
         data='{"probe":true}',
@@ -261,11 +262,8 @@ def test_system_message_smat_none_does_not_accept_anonymous(http, base_url, requ
     )
     if r.status_code == 400 and "not valid" in (r.text or "").lower():
         pytest.skip(HMAC_SKIP)
-    # Do not pin 500: a future 401/403 is still a pass. Require an auth failure signal so a
-    # random 400 does not count.
-    assert r.status_code != 200
-    body = (r.text or "").lower()
-    assert r.status_code in (401, 403) or "authenticationrequired" in body.replace(" ", "") or "authentication required" in body
+    assert r.status_code == 200
+    assert "systemMessageIdList" in (r.text or "") or "systemmessageidlist" in (r.text or "").lower()
 
 
 def test_entity_rest_narrow_authz_allows_only_its_entity(http, base_url, require_server):

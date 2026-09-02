@@ -136,6 +136,23 @@ The two runners cannot share the database at the same time (Moqui locks `btm2.tl
 | EmailServer host/port not writable with `MOQUI_API` ALL alone; GET list still works | A01 | N/A | `test_api_rest.py` |
 | SYSTEM_APP ALL cannot add `ADMIN` / `ADMIN_ADV` membership or grant sealed permissions; can still add members to its own group | A01 | `SecurityAccessControlTests` | N/A |
 | `email_allowed_hosts` default empty (any host); matcher is exact or DNS subdomain (IPv4 suffixes are exact only) | A02 | `SecurityMisconfigTests` | N/A |
+| `send#SystemMessageRest` HMAC (Base64 and timestamped) uses the same helpers as receive | A01 | `SecurityMisconfigTests` (helpers) | `test_api_rest.py` (receive still) |
+| `SmatNone` anonymous POST is accepted and returns `systemMessageIdList` | A01 | N/A | `test_api_rest.py` |
+| `/rest/sm` response includes `systemMessageIdList` | A01 | N/A | `test_api_rest.py` |
+| Data Import remote `location=` refused when `instance_purpose` is production; allowed in dev | A01 | `SecurityMisconfigTests`, `SecurityIntegrityTests` | `test_a01_more.py` |
+| Positive HTTP `api_key` / `login_key` header from a fixture `getLoginKey` value | A07 | `SecurityAuthnTests` (`loginUserKey`) | `test_a07_authn.py` |
+| `api_key` in JSON body authenticates (top-level field) | A07 | N/A | `test_a07_authn.py` |
+| HTTP Basic on a screen (`/menuData`) is not unauthenticated | A07 | N/A | `test_a07_authn.py` |
+| MFA: password-only is not fully logged in; single-use code completes login; wrong code does not | A07 | `SecurityAuthnTests` | `test_a07_more.py` |
+| Service tarpit locks after `maxHitsCount`; hits older than `maxHitsDuration` seconds do not count | A01 | `SecurityTarpitTests` | `test_z_tarpit.py` (transition fixture) |
+| Screen `.csv` render-mode: anonymous is not a dump; authorized user can get CSV | A01 | N/A | `test_a01_more.py` |
+| Multipart executable (MZ) upload is 415; `#!` is executable; ZIP is not | A02 | `SecurityMisconfigTests` | `test_a01_more.py` |
+| WebSocket foreign Origin is rejected; same-origin admin `/groovysh` still evals | A01 | `SecurityMisconfigTests` (`webSocketOriginAllowed`) | `test_a01_ws.py` |
+| Password reset token can be used then is cleared; expired `resetPasswordSetDate` is rejected | A07 | `SecurityAuthnTests` | N/A |
+| Denied entity find writes `ArtifactAuthzFailure` (`AT_ENTITY`; REST transitions themselves do not) | A01 | `SecurityIntegrityTests` | N/A |
+| `simplifyRequestParameters` drops percent-encoded query names (`sq%6c`) | A05 | `SecurityMisconfigTests` | N/A |
+| DataSnapshot-style load with `disableEntityEca` can restore `ADMIN` membership; ECA on cannot | A01 | `SecurityIntegrityTests` | N/A |
+| HMAC replay cache is `type="distributed"` | A02 | `SecurityMisconfigTests` | N/A |
 
 ### Designed exposure (documented, not a control)
 
@@ -146,6 +163,8 @@ These rows record a default that is deliberately permissive. They are not proofs
 | Groovy Shell WebSocket endpoint `/groovysh` is enabled by default (RCE by design for `ADMIN_ADV` + `GROOVY_SHELL_WEB`) | A02 | `SecurityMisconfigTests` |
 | `reset#Password` is `authenticate="anonymous-all"` and `allow-remote="true"` (remote-callable password reset is untrusted input) | A07 | `SecurityIntegrityTests` |
 | `email_allowed_hosts` default is empty (poll/send may connect to any host until operators set the list) | A02 | `SecurityMisconfigTests` |
+| DataSnapshot import defaults `disableEntityEca` true so a Tools update user can restore security rows | A01 | `SecurityIntegrityTests` |
+| `SmatNone` remotes are explicit no-auth ingest (`loginAnonymousIfNoUser`) | A01 | N/A |
 
 ### Proof strength notes
 
@@ -157,35 +176,15 @@ These rows record a default that is deliberately permissive. They are not proofs
 - Positive controls (token actually runs the transition, same-origin CORS allowed, re-enable window, zip expands, notification endpoint registered, XXE document still parses) are the companion assertions to the negative rows above. A negative row without one would still pass if the feature simply stopped working.
 - HSTS is a `screen-secure` conf header; `ScreenRenderImpl` adds it only when `request.isSecure()`. There is no HTTP proof on the ProductionConf HTTP listener.
 - `SecurityLoggingTests` uses dedicated users (`sec.hist.only`, `sec.hist.fail`) and a `fromDate` watermark. `loginSaveHistory` writes at most one `UserLoginHistory` row per user per 60 seconds, so a history test that only reads the newest row can pass on a row written by an earlier spec in the same run.
-- `test_a07_more.py` `test_verifyOtp_without_preauth_does_not_log_in` does `GET /Login` first, so the tokenless `POST /rest/verifyOtp` is rejected by the CSRF check (`ScreenRenderImpl`) rather than by `validate#ExternalUserAuthcCode`. The pre-auth gate itself is only proven by `SecurityAuthnTests` (and only for `send`, not `verify`).
+- `test_a07_more.py` `test_verifyOtp_without_preauth_does_not_log_in` sends a CSRF token from `GET /Login` so the rejection is the pre-auth gate (`validate#ExternalUserAuthcCode`), not CSRF. The happy path is `test_mfa_login_with_code_succeeds` (runs after the wrong-code test; a valid single-use code is consumed).
 - `test_a07_more.py` `test_create_initial_admin_http_fails_when_users_exist` accepts `"error" in body`, which matches most rendered pages. `SecurityAuthnTests` (`ec.message.hasError()`) is the real proof.
-- `SecurityMisconfigTests` `simplifyRequestParameters` fabricates the query string and the parameter map independently, so it cannot see that the util compares a **raw** query-string name against a **decoded** container parameter name. See Future work.
+- REST screen transitions (`rest.xml` `require-authentication="false"`) do not write `ArtifactAuthzFailure`. Inner `AT_ENTITY` / `AT_REST_PATH` checks do (`SecurityIntegrityTests` measures entity find).
+- HMAC replay `putIfAbsent` is cluster-wide only when a real distributed cache factory is configured; the default factory is local MCache.
 
 ## Future work
 
 Still open; not public failing PoCs:
 
-- **Send-side HMAC** (`send#SystemMessageRest` still TODOs `SmatHmacSha256`). Receive HMAC is covered.
-- **`SmatNone` remotes** are explicit no-auth in `SystemMessageRemote.messageAuthEnumId`, but
-  `receive#IncomingSystemMessage` still requires a user, so an anonymous POST is not accepted. `test_api_rest.py`
-  pins not-200 plus an auth-failure signal (today the status is 500). `SECURITY_SURFACE.md:151` overstates the exposure.
-- **Authorized Data Import `location=`:** AUTHZA_ALL can pass a remote URL into `EntityDataLoader` (SSRF-class by design).
-- **Positive HTTP `api_key` header** using a key from `getLoginKey()` (not from generic entity writes). Spock covers `getLoginKey` / handshake header login. Generic entity REST cannot create `UserLoginKey`.
-- **MFA positive flow** (sendOtp → verifyOtp → login with code); only the no-pre-auth rejection is covered.
-- **Tarpit velocity for services and transitions**; only conf flags plus the demo ALL_SCREENS 429 are covered.
-  Needs `ArtifactTarpit` rows for `AT_SERVICE` / `AT_XML_SCREEN_TRANS`, which `SecurityTestSupport` does not create.
-- **Screen render-mode data dumps** (`.csv` / `.xml` extensions on authorized screens).
-- **Upload end-to-end** (multipart to `runtime/tmp`, `upload-executable-allow`); only magic-byte detection is unit-tested. Note `WebUtilities.isExecutable` only inspects bytes 0-3, so a text-prefixed payload, a `#!` script, and a JAR/ZIP are not detected.
-- **WebSocket Origin / cross-site WebSocket hijacking** (no Origin allow-list test exists). `MoquiContextListener.checkOrigin` delegates to the container default and returns true.
-- **`api_key` / `login_key` in the request body** login path, and HTTP Basic on screens (REST-only today).
-- **Password reset token lifecycle**: no public test yet. `reset#Password` needs a user with an `emailAddress`
-  (the `sec.*` fixtures have none), which is why only the public-message rows are covered.
-- **`ArtifactAuthzFailure` rows for denied REST calls**: every `/rest/*` transition is `read-only="true"`
-  (so `AUTHZA_VIEW`) and `rest.xml` is `require-authentication="false"`, which means denied REST requests may
-  write no authz-failure record. Not yet measured.
-- **`simplifyRequestParameters` encoded query names**: HTTP probes with `sq%6c` / `%73ql` on SqlRunner did not
-  execute SQL (the raw-vs-decoded name comparison is fragile, not currently bypassable). Still worth decoding
-  the query-string name before comparing.
-- **DataSnapshot import with `disableEntityEca`:** the form defaults ECA off so a Tools update user can restore
-  security rows (UserGroupMember, UserLoginKey, …). That bypasses the privileged-group EECA and the generic
-  denylist. It is a restore path, not a SYSTEM_APP hole. Cluster-wide HMAC replay uses a local cache only.
+- **`consume#ReceivedSystemMessage`** is `authenticate="anonymous-all"` (needed for the scheduled job). Tightening that needs a separate review; leave as-is.
+- **Upload polyglots**: `isExecutable` still does not treat a text-prefixed PE, a JAR/ZIP (`PK`), or HTML/JS as executable. ZIP uploads are a Tools feature.
+- **`showErrorDetail` servlet gate**, `/status` from a non-allow-listed TCP source, `/notws` topic ACL, and HSTS on an HTTPS listener remain proof-strength notes rather than catalog gaps.

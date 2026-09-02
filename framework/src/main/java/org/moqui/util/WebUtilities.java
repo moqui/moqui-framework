@@ -31,6 +31,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -45,6 +46,8 @@ import java.util.RandomAccess;
 import java.util.Set;
 
 import javax.annotation.Nonnull;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 
 import org.apache.commons.fileupload2.core.FileItem;
 
@@ -129,8 +132,8 @@ public class WebUtilities {
             if (query != null && !query.isEmpty()) {
                 for (String nameValuePair : query.split("&")) {
                     int eqIdx = nameValuePair.indexOf("=");
-                    if (eqIdx < 0) urlParms.add(nameValuePair);
-                    else urlParms.add(nameValuePair.substring(0, eqIdx));
+                    String rawName = eqIdx < 0 ? nameValuePair : nameValuePair.substring(0, eqIdx);
+                    urlParms.add(decodeQueryComponent(rawName));
                 }
             }
         }
@@ -160,6 +163,16 @@ public class WebUtilities {
             }
         }
         return reqParmMap;
+    }
+
+    /** Decode a query-string name/value so it matches servlet container parameter-map keys. Malformed % sequences stay raw. */
+    public static String decodeQueryComponent(String raw) {
+        if (raw == null || raw.isEmpty()) return raw;
+        try {
+            return URLDecoder.decode(raw, StandardCharsets.UTF_8.name());
+        } catch (Exception e) {
+            return raw;
+        }
     }
 
     /** Sort of like JSON but output in JS syntax for HTML attributes like in a Vue Template */
@@ -582,6 +595,105 @@ public class WebUtilities {
         return false;
     }
 
+    /**
+     * True for http(s)/ftp(s) locations (and protocol-relative {@code //host/path}).
+     * Local schemes ({@code component://}, {@code file:}, classpath, dbresource) and bare paths are false.
+     */
+    public static boolean isNetworkFetchLocation(String location) {
+        if (location == null) return false;
+        String loc = location.trim();
+        if (loc.isEmpty()) return false;
+        String lower = loc.toLowerCase(Locale.ROOT);
+        if (lower.startsWith("http://") || lower.startsWith("https://")) return true;
+        if (lower.startsWith("ftp://") || lower.startsWith("ftps://")) return true;
+        return loc.startsWith("//");
+    }
+
+    /**
+     * Data Import / EntityDataLoader must not fetch a remote URL when {@code instance_purpose} is production.
+     * Dev and test keep remote {@code location=} as a maintenance tool.
+     */
+    public static boolean isProductionRemoteDataLoadBlocked(String location) {
+        if (!"production".equals(System.getProperty("instance_purpose"))) return false;
+        return isNetworkFetchLocation(location);
+    }
+
+    /**
+     * WebSocket Origin allow check. Empty Origin is allowed (non-browser clients).
+     * Same-origin is Origin host equal to the handshake Host header or configured webapp http/https host.
+     * {@code allowOrigins} is the same list as CORS {@code webapp.@allow-origins} ({@code *} allows all).
+     */
+    public static boolean webSocketOriginAllowed(String originHeader, String hostHeader,
+            Collection<String> allowOrigins, String configuredHttpHost, String configuredHttpsHost) {
+        if (originHeader == null || originHeader.trim().isEmpty()) return true;
+        String origin = originHeader.trim().toLowerCase(Locale.ROOT);
+        Set<String> allow = new HashSet<>();
+        if (allowOrigins != null) {
+            for (String a : allowOrigins) {
+                if (a != null && !a.trim().isEmpty()) allow.add(a.trim().toLowerCase(Locale.ROOT));
+            }
+        }
+        if (allow.contains("*")) return true;
+        String originDomain = originHost(origin);
+        if (allow.contains(origin) || allow.contains(originDomain)) return true;
+        if (hostMatchesOrigin(originDomain, hostHeader)) return true;
+        if (hostMatchesOrigin(originDomain, configuredHttpHost)) return true;
+        if (hostMatchesOrigin(originDomain, configuredHttpsHost)) return true;
+        for (String allowOrigin : allow) {
+            String allowDomain = originHost(allowOrigin);
+            if (originDomain.equals(allowDomain)) return true;
+            if (isDnsNameForSuffix(allowDomain) && originDomain.endsWith("." + allowDomain)) return true;
+        }
+        return false;
+    }
+
+    private static String originHost(String originOrHost) {
+        if (originOrHost == null) return "";
+        String h = originOrHost.trim().toLowerCase(Locale.ROOT);
+        int sep = h.indexOf("://");
+        if (sep > 0) h = h.substring(sep + 3);
+        int slash = h.indexOf('/');
+        if (slash >= 0) h = h.substring(0, slash);
+        int colon = h.indexOf(':');
+        if (colon > 0) h = h.substring(0, colon);
+        return h;
+    }
+
+    private static boolean hostMatchesOrigin(String originDomain, String host) {
+        if (originDomain == null || originDomain.isEmpty() || host == null || host.trim().isEmpty()) return false;
+        return originDomain.equals(originHost(host));
+    }
+
+    public static byte[] hmacSha256(String secret, String message) {
+        if (secret == null) secret = "";
+        if (message == null) message = "";
+        try {
+            Mac hmac = Mac.getInstance("HmacSHA256");
+            hmac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            return hmac.doFinal(message.getBytes(StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            throw new IllegalStateException("HMAC-SHA256 failed", e);
+        }
+    }
+
+    public static String hmacSha256Base64(String secret, String message) {
+        return Base64.getEncoder().encodeToString(hmacSha256(secret, message));
+    }
+
+    public static String hmacSha256Hex(String secret, String message) {
+        byte[] hash = hmacSha256(secret, message);
+        StringBuilder sb = new StringBuilder(hash.length * 2);
+        for (int i = 0; i < hash.length; i++) {
+            sb.append(Integer.toString((hash[i] & 0xff) + 0x100, 16).substring(1));
+        }
+        return sb.toString();
+    }
+
+    /** Stripe-style {@code t=<epochSeconds>,v1=<hex>} header for {@code SmatHmacSha256Timestamp}. */
+    public static String hmacSha256TimestampHeader(String secret, String message, long epochSeconds) {
+        return "t=" + epochSeconds + ",v1=" + hmacSha256Hex(secret, epochSeconds + "." + (message == null ? "" : message));
+    }
+
     /** Drop password-hash fields from a parameter map in place (generic entity create/update/store). */
     public static void removeUserAccountSecretsFromMap(Map<?, ?> map) {
         if (map == null) return;
@@ -636,7 +748,7 @@ public class WebUtilities {
     public static byte[] macOs64Reverse = {(byte) 0xcf, (byte) 0xfa, (byte) 0xed, (byte) 0xfe};
     public static byte[][] allOsExecutables = {windowsPex, linuxElf, javaClass, macOs, macOs64, macOsReverse, macOs64Reverse};
 
-    /** Looks for byte patterns for Windows PE (4d5a), Linux ELF (7f454c46), Java class (cafebabe), macOS Mach-O (feedface/feedfacf and byte-swapped) */
+    /** See {@link #isExecutable(byte[])}. Reads the first 4 bytes of the upload. */
     public static boolean isExecutable(FileItem item) throws IOException {
         InputStream is = item.getInputStream();
         byte[] bytes = new byte[4];
@@ -644,11 +756,16 @@ public class WebUtilities {
         is.close();
         return isExecutable(bytes);
     }
-    /** Looks for byte patterns for Windows PE (4d5a), Linux ELF (7f454c46), Java class (cafebabe), macOS Mach-O (feedface/feedfacf and byte-swapped) */
+    /**
+     * Looks for byte patterns for Windows PE (4d5a), Linux ELF (7f454c46), Java class (cafebabe), macOS Mach-O
+     * (feedface/feedfacf and byte-swapped), and {@code #!} shebang. ZIP/JAR ({@code PK}) is not treated as executable.
+     */
     public static boolean isExecutable(byte[] bytes) {
-        boolean foundPattern = false;
+        if (bytes == null || bytes.length == 0) return false;
+        if (bytes.length >= 2 && bytes[0] == (byte) 0x23 && bytes[1] == (byte) 0x21) return true;
         for (int i = 0; i < allOsExecutables.length; i++) {
             byte[] execPattern = allOsExecutables[i];
+            if (bytes.length < execPattern.length) continue;
             boolean execMatches = true;
             for (int j = 0; j < execPattern.length; j++) {
                 if (bytes[j] != execPattern[j]) {
@@ -656,12 +773,9 @@ public class WebUtilities {
                     break;
                 }
             }
-            if (execMatches) {
-                foundPattern = true;
-                break;
-            }
+            if (execMatches) return true;
         }
-        return foundPattern;
+        return false;
     }
 
     public static String simpleHttpStringRequest(String location, String requestBody, String contentType) {

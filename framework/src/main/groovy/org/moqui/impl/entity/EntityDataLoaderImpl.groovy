@@ -88,8 +88,21 @@ class EntityDataLoaderImpl implements EntityDataLoader {
 
     EntityFacadeImpl getEfi() { return efi }
 
-    @Override EntityDataLoader location(String location) { this.locationList.add(location); return this }
-    @Override EntityDataLoader locationList(List<String> ll) { this.locationList.addAll(ll); return this }
+    @Override EntityDataLoader location(String location) {
+        rejectProductionRemote(location)
+        this.locationList.add(location)
+        return this
+    }
+    @Override EntityDataLoader locationList(List<String> ll) {
+        if (ll == null) return this
+        for (String loc in ll) rejectProductionRemote(loc)
+        this.locationList.addAll(ll)
+        return this
+    }
+    private static void rejectProductionRemote(String location) {
+        if (WebUtilities.isProductionRemoteDataLoadBlocked(location))
+            throw new BaseException("Remote data load from ${location} is not allowed when instance_purpose is production")
+    }
     @Override EntityDataLoader xmlText(String xmlText) { this.xmlText = xmlText; return this }
     @Override EntityDataLoader csvText(String csvText) { this.csvText = csvText; return this }
     @Override EntityDataLoader jsonText(String jsonText) { this.jsonText = jsonText; return this }

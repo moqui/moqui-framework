@@ -54,8 +54,6 @@ import java.nio.charset.StandardCharsets
 import java.sql.Timestamp
 
 import javax.cache.Cache
-import javax.crypto.Mac
-import javax.crypto.spec.SecretKeySpec
 
 /** This class is a facade to easily get information from and about the web context. */
 @CompileStatic
@@ -1212,10 +1210,7 @@ class WebFacadeImpl implements WebFacade {
                     return
                 }
 
-                Mac hmac = Mac.getInstance("HmacSHA256")
-                hmac.init(new SecretKeySpec(sharedSecret.getBytes("UTF-8"), "HmacSHA256"))
-                // NOTE: if this fails try with "ISO-8859-1"
-                String signature = Base64.encoder.encodeToString(hmac.doFinal(messageText.getBytes("UTF-8")))
+                String signature = WebUtilities.hmacSha256Base64(sharedSecret, messageText)
 
                 if (headerValue != signature) {
                     logger.warn("System message receive HMAC verify header value ${headerValue} calculated ${signature} did not match for remote ${systemMessageRemoteId}")
@@ -1257,17 +1252,7 @@ class WebFacadeImpl implements WebFacade {
                 // Timestamp in the header
                 // The character .
                 // The text body of the request
-                String signatureTextToVerify = timestamp + "." + messageText
-
-                Mac hmac = Mac.getInstance("HmacSHA256")
-                hmac.init(new SecretKeySpec(sharedSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"))
-                // NOTE: if this fails try with "ISO-8859-1"
-                byte[] hash = hmac.doFinal(signatureTextToVerify.getBytes(StandardCharsets.UTF_8));
-                String signature = ""
-                for (byte b : hash) {
-                    // Came from https://github.com/stripe/stripe-java/blob/3686feb8f2067878b7bb4619f931580a3d31bf4f/src/main/java/com/stripe/net/Webhook.java#L187
-                    signature += Integer.toString((b & 0xff) + 0x100, 16).substring(1);
-                }
+                String signature = WebUtilities.hmacSha256Hex(sharedSecret, timestamp + "." + messageText)
 
                 if (incomingSignature != signature) {
                     logger.warn("System message receive HMAC verify header value ${incomingSignature} calculated ${signature} did not match for remote ${systemMessageRemoteId}")
@@ -1297,7 +1282,12 @@ class WebFacadeImpl implements WebFacade {
 
                 // login anonymous if not logged in
                 eci.userFacade.loginAnonymousIfNoUser()
-            } else if (!"SmatNone".equals(messageAuthEnumId)) {
+            } else if ("SmatNone".equals(messageAuthEnumId)) {
+                // Explicit no-auth remote. Operators who set this have chosen unauthenticated ingest
+                // (HMAC is the signed alternative). Same anonymous login as the HMAC paths so
+                // receive#IncomingSystemMessage (authenticate=true) can run.
+                eci.userFacade.loginAnonymousIfNoUser()
+            } else {
                 logger.error("Got system message for remote ${systemMessageRemoteId} with unsupported messageAuthEnumId ${messageAuthEnumId}, returning error")
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Remote system ${systemMessageRemoteId} auth configuration not valid")
                 return
@@ -1314,9 +1304,8 @@ class WebFacadeImpl implements WebFacade {
              }
 
             // technically SC_ACCEPTED (202) is more accurate, OK (200) more common
-            response.setStatus(HttpServletResponse.SC_OK)
-
-            // TODO: consider returning response with systemMessageIdList in JSON or XML based on Accept header
+            List idList = (List) result?.systemMessageIdList
+            sendJsonResponse([systemMessageIdList: idList ?: []])
         } catch (Throwable t) {
             logger.error("Error handling system message type ${systemMessageTypeId} remote ${systemMessageRemoteId} remote msg ${remoteMessageId}", t)
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error receiving message: ${t.toString()}")

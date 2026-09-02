@@ -124,3 +124,38 @@ def test_notws_anonymous_upgrade_accepts_or_closes(http, base_url, require_serve
             ws.close()
         except Exception:
             pass
+
+
+def test_websocket_evil_origin_is_rejected(http, base_url, require_server):
+    url = _ws_url(base_url, "/notws")
+    opened = False
+    try:
+        ws = websocket.create_connection(
+            url, origin="https://evil.example", timeout=5
+        )
+        opened = True
+        ws.close()
+    except Exception:
+        opened = False
+    assert not opened, "cross-site Origin must not complete the WebSocket handshake"
+
+
+def test_groovysh_same_origin_admin_can_eval(http, base_url, require_server, username, password):
+    require_rest_login(http, base_url, username, password)
+    url = _ws_url(base_url, "/groovysh")
+    cookie = _cookie_header(http)
+    try:
+        ws = websocket.create_connection(
+            url, header=[f"Cookie: {cookie}"], origin=base_url, timeout=5
+        )
+    except Exception as e:
+        pytest.skip(f"could not open /groovysh as {username}: {e}")
+    try:
+        ws.send("1+1")
+        msg = ws.recv()
+        assert "2" in (msg or "")
+    finally:
+        try:
+            ws.close()
+        except Exception:
+            pass

@@ -120,6 +120,62 @@ def test_api_key_header_with_garbage_does_not_authenticate(http, base_url, requi
     assert r.status_code == 401
 
 
+SEC_KEY_PLAINTEXT = "sec-test-login-key-fixed-40-chars-value"
+
+
+def test_api_key_header_from_getLoginKey_authenticates(http, base_url, require_server):
+    from conftest import require_sec_user
+    require_sec_user(base_url, "sec.key.http", "SecKeyHttp1!!")
+    r = http.get(
+        base_url + "/rest/e1/moqui.basic.Enumeration",
+        headers={"api_key": SEC_KEY_PLAINTEXT},
+        timeout=10,
+    )
+    assert r.status_code == 200
+
+
+def test_login_key_header_authenticates(http, base_url, require_server):
+    from conftest import require_sec_user
+    require_sec_user(base_url, "sec.key.http", "SecKeyHttp1!!")
+    r = http.get(
+        base_url + "/rest/e1/moqui.basic.Enumeration",
+        headers={"login_key": SEC_KEY_PLAINTEXT},
+        timeout=10,
+    )
+    assert r.status_code == 200
+
+
+def test_api_key_in_json_body_authenticates(http, base_url, require_server):
+    from conftest import require_sec_user
+    require_sec_user(base_url, "sec.key.http", "SecKeyHttp1!!")
+    r = http.post(
+        base_url + "/rpc/json",
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "org.moqui.impl.BasicServices.find#Enumeration",
+            "params": {"enumTypeId": "moqui.basic.EnumerationType"},
+            "api_key": SEC_KEY_PLAINTEXT,
+        },
+        timeout=10,
+    )
+    # api_key is a top-level JSON field so initFromHttpRequest sees it (not nested under params).
+    assert r.status_code != 401
+    body = (r.text or "").lower()
+    assert "login key not valid" not in body
+
+
+def test_http_basic_on_screen_is_not_unauthenticated(http, base_url, require_server, username, password):
+    r = http.get(
+        base_url + "/menuData/apps",
+        auth=(username, password),
+        timeout=10,
+        allow_redirects=False,
+    )
+    assert r.status_code != 401
+    assert not (r.status_code in (302, 303) and "login" in (r.headers.get("Location") or "").lower())
+
+
 def test_login_issues_a_new_session_id(http, base_url, require_server, username, password):
     http.get(base_url + "/Login", timeout=10)
     before = http.cookies.get("JSESSIONID")

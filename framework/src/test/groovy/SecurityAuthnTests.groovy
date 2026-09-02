@@ -158,6 +158,56 @@ class SecurityAuthnTests extends Specification {
         ec.message.clearAll()
     }
 
+    def "MFA code verifies and completes login after password pre-auth"() {
+        given:
+        def stub = new org.moqui.impl.screen.WebFacadeStub(
+                ((org.moqui.impl.context.ExecutionContextImpl) ec).ecfi, [:], [:], "post")
+        ((org.moqui.impl.context.ExecutionContextImpl) ec).setWebFacade(stub)
+        when:
+        SecurityTestSupport.logout(ec)
+        boolean first = ec.user.loginUser(SecurityTestSupport.MFA_USERNAME, SecurityTestSupport.MFA_PASSWORD)
+        String preUser = stub.sessionAttributes.moquiPreAuthcUsername
+        ec.message.clearAll()
+        def validated = ec.service.sync().name("org.moqui.impl.UserServices.validate#ExternalUserAuthcCode")
+                .parameters([code: SecurityTestSupport.MFA_CODE]).call()
+        boolean completed = false
+        if (validated?.verified) completed = ec.user.internalLoginUser((String) validated.username)
+        then:
+        !first
+        preUser == SecurityTestSupport.MFA_USERNAME
+        validated?.verified
+        completed
+        ec.user.username == SecurityTestSupport.MFA_USERNAME
+        cleanup:
+        SecurityTestSupport.logout(ec)
+        stub.sessionAttributes.clear()
+        SecurityTestSupport.withAuthzDisabled(ec) { SecurityTestSupport.ensureMfaFactor(ec) }
+        ec.message.clearAll()
+    }
+
+    def "wrong MFA code does not verify"() {
+        given:
+        SecurityTestSupport.withAuthzDisabled(ec) { SecurityTestSupport.ensureMfaFactor(ec) }
+        def stub = new org.moqui.impl.screen.WebFacadeStub(
+                ((org.moqui.impl.context.ExecutionContextImpl) ec).ecfi, [:], [:], "post")
+        ((org.moqui.impl.context.ExecutionContextImpl) ec).setWebFacade(stub)
+        when:
+        SecurityTestSupport.logout(ec)
+        ec.user.loginUser(SecurityTestSupport.MFA_USERNAME, SecurityTestSupport.MFA_PASSWORD)
+        ec.message.clearAll()
+        def validated = ec.service.sync().name("org.moqui.impl.UserServices.validate#ExternalUserAuthcCode")
+                .parameters([code: "000000"]).call()
+        then:
+        stub.sessionAttributes.moquiPreAuthcUsername == SecurityTestSupport.MFA_USERNAME
+        !validated?.verified
+        ec.user.username == null || ec.user.username != SecurityTestSupport.MFA_USERNAME
+        cleanup:
+        SecurityTestSupport.logout(ec)
+        stub.sessionAttributes.clear()
+        SecurityTestSupport.withAuthzDisabled(ec) { SecurityTestSupport.ensureMfaFactor(ec) }
+        ec.message.clearAll()
+    }
+
     static void lockLockUser(ExecutionContext ec, int maxFailures) {
         SecurityTestSupport.resetLockAccount(ec)
         for (int i = 0; i < maxFailures + 1; i++) {
@@ -348,6 +398,84 @@ class SecurityAuthnTests extends Specification {
         created?.userId
         msgs.toLowerCase().contains("could not be updated")
         currentHash == origHash
+        cleanup:
+        SecurityTestSupport.logout(ec)
+        ec.message.clearAll()
+    }
+
+    def "reset password can be used to update and is then cleared"() {
+        given:
+        String uname = "sec.rstok." + System.currentTimeMillis()
+        String origPw = "SecRstOk1!!"
+        String resetPw = "ResetUse1!!"
+        String newPw = "SecRstNew1!!"
+        ec.message.clearAll()
+        def created = ec.service.sync().name("org.moqui.impl.UserServices.create#UserAccount")
+                .parameters([username: uname, newPassword: origPw, newPasswordVerify: origPw,
+                             userFullName: uname, emailAddress: uname + "@example.com"]).disableAuthz().call()
+        SecurityTestSupport.withAuthzDisabled(ec) {
+            def ua = ec.entity.find("moqui.security.UserAccount").condition("username", uname).one()
+            String hash = ((org.moqui.impl.context.ExecutionContextImpl) ec).ecfi
+                    .getSimpleHash(resetPw, (String) ua.passwordSalt, (String) ua.passwordHashType,
+                            "Y".equals(ua.passwordBase64))
+            ua.resetPassword = hash
+            ua.resetPasswordSetDate = ec.user.nowTimestamp
+            ua.update()
+        }
+        when:
+        ec.message.clearAll()
+        ec.service.sync().name("org.moqui.impl.UserServices.update#Password")
+                .parameters([username: uname, oldPassword: resetPw,
+                             newPassword: newPw, newPasswordVerify: newPw]).call()
+        String resetLeft = "x"
+        java.sql.Timestamp setDateLeft = ec.user.nowTimestamp
+        SecurityTestSupport.withAuthzDisabled(ec) {
+            def ua = ec.entity.find("moqui.security.UserAccount").condition("username", uname).one()
+            resetLeft = ua?.resetPassword
+            setDateLeft = ua?.resetPasswordSetDate
+        }
+        SecurityTestSupport.logout(ec)
+        boolean withNew = SecurityTestSupport.login(ec, uname, newPw)
+        SecurityTestSupport.logout(ec)
+        boolean withOld = ec.user.loginUser(uname, origPw)
+        then:
+        created?.userId
+        !resetLeft
+        setDateLeft == null
+        withNew
+        !withOld
+        cleanup:
+        SecurityTestSupport.logout(ec)
+        ec.message.clearAll()
+    }
+
+    def "expired reset password is rejected"() {
+        given:
+        String uname = "sec.rstold." + System.currentTimeMillis()
+        String origPw = "SecRstOld1!!"
+        String resetPw = "ResetExp1!!"
+        ec.message.clearAll()
+        def created = ec.service.sync().name("org.moqui.impl.UserServices.create#UserAccount")
+                .parameters([username: uname, newPassword: origPw, newPasswordVerify: origPw,
+                             userFullName: uname, emailAddress: uname + "@example.com"]).disableAuthz().call()
+        SecurityTestSupport.withAuthzDisabled(ec) {
+            def ua = ec.entity.find("moqui.security.UserAccount").condition("username", uname).one()
+            String hash = ((org.moqui.impl.context.ExecutionContextImpl) ec).ecfi
+                    .getSimpleHash(resetPw, (String) ua.passwordSalt, (String) ua.passwordHashType,
+                            "Y".equals(ua.passwordBase64))
+            ua.resetPassword = hash
+            ua.resetPasswordSetDate = new java.sql.Timestamp(System.currentTimeMillis() - 50L * 3600000L)
+            ua.update()
+        }
+        when:
+        ec.message.clearAll()
+        ec.service.sync().name("org.moqui.impl.UserServices.update#Password")
+                .parameters([username: uname, oldPassword: resetPw,
+                             newPassword: "SecNew8!!", newPasswordVerify: "SecNew8!!"]).call()
+        String msgs = ((ec.message.publicMessages ?: []) + (ec.message.messages ?: [])).join("\n")
+        then:
+        created?.userId
+        msgs.toLowerCase().contains("could not be updated")
         cleanup:
         SecurityTestSupport.logout(ec)
         ec.message.clearAll()

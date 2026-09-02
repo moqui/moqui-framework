@@ -222,11 +222,27 @@ along with this software (see the LICENSE.md file). If not, see
 
                 org.moqui.util.RestClient restClient = ec.service.rest().method(org.moqui.util.RestClient.POST).uri(urlExpand)
                         .addHeader("Content-Type", systemMessageType.contentType ?: "text/plain").text(systemMessage.messageText)
-                if (!systemMessageRemote.messageAuthEnumId || "SmatLogin".equals(systemMessageRemote.messageAuthEnumId)) {
+                String authEnum = (String) systemMessageRemote.messageAuthEnumId
+                if (!authEnum || "SmatLogin".equals(authEnum)) {
                     restClient.basicAuth((String) systemMessageRemote.username, (String) systemMessageRemote.password)
+                } else if ("SmatHmacSha256".equals(authEnum) || "SmatHmacSha256Timestamp".equals(authEnum)) {
+                    String headerName = (String) systemMessageRemote.authHeaderName
+                    String secret = (String) systemMessageRemote.sharedSecret
+                    if (!headerName || !secret) {
+                        ec.message.addError("Send REST HMAC for remote ${systemMessageRemote.systemMessageRemoteId} needs authHeaderName and sharedSecret")
+                        return
+                    }
+                    String bodyText = (String) (systemMessage.messageText ?: "")
+                    if ("SmatHmacSha256".equals(authEnum)) {
+                        restClient.addHeader(headerName, org.moqui.util.WebUtilities.hmacSha256Base64(secret, bodyText))
+                    } else {
+                        long ts = System.currentTimeMillis() / 1000L
+                        restClient.addHeader(headerName, org.moqui.util.WebUtilities.hmacSha256TimestampHeader(secret, bodyText, ts))
+                    }
+                } else if ("SmatNone".equals(authEnum)) {
+                    // no auth headers
                 } else {
-                    // TODO: support SmatHmacSha256
-                    ec.message.addError("Send REST message auth type ${systemMessageRemote.messageAuthEnumId} not supported for remote ${systemMessageRemote.systemMessageRemoteId}")
+                    ec.message.addError("Send REST message auth type ${authEnum} not supported for remote ${systemMessageRemote.systemMessageRemoteId}")
                     return
                 }
 
@@ -236,10 +252,18 @@ along with this software (see the LICENSE.md file). If not, see
                     ec.message.addError("System message ${systemMessageId} send error response (${restResponse.statusCode}): ${errMsg}")
                     return
                 }
-                // responseText = restResponse.text()
+                try {
+                    Object parsed = restResponse.jsonObject()
+                    if (parsed instanceof Map) {
+                        Object ids = ((Map) parsed).get("systemMessageIdList")
+                        if (ids instanceof List && ((List) ids).size() > 0) {
+                            context.remoteMessageId = ((List) ids).get(0)
+                        } else if (ids instanceof CharSequence) {
+                            context.remoteMessageId = ids.toString()
+                        }
+                    }
+                } catch (Throwable ignored) { /* non-JSON body is still a successful send */ }
             ]]></script>
-
-            <!-- TODO: WebFacadeImpl.handleSystemMessage() will need to return a message ID before we can do this: <set field="remoteMessageId" from=""/> -->
         </actions>
     </service>
     <service verb="send" noun="SystemMessageDirectLocal">

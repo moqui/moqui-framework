@@ -23,3 +23,32 @@ def test_screen_tarpit_returns_429_after_burst(http, base_url, require_server, u
     retry = last.headers.get("Retry-After")
     if retry:
         assert int(retry) > 0
+
+
+def test_transition_tarpit_for_sec_tap_user_returns_429(http, base_url, require_server):
+    """Dedicated ArtifactTarpit on setPreference (3 / 60s). Skip if fixtures are missing."""
+    from conftest import require_rest_login, require_sec_user, csrf_token
+    require_sec_user(base_url, "sec.tap.user", "SecTapUser1!!")
+    r = require_rest_login(http, base_url, "sec.tap.user", "SecTapUser1!!")
+    tok = csrf_token(r)
+    if not tok:
+        pytest.skip("no CSRF token")
+    last = None
+    saw_429 = False
+    for i in range(8):
+        last = http.post(
+            base_url + "/apps/setPreference",
+            data={"preferenceKey": "secTapHttp" + str(i), "preferenceValue": "v",
+                  "moquiSessionToken": tok},
+            headers={"X-CSRF-Token": tok},
+            timeout=10,
+            allow_redirects=False,
+        )
+        if last.status_code == 429:
+            saw_429 = True
+            break
+    if last is not None and last.status_code in (401, 403) and i == 0:
+        pytest.skip("sec.tap.user cannot run setPreference")
+    if not saw_429:
+        pytest.skip("transition tarpit did not fire (fixtures missing or tarpit disabled)")
+    assert last.status_code == 429

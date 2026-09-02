@@ -77,6 +77,27 @@ class SecurityTestSupport {
     static final String HMAC_SECRET = "sec-hmac-test-secret"
     static final String HMAC_HEADER = "X-Moqui-Signature"
     static final String EMAIL_PIXEL_ID = "SEC_EMAIL_PIXEL"
+    // Known plaintext login key for HTTP api_key proofs (hashed at rest). Same string as framework/test.
+    static final String KEY_USERNAME = "sec.key.http"
+    static final String KEY_PASSWORD = "SecKeyHttp1!!"
+    static final String KEY_USER_ID = "SEC_KEY_HTTP"
+    static final String KEY_PLAINTEXT = "sec-test-login-key-fixed-40-chars-value"
+    // Single-use MFA fixture (known plaintext code; hashed at rest with SaltySalt).
+    static final String MFA_USERNAME = "sec.mfa.totp"
+    static final String MFA_PASSWORD = "SecMfaTotp1!!"
+    static final String MFA_USER_ID = "SEC_MFA_TOTP"
+    static final String MFA_FACTOR_ID = "SEC_MFA_TOTP_FACTOR"
+    static final String MFA_CODE = "87654321"
+    // Tarpit fixtures: dedicated group so a lock does not starve john.doe / other sec.* users.
+    static final String TAP_USERNAME = "sec.tap.user"
+    static final String TAP_PASSWORD = "SecTapUser1!!"
+    static final String TAP_USER_ID = "SEC_TAP_USER"
+    static final String TAP_GROUP_ID = "SEC_TAP_GROUP"
+    static final String TAP_SVC_NAME = "org.moqui.impl.UserServices.set#Preference"
+    static final String TAP_TRANS_NAME = "component://webroot/screen/webroot/apps.xml/setPreference"
+    static final int TAP_MAX_HITS = 3
+    static final int TAP_DURATION_SEC = 60
+    static final int TAP_LOCK_SEC = 30
 
     static void logout(ExecutionContext ec) {
         if (ec.user.userId) ec.user.logoutUser()
@@ -146,6 +167,12 @@ class SecurityTestSupport {
             ensureEmailPixel(ec)
             ensurePermission(ec, "REST_SCHEMA", "REST schema dumps")
             ensureGroupPermission(ec, "ADMIN", "REST_SCHEMA")
+            ensureUser(ec, KEY_USER_ID, KEY_USERNAME, KEY_PASSWORD, ENT_VIEW_GROUP_ID)
+            ensureLoginKey(ec)
+            ensureUser(ec, MFA_USER_ID, MFA_USERNAME, MFA_PASSWORD, NONE_GROUP_ID)
+            ensureMfaFactor(ec)
+            ensureTarpitFixtures(ec)
+            ensureUser(ec, TAP_USER_ID, TAP_USERNAME, TAP_PASSWORD, TAP_GROUP_ID)
         }
     }
 
@@ -399,5 +426,60 @@ class SecurityTestSupport {
         Map m = [moquiSessionToken: sessionToken(ec)]
         if (extra) m.putAll(extra)
         return m
+    }
+
+    static void ensureLoginKey(ExecutionContext ec) {
+        String userId = userIdForUsername(ec, KEY_USERNAME) ?: KEY_USER_ID
+        String hashed = eci(ec).ecfi.getSimpleHash(KEY_PLAINTEXT, "", eci(ec).ecfi.getLoginKeyHashType(), false)
+        def existing = ec.entity.find("moqui.security.UserLoginKey").condition("loginKey", hashed).one()
+        if (existing == null) {
+            java.sql.Timestamp from = ec.user.nowTimestamp
+            java.sql.Timestamp thru = new java.sql.Timestamp(from.time + 365L * 24L * 60L * 60L * 1000L)
+            ec.entity.makeValue("moqui.security.UserLoginKey")
+                    .setAll([loginKey: hashed, userId: userId, fromDate: from, thruDate: thru,
+                             description: "security test known login key"]).create()
+        }
+    }
+
+    static void ensureMfaFactor(ExecutionContext ec) {
+        String userId = userIdForUsername(ec, MFA_USERNAME) ?: MFA_USER_ID
+        String hashed = eci(ec).ecfi.getSimpleHash(MFA_CODE, "SaltySalt")
+        def existing = ec.entity.find("moqui.security.UserAuthcFactor").condition("factorId", MFA_FACTOR_ID).one()
+        if (existing == null) {
+            ec.entity.makeValue("moqui.security.UserAuthcFactor").setAll([
+                    factorId: MFA_FACTOR_ID, userId: userId, factorTypeEnumId: "UafSingleUse",
+                    factorOption: hashed, fromDate: ec.user.nowTimestamp,
+                    needsValidation: "N"]).create()
+        } else {
+            existing.userId = userId
+            existing.factorTypeEnumId = "UafSingleUse"
+            existing.factorOption = hashed
+            existing.thruDate = null
+            existing.needsValidation = "N"
+            existing.update()
+        }
+    }
+
+    static void ensureTarpitFixtures(ExecutionContext ec) {
+        ensureGroup(ec, TAP_GROUP_ID, "Security test tarpit")
+        ensureArtifactGroup(ec, "SEC_TAP_SVC", "Security test service tarpit")
+        ensureArtifactGroupMember(ec, "SEC_TAP_SVC", TAP_SVC_NAME, "AT_SERVICE", false)
+        ensureArtifactGroup(ec, "SEC_TAP_TRANS", "Security test transition tarpit")
+        ensureArtifactGroupMember(ec, "SEC_TAP_TRANS", TAP_TRANS_NAME, "AT_XML_SCREEN_TRANS", false)
+        ensureAuthz(ec, "SEC_TAP_SVC_AUTHZ", TAP_GROUP_ID, "SEC_TAP_SVC", "AUTHZA_ALL")
+        ensureAuthz(ec, "SEC_TAP_TRANS_AUTHZ", TAP_GROUP_ID, "SEC_TAP_TRANS", "AUTHZA_ALL")
+        ensureTarpit(ec, TAP_GROUP_ID, "SEC_TAP_SVC")
+        ensureTarpit(ec, TAP_GROUP_ID, "SEC_TAP_TRANS")
+    }
+
+    static void ensureTarpit(ExecutionContext ec, String userGroupId, String artifactGroupId) {
+        def existing = ec.entity.find("moqui.security.ArtifactTarpit")
+                .condition("userGroupId", userGroupId).condition("artifactGroupId", artifactGroupId).one()
+        if (existing == null) {
+            ec.entity.makeValue("moqui.security.ArtifactTarpit").setAll([
+                    userGroupId: userGroupId, artifactGroupId: artifactGroupId,
+                    maxHitsCount: TAP_MAX_HITS, maxHitsDuration: TAP_DURATION_SEC,
+                    tarpitDuration: TAP_LOCK_SEC]).create()
+        }
     }
 }

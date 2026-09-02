@@ -497,7 +497,7 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                         aeii.nameInternal.equals(artifactTarpit.artifactName)) {
                     recordHitTime = true
                     if (hitTimeList == null) hitTimeList = (ArrayList<Long>) eci.tarpitHitCache.get(tarpitKey)
-                    long maxHitsDuration = artifactTarpit.maxHitsDuration as long
+                    long maxHitsDurationMs = (artifactTarpit.maxHitsDuration as long) * 1000L
                     // count hits in this duration; start with 1 to count the current hit
                     long hitsInDuration = 1L
                     if (hitTimeList != null && hitTimeList.size() > 0) {
@@ -506,13 +506,14 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                         ArrayList<Long> hitTimeListCopy = new ArrayList<Long>(hitTimeList)
                         for (int htlInd = 0; htlInd < hitTimeListCopy.size(); htlInd++) {
                             Long hitTime = (Long) hitTimeListCopy.get(htlInd)
-                            if (hitTime != null && ((hitTime - checkTime) < maxHitsDuration)) hitsInDuration++
+                            if (hitTime != null && (checkTime - hitTime) >= 0L && (checkTime - hitTime) < maxHitsDurationMs)
+                                hitsInDuration++
                         }
                     }
                     // logger.warn("TOREMOVE artifact [${tarpitKey}], now has ${hitsInDuration} hits in ${maxHitsDuration} seconds")
                     if (hitsInDuration > (artifactTarpit.maxHitsCount as long) && (artifactTarpit.tarpitDuration as long) > lockForSeconds) {
                         lockForSeconds = artifactTarpit.tarpitDuration as long
-                        logger.warn("User [${userId}] exceeded ${artifactTarpit.maxHitsCount} in ${maxHitsDuration} seconds for artifact [${tarpitKey}], locking for ${lockForSeconds} seconds")
+                        logger.warn("User [${userId}] exceeded ${artifactTarpit.maxHitsCount} in ${artifactTarpit.maxHitsDuration} seconds for artifact [${tarpitKey}], locking for ${lockForSeconds} seconds")
                     }
                 }
             }
