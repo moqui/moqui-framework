@@ -76,6 +76,10 @@ public class LlmClientImpl implements LlmClient {
     private volatile RestClient.RestStream activeStream;
     /** Set when enter_sim persists a proposed skill; cleared after a world-pass admit. */
     String pendingProposedSkillName = null;
+    /** Assist Force Skill Use: refuse tools other than find_skill/enter_sim until a skill is selected. */
+    boolean forceSkillUse = false;
+    /** Conversation-scoped skill activated via find_skill select. */
+    String activeSkillName = null;
 
     public LlmClientImpl(ExecutionContext ec, LlmFacadeImpl.ProfileState profile) {
         this(ec, profile, null);
@@ -179,6 +183,14 @@ public class LlmClientImpl implements LlmClient {
         }
         return this;
     }
+    /** Assist Force Skill Use gate. Default false. */
+    public LlmClient forceSkillUse(boolean on) {
+        this.forceSkillUse = on;
+        return this;
+    }
+    public boolean isForceSkillUse() { return forceSkillUse; }
+    public String getActiveSkillName() { return activeSkillName; }
+
     @Override
     public LlmClient maxIterations(int n) {
         if (n < 1) throw new LlmException("maxIterations must be >= 1");

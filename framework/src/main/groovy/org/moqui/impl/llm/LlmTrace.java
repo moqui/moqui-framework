@@ -278,6 +278,8 @@ public final class LlmTrace {
             if (q != null && !q.isBlank()) parts.add("query=" + quote(cap(collapseWs(q), VALUE_MAX)));
             int limit = intVal(args.get("limit"), -1);
             if (limit >= 0) parts.add("limit=" + limit);
+            String sel = str(args.get("select"));
+            if (sel != null && !sel.isBlank()) parts.add("select=" + quote(cap(collapseWs(sel), VALUE_MAX)));
         } else if ("enter_sim".equals(name)) {
             String goal = str(args.get("goal"));
             if (goal != null && !goal.isBlank()) parts.add("goal=" + quote(cap(collapseWs(goal), VALUE_MAX)));
@@ -333,10 +335,18 @@ public final class LlmTrace {
                         else parts.add(list.size() + " skills");
                     }
                 }
+                Map<String, Object> selected = asMap(m.get("selected"));
+                if (selected != null) {
+                    String sn = str(selected.get("name"));
+                    if (sn != null && !sn.isBlank()) parts.add("selected=" + sn.trim());
+                }
                 addError(parts, m);
             } else if ("enter_sim".equals(name)) {
                 String proposed = str(m.get("proposedSkillName"));
                 if (proposed != null && !proposed.isBlank()) parts.add("proposed=" + proposed.trim());
+                String sid = str(m.get("proposedSkillId"));
+                if (sid != null && !sid.isBlank()) parts.add("skillId=" + sid.trim());
+                if (Boolean.FALSE.equals(m.get("selected"))) parts.add("notSelected");
                 addError(parts, m);
             } else if ("write_ui".equals(name)) {
                 if (m.containsKey("submitted"))

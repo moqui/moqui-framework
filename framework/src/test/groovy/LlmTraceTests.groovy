@@ -77,6 +77,7 @@ class LlmTraceTests extends Specification {
         expect:
         LlmTrace.summarizeCall("find_skill", [query: "create user", limit: 3]).contains("query=")
         LlmTrace.summarizeCall("find_skill", [query: "create user", limit: 3]).contains("limit=3")
+        LlmTrace.summarizeCall("find_skill", [select: "create-user-account"]).contains("select=")
         LlmTrace.summarizeCall("enter_sim", [goal: "place an order", max_iterations: 40]).contains("goal=")
         LlmTrace.summarizeCall("enter_sim", [goal: "place an order", max_iterations: 40]).contains("maxIter=40")
     }
@@ -101,8 +102,14 @@ class LlmTraceTests extends Specification {
         LlmTrace.summarizeResult("find_skill", [skills: []]).contains("none")
         LlmTrace.summarizeResult("find_skill", [skills: [[name: "create-user-account"]]])
                 .contains("create-user-account")
+        LlmTrace.summarizeResult("find_skill", [skills: [], selected: [name: "create-user-account"]])
+                .contains("selected=create-user-account")
         LlmTrace.summarizeResult("enter_sim", [proposedSkillName: "create-user-account"])
                 .contains("proposed=create-user-account")
+        LlmTrace.summarizeResult("enter_sim", [proposedSkillName: "n1", proposedSkillId: "SID1", selected: false])
+                .contains("skillId=SID1")
+        LlmTrace.summarizeResult("enter_sim", [proposedSkillName: "n1", proposedSkillId: "SID1", selected: false])
+                .contains("notSelected")
         LlmTrace.summarizeResult("write_ui", [submitted: true, button: "submit"]).contains("submitted")
         LlmTrace.summarizeResult("write_ui", [submitted: false]).contains("not submitted")
     }

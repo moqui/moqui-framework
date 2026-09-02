@@ -113,6 +113,31 @@ public class SkillIndex {
         return out;
     }
 
+    /**
+     * Exact name lookup for find_skill select. Prefers an active or proposed entity row (has skillId),
+     * else a shipped file. Superseded / rejected / deprecated rows are not selectable.
+     */
+    public static SkillDoc getByName(ExecutionContext ec, String name) {
+        if (name == null || name.isBlank()) return null;
+        String n = name.trim();
+        if (ec != null && ec.getEntity() != null) {
+            try {
+                EntityValue ev = withAuthzDisabled(ec, () -> ec.getEntity().find("moqui.llm.LlmSkill")
+                        .condition("name", n).useCache(false).one());
+                if (ev != null) {
+                    String st = ev.getString("statusId");
+                    if ("LsksActive".equals(st) || "LsksProposed".equals(st)) return fromEntity(ev);
+                }
+            } catch (Throwable t) {
+                logger.warn("LlmSkill getByName: {}", t.getMessage());
+            }
+        }
+        for (SkillDoc doc : scanShipped(ec)) {
+            if (n.equals(doc.name)) return doc;
+        }
+        return null;
+    }
+
     public static List<SkillDoc> retrieve(ExecutionContext ec, String query, int limit) {
         if (limit <= 0) limit = DEFAULT_LIMIT;
         String q = query == null ? "" : query.toLowerCase(Locale.ROOT);

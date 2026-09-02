@@ -260,7 +260,9 @@ public final class LlmGateway {
             }
         }
 
+        applyForceSkillUse(impl, body);
         applySystem(impl, body);
+        appendForceSkillUseSystem(impl);
         String user = str(body.get("user"));
         if (user != null) {
             impl.user(user);
@@ -296,6 +298,29 @@ public final class LlmGateway {
             impl.toolResults(parseToolResults(body.get("toolResults")));
         }
         return impl;
+    }
+
+    static void applyForceSkillUse(LlmClientImpl impl, Map<String, Object> body) {
+        if (impl == null) return;
+        if (body != null && body.containsKey("forceSkillUse")) {
+            impl.forceSkillUse = isTrue(body.get("forceSkillUse"));
+            if (impl.conversation != null)
+                impl.conversation.setAttribute("forceSkillUse", impl.forceSkillUse ? "true" : "false");
+        } else if (impl.conversation != null) {
+            impl.forceSkillUse = isTrue(impl.conversation.getAttributes().get("forceSkillUse"));
+        }
+        if ((impl.activeSkillName == null || impl.activeSkillName.isBlank()) && impl.conversation != null) {
+            Object v = impl.conversation.getAttributes().get("activeSkillName");
+            if (v != null && !v.toString().isBlank()) impl.activeSkillName = v.toString();
+        }
+    }
+
+    static void appendForceSkillUseSystem(LlmClientImpl impl) {
+        if (impl == null || !impl.forceSkillUse) return;
+        String extra = SkillUseGate.SYSTEM_ADDENDUM;
+        if (impl.systemContent == null || impl.systemContent.isBlank()) impl.system(extra);
+        else if (!impl.systemContent.contains("Force Skill Use is on"))
+            impl.system(impl.systemContent + "\n\n" + extra);
     }
 
     /**

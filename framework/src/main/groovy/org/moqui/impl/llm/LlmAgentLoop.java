@@ -171,6 +171,11 @@ final class LlmAgentLoop {
             List<LlmToolCall> clientCalls = new ArrayList<>();
             for (LlmToolCall call : calls) {
                 if (call == null) continue;
+                // Gated client tools (write_ui) must not yield; treat as a server-style refusal result.
+                if (!SkillUseGate.allowed(client, call.name)) {
+                    serverCalls.add(call);
+                    continue;
+                }
                 LlmTool tool = client.findTool(call.name);
                 if (tool != null && tool.getExecution() == LlmTool.Execution.CLIENT) clientCalls.add(call);
                 else serverCalls.add(call);
@@ -320,6 +325,7 @@ final class LlmAgentLoop {
     }
 
     private Object executeOne(LlmToolCall call) {
+        if (!SkillUseGate.allowed(client, call.name)) return SkillUseGate.refusal();
         LlmTool tool = client.findTool(call.name);
         if (tool == null) return errorMap(UNKNOWN_TOOL + call.name);
         Map<String, Object> args = LlmJson.tryToMap(call.arguments);

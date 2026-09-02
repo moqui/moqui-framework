@@ -14,6 +14,7 @@
 package org.moqui.impl.llm;
 
 import org.moqui.context.ExecutionContext;
+import org.moqui.entity.EntityValue;
 import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.llm.LlmClient;
 import org.moqui.llm.LlmResponse;
@@ -79,6 +80,9 @@ public class EnterSimTool implements LlmTool {
             Map<String, Object> already = new LinkedHashMap<>();
             already.put("error", "already in sim");
             already.put("sim", Boolean.TRUE);
+            already.put("simActive", Boolean.TRUE);
+            already.put("selected", Boolean.FALSE);
+            already.put("hint", "Already in sim. Continue exploring here. A skill is not selected as active until the parent calls find_skill with select after sim exits.");
             LlmTrace.logSimEnter(convId, goal, maxIter, false);
             LlmTrace.logSimExit(convId, 0, null, "already in sim");
             return already;
@@ -121,7 +125,13 @@ public class EnterSimTool implements LlmTool {
                 if (doc.name != null && !doc.name.isEmpty()) {
                     result.put("proposedSkillName", doc.name);
                     result.put("proposedSkillBody", content);
-                    persistProposedInTx(ec, doc, content);
+                    EntityValue persisted = persistProposedInTx(ec, doc, content);
+                    if (persisted != null) {
+                        Object sid = persisted.get("skillId");
+                        if (sid != null) result.put("proposedSkillId", sid.toString());
+                        Object st = persisted.get("statusId");
+                        if (st != null) result.put("proposedSkillStatus", st.toString());
+                    }
                 }
             }
         } catch (Throwable t) {
@@ -139,21 +149,52 @@ public class EnterSimTool implements LlmTool {
                 catch (Throwable t) { logger.warn("enter_sim overlay stop: " + t.getMessage()); }
             }
         }
+        result.put("simActive", Boolean.FALSE);
+        result.put("selected", Boolean.FALSE);
+        result.put("hint", simExitHint(result));
         return result;
     }
 
-    private static void persistProposedInTx(ExecutionContext ec, SkillIndex.SkillDoc doc, String content) {
+    public static String simExitHint(Map<String, Object> result) {
+        Object name = result != null ? result.get("proposedSkillName") : null;
+        Object id = result != null ? result.get("proposedSkillId") : null;
+        Object status = result != null ? result.get("proposedSkillStatus") : null;
+        if (name != null && !name.toString().isBlank()) {
+            StringBuilder sb = new StringBuilder();
+            sb.append("Sim overlay is closed; you are back in the world. A proposed skill was ");
+            if (id != null && !id.toString().isBlank()) {
+                sb.append("persisted: name=").append(name)
+                        .append(", skillId=").append(id);
+                if (status != null) sb.append(", status=").append(status);
+                sb.append('.');
+            } else {
+                sb.append("extracted (name=").append(name)
+                        .append(") but was not persisted (no skillId).");
+            }
+            sb.append(" The skill was NOT selected as the active skill. Call find_skill with select=")
+                    .append(name)
+                    .append(" before browse, request, run_service, or write_ui.");
+            return sb.toString();
+        }
+        return "Sim overlay is closed; you are back in the world. No skill was persisted and no skill was "
+                + "selected as active. Call find_skill to select a skill, or enter_sim again to explore, test, "
+                + "and write a skill.";
+    }
+
+    private static EntityValue persistProposedInTx(ExecutionContext ec, SkillIndex.SkillDoc doc, String content) {
         try {
             boolean began = ec.getTransaction().begin(60);
             try {
-                SkillIndex.persistProposed(ec, doc, content);
+                EntityValue ev = SkillIndex.persistProposed(ec, doc, content);
                 ec.getTransaction().commit(began);
+                return ev;
             } catch (Throwable t) {
                 ec.getTransaction().rollback(began, "persist proposed LlmSkill", t);
                 throw t;
             }
         } catch (Throwable t) {
             logger.warn("Could not persist proposed skill: {}", t.getMessage());
+            return null;
         }
     }
 }

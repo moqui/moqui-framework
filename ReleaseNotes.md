@@ -89,6 +89,11 @@ Other production notes:
   attach the `request` tool. Internal `LlmTool.request()` with no prefixes still means any path the user
   is authorized to hit. Profile `allow-unprefixed-request="true"` (Assist) attaches that unprefixed tool;
   operators may still add `allowed-path` prefixes to **narrow** it.
+- Assist **Force Skill Use** toggle (off by default): when on, the agent loop refuses
+  `browse` / `request` / `run_service` / `write_ui` until the model calls `find_skill` with
+  `select` (exact skill name) or `enter_sim`. Refusals are tool results with instructions; the
+  server does not auto-enter sim. `enter_sim` does not auto-select the proposed skill; its result
+  includes `proposedSkillId` and a hint that the skill is **not** active until `find_skill` `select`.
 - Assist Universal Screen (`/qapps/assist`, tools component): chat + generated canvas. Profile
   `assist` uses a server-owned SYSTEM FTL (`system-location` under `component://tools/prompt/`,
   rendered with ResourceFacade `template()`), ignores client `system`, and enables

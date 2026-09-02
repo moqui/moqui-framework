@@ -15,6 +15,7 @@
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
 import org.moqui.entity.EntityValue
+import org.moqui.impl.llm.EnterSimTool
 import org.moqui.impl.llm.LlmClientImpl
 import org.moqui.impl.llm.LlmFacadeImpl
 import org.moqui.impl.llm.SkillIndex
@@ -149,6 +150,11 @@ Call run_service create#moqui.test.TestEntity with testId and testMedium.
         proposed.statusId == "LsksActive"
         proposed.provenanceId == "LskpMixed"
         (proposed.worldSuccessCount as Number).longValue() >= 1L
+        def enterTool = proto.lastRequest.window.findAll { it.role == LlmMessage.Role.TOOL && it.name == "enter_sim" }
+        enterTool
+        enterTool[-1].content.contains("proposedSkillId")
+        enterTool[-1].content.contains("NOT selected")
+        enterTool[-1].content.contains("select=" + skillName)
 
         cleanup:
         boolean d = ec.artifactExecution.disableAuthz()
@@ -202,6 +208,273 @@ Call run_service create#moqui.test.TestEntity with testId and testMedium.
             if (b) ec.transaction.commit()
         } catch (Throwable t) {
             if (b) ec.transaction.rollback("authz skill cleanup", t)
+            throw t
+        } finally {
+            if (!d) ec.artifactExecution.enableAuthz()
+        }
+    }
+
+    def "force skill use refuses browse until select, does not auto enter_sim"() {
+        given:
+        def proto = new FakeLlmProtocol()
+        proto.handler = { ProtocolRequest req ->
+            def last = lastTool(req)
+            if (last?.name == "browse") return FakeLlmProtocol.stop("browsed")
+            if (last?.name == "find_skill" && last.content?.contains("create-user-account")
+                    && last.content?.contains("selected")) {
+                return FakeLlmProtocol.toolCalls(new LlmToolCall("b1", "browse", '{"path":"/qapps"}'))
+            }
+            if (last?.name == "find_skill") {
+                return FakeLlmProtocol.toolCalls(new LlmToolCall("b0", "browse", '{"path":"/qapps"}'))
+            }
+            return FakeLlmProtocol.toolCalls(new LlmToolCall("f1", "find_skill",
+                    '{"query":"create user","select":"create-user-account"}'))
+        }
+        LlmClientImpl client = agent(proto).forceSkillUse(true)
+        client.tool(LlmTool.browse())
+
+        when:
+        LlmResponse r = client.user("create a user").call()
+
+        then:
+        r.content == "browsed"
+        client.getActiveSkillName() == "create-user-account"
+        !proto.lastRequest.window.any { it.role == LlmMessage.Role.TOOL && it.name == "enter_sim" }
+        r.toolResults.any { it.name == "browse" && it.content instanceof Map && ((Map) it.content).error != "skill_required" }
+    }
+
+    def "force skill use refuses browse with no skill and does not enter sim"() {
+        given:
+        def proto = new FakeLlmProtocol()
+        proto.handler = { ProtocolRequest req ->
+            def last = lastTool(req)
+            if (last?.name == "browse") return FakeLlmProtocol.stop("after browse")
+            return FakeLlmProtocol.toolCalls(new LlmToolCall("b1", "browse", '{"path":"/qapps"}'))
+        }
+        LlmClientImpl client = agent(proto).forceSkillUse(true)
+        client.tool(LlmTool.browse())
+
+        when:
+        LlmResponse r = client.user("look around").call()
+
+        then:
+        r.content == "after browse"
+        client.getActiveSkillName() == null
+        !proto.lastRequest.window.any { it.role == LlmMessage.Role.TOOL && it.name == "enter_sim" }
+        def browse = r.toolResults.find { it.name == "browse" }
+        browse != null
+        browse.content instanceof Map
+        ((Map) browse.content).error == "skill_required"
+        ((Map) browse.content).instruction.toString().contains("enter_sim")
+    }
+
+    def "force off still allows browse without a skill"() {
+        given:
+        def proto = new FakeLlmProtocol()
+        proto.handler = { ProtocolRequest req ->
+            def last = lastTool(req)
+            if (last?.name == "browse") return FakeLlmProtocol.stop("ok")
+            return FakeLlmProtocol.toolCalls(new LlmToolCall("b1", "browse", '{"path":"/qapps"}'))
+        }
+        LlmClientImpl client = agent(proto)
+        client.tool(LlmTool.browse())
+
+        when:
+        LlmResponse r = client.user("look around").call()
+
+        then:
+        r.content == "ok"
+        def browse = r.toolResults.find { it.name == "browse" }
+        browse != null
+        !(browse.content instanceof Map && ((Map) browse.content).error == "skill_required")
+    }
+
+    def "force skill use refuses write_ui without yield"() {
+        given:
+        def proto = new FakeLlmProtocol()
+        proto.handler = { ProtocolRequest req ->
+            def last = lastTool(req)
+            if (last?.name == "write_ui") return FakeLlmProtocol.stop("no canvas")
+            return FakeLlmProtocol.toolCalls(new LlmToolCall("w1", "write_ui",
+                    '{"title":"Hi","fields":[{"name":"n","widget":"text-line"}]}'))
+        }
+        LlmClientImpl client = agent(proto).forceSkillUse(true)
+        client.allowClientTools(true)
+        client.tool(LlmTool.writeUi())
+
+        when:
+        LlmResponse r = client.user("show a form").call()
+
+        then:
+        !r.yielded
+        r.content == "no canvas"
+        def ui = r.toolResults.find { it.name == "write_ui" }
+        ui != null
+        ui.content instanceof Map
+        ((Map) ui.content).error == "skill_required"
+    }
+
+    def "unknown select does not activate; subsequent browse still refused"() {
+        given:
+        def proto = new FakeLlmProtocol()
+        proto.handler = { ProtocolRequest req ->
+            def last = lastTool(req)
+            if (last?.name == "browse") return FakeLlmProtocol.stop("after")
+            if (last?.name == "find_skill")
+                return FakeLlmProtocol.toolCalls(new LlmToolCall("b1", "browse", '{"path":"/qapps"}'))
+            return FakeLlmProtocol.toolCalls(new LlmToolCall("f1", "find_skill",
+                    '{"select":"no-such-skill-xyz"}'))
+        }
+        LlmClientImpl client = agent(proto).forceSkillUse(true)
+        client.tool(LlmTool.browse())
+
+        when:
+        LlmResponse r = client.user("do a thing").call()
+
+        then:
+        client.getActiveSkillName() == null
+        r.toolResults.any { it.name == "find_skill" && it.content instanceof Map && ((Map) it.content).error == "unknown_skill" }
+        r.toolResults.any { it.name == "browse" && it.content instanceof Map && ((Map) it.content).error == "skill_required" }
+    }
+
+    def "find_skill select only activates shipped skill"() {
+        given:
+        def proto = new FakeLlmProtocol()
+        proto.handler = { ProtocolRequest req ->
+            def last = lastTool(req)
+            if (last?.name == "find_skill") return FakeLlmProtocol.stop("selected")
+            return FakeLlmProtocol.toolCalls(new LlmToolCall("f1", "find_skill",
+                    '{"select":"create-user-account"}'))
+        }
+        LlmClientImpl client = agent(proto).forceSkillUse(true)
+
+        when:
+        LlmResponse r = client.user("use create user skill").call()
+
+        then:
+        r.content == "selected"
+        client.getActiveSkillName() == "create-user-account"
+        def fs = r.toolResults.find { it.name == "find_skill" }
+        fs != null
+        fs.content instanceof Map
+        ((Map) fs.content).selected instanceof Map
+        ((Map) ((Map) fs.content).selected).name == "create-user-account"
+    }
+
+    def "force on: sim nested writes run, parent write without select is refused"() {
+        given:
+        String stamp = Long.toString(System.currentTimeMillis())
+        String skillName = "force-sim-skill-" + stamp
+        String simId = "FSIM" + stamp
+        def proto = new FakeLlmProtocol()
+        proto.handler = { ProtocolRequest req ->
+            boolean sim = isSim(req)
+            def last = lastTool(req)
+            if (sim) {
+                if (last?.name == "run_service") {
+                    return FakeLlmProtocol.stop("""---
+name: ${skillName}
+description: Force-gate sim skill
+risk: reversible
+---
+Call run_service create#moqui.test.TestEntity.
+""")
+                }
+                String args = '{"serviceName":"create#moqui.test.TestEntity","parameters":{"testId":"' +
+                        simId + '","testMedium":"from-sim"}}'
+                return FakeLlmProtocol.toolCalls(new LlmToolCall("sim1", "run_service", args))
+            }
+            if (last?.name == "run_service") return FakeLlmProtocol.stop("parent saw refusal")
+            if (last?.name == "enter_sim") {
+                String args = '{"serviceName":"create#moqui.test.TestEntity","parameters":{"testId":"' +
+                        simId + 'W","testMedium":"from-world"}}'
+                return FakeLlmProtocol.toolCalls(new LlmToolCall("w1", "run_service", args))
+            }
+            if (last?.name == "find_skill") {
+                return FakeLlmProtocol.toolCalls(new LlmToolCall("e1", "enter_sim",
+                        '{"goal":"create TestEntity"}'))
+            }
+            return FakeLlmProtocol.toolCalls(new LlmToolCall("f1", "find_skill",
+                    '{"query":"frobnicate"}'))
+        }
+        LlmClientImpl client = agent(proto).forceSkillUse(true)
+        client.maxIterations(16)
+
+        when:
+        LlmResponse r = client.user("frobnicate").call()
+        EntityValue simRow = ec.entity.find("moqui.test.TestEntity").condition("testId", simId).one()
+        EntityValue worldRow = ec.entity.find("moqui.test.TestEntity").condition("testId", simId + "W").one()
+        def enterTool = proto.lastRequest.window.findAll { it.role == LlmMessage.Role.TOOL && it.name == "enter_sim" }
+
+        then:
+        r.content == "parent saw refusal"
+        simRow == null
+        worldRow == null
+        client.getActiveSkillName() == null
+        enterTool
+        enterTool[-1].content.contains("proposedSkillId")
+        enterTool[-1].content.contains("NOT selected")
+        enterTool[-1].content.contains(skillName)
+        r.toolResults.any { it.name == "run_service" && it.content instanceof Map && ((Map) it.content).error == "skill_required" }
+
+        cleanup:
+        boolean d = ec.artifactExecution.disableAuthz()
+        boolean b = ec.transaction.begin(null)
+        try {
+            def sk = ec.entity.find("moqui.llm.LlmSkill").condition("name", skillName).useCache(false).one()
+            if (sk != null) {
+                ec.entity.find("moqui.llm.LlmSkillUse").condition("skillId", sk.skillId).deleteAll()
+                sk.delete()
+            }
+            if (b) ec.transaction.commit()
+        } catch (Throwable t) {
+            if (b) ec.transaction.rollback("force sim cleanup", t)
+            throw t
+        } finally {
+            if (!d) ec.artifactExecution.enableAuthz()
+        }
+    }
+
+    def "sim exit hint names skill id and that it was not selected"() {
+        expect:
+        EnterSimTool.simExitHint([proposedSkillName: "n1", proposedSkillId: "SID1", proposedSkillStatus: "LsksProposed"])
+                .contains("skillId=SID1")
+        EnterSimTool.simExitHint([proposedSkillName: "n1", proposedSkillId: "SID1", proposedSkillStatus: "LsksProposed"])
+                .contains("NOT selected")
+        EnterSimTool.simExitHint([proposedSkillName: "n1", proposedSkillId: "SID1", proposedSkillStatus: "LsksProposed"])
+                .contains("select=n1")
+        EnterSimTool.simExitHint([:]).contains("No skill was persisted")
+    }
+
+    def "getByName finds shipped and proposed skills"() {
+        given:
+        String name = "getbyname-" + System.currentTimeMillis()
+        def doc = SkillIndex.parseMarkdown("---\nname: ${name}\ndescription: proposed lookup\nrisk: reversible\n---\nsteps", null)
+
+        when:
+        boolean began = ec.transaction.begin(null)
+        EntityValue persisted = SkillIndex.persistProposed(ec, doc, "steps")
+        if (began) ec.transaction.commit()
+        def shipped = SkillIndex.getByName(ec, "create-user-account")
+        def proposed = SkillIndex.getByName(ec, name)
+        def missing = SkillIndex.getByName(ec, "no-such-skill-xyz")
+
+        then:
+        shipped?.name == "create-user-account"
+        persisted != null
+        proposed?.name == name
+        proposed?.skillId == persisted.skillId
+        missing == null
+
+        cleanup:
+        boolean d = ec.artifactExecution.disableAuthz()
+        boolean b = ec.transaction.begin(null)
+        try {
+            def sk = ec.entity.find("moqui.llm.LlmSkill").condition("name", name).useCache(false).one()
+            sk?.delete()
+            if (b) ec.transaction.commit()
+        } catch (Throwable t) {
+            if (b) ec.transaction.rollback("getByName cleanup", t)
             throw t
         } finally {
             if (!d) ec.artifactExecution.enableAuthz()
