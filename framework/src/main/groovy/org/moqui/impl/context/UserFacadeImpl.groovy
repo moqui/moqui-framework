@@ -30,6 +30,7 @@ import org.apache.shiro.authc.AuthenticationException
 import org.apache.shiro.authc.UsernamePasswordToken
 import org.apache.shiro.subject.Subject
 import org.apache.shiro.subject.support.DefaultSubjectContext
+import org.apache.shiro.util.ThreadContext
 import org.apache.shiro.web.subject.WebSubjectContext
 import org.apache.shiro.web.subject.support.DefaultWebSubjectContext
 import org.apache.shiro.web.session.HttpServletSession
@@ -115,7 +116,7 @@ class UserFacadeImpl implements UserFacade {
             EntityValue userAccount = (EntityValue) null
             if (sesUsername != null && !sesUsername.isEmpty()) {
                 EntityCondition usernameCond = eci.entityFacade.getConditionFactory()
-                        .makeCondition("username", EntityCondition.ComparisonOperator.EQUALS, username).ignoreCase()
+                        .makeCondition("username", EntityCondition.ComparisonOperator.EQUALS, sesUsername).ignoreCase()
                 userAccount = eci.getEntity().find("moqui.security.UserAccount")
                         .condition(usernameCond).useCache(false).disableAuthz().one()
             }
@@ -264,7 +265,16 @@ class UserFacadeImpl implements UserFacade {
             }
         }
     }
+    /** Drop inherited UserFacade state without Shiro logout (logout would invalidate a still-valid HTTP session). */
+    void resetToAnonymous() {
+        userInfoStack.clear()
+        currentInfo = new UserInfo(this, null)
+        userInfoStack.addFirst(currentInfo)
+        try { ThreadContext.unbindSubject() } catch (Throwable ignored) { }
+    }
+
     void initFromHandshakeRequest(HandshakeRequest request) {
+        resetToAnonymous()
         try {
             this.session = (HttpSession) request.getHttpSession()
         } catch (Throwable t) {
@@ -287,7 +297,6 @@ class UserFacadeImpl implements UserFacade {
         }
 
         Map<String, List<String>> headers = request.getHeaders()
-        Map<String, List<String>> parameters = request.getParameterMap()
         String authzHeader = headers.get("Authorization") ? headers.get("Authorization").get(0) : null
         if (authzHeader != null && authzHeader.length() > 6 && authzHeader.substring(0, 6).equals("Basic ")) {
             String basicAuthEncoded = authzHeader.substring(6).trim()
@@ -306,22 +315,11 @@ class UserFacadeImpl implements UserFacade {
             if (loginKey != null && !loginKey.isEmpty() && !"null".equals(loginKey) && !"undefined".equals(loginKey))
                 this.loginUserKey(loginKey)
         }
-        if (currentInfo.username == null && (parameters.api_key || parameters.login_key)) {
-            String loginKey = parameters.api_key ? parameters.api_key.get(0) : (parameters.login_key ? parameters.login_key.get(0) : null)
-            loginKey = loginKey.trim()
-            logger.warn("loginKey2 ${loginKey}")
-            if (loginKey != null && !loginKey.isEmpty() && !"null".equals(loginKey) && !"undefined".equals(loginKey))
-                this.loginUserKey(loginKey)
-        }
-        if (currentInfo.username == null && parameters.authUsername) {
-            // try the Moqui-specific parameters for instant login
-            // if we have credentials coming in anywhere other than URL parameters, try logging in
-            String authUsername = parameters.authUsername.get(0)
-            String authPassword = parameters.authPassword ? parameters.authPassword.get(0) : null
-            this.loginUser(authUsername, authPassword)
-        }
+        // Do not read api_key / login_key / authUsername from the upgrade query string (same as HTTP body-only).
+        // Callers should send those as headers or rely on the existing HTTP session cookie.
     }
     void initFromHttpSession(HttpSession session) {
+        resetToAnonymous()
         this.session = session
         Subject webSubject = makeEmptySubject()
         if (webSubject.isAuthenticated()) {
@@ -717,7 +715,10 @@ class UserFacadeImpl implements UserFacade {
             // others to consider handling differently (these all inherit from AuthenticationException):
             //     UnknownAccountException, IncorrectCredentialsException, ExpiredCredentialsException,
             //     CredentialsException, LockedAccountException, DisabledAccountException, ExcessiveAttemptsException
-            eci.messageFacade.addError(ae.message)
+            // Public message is the same for unknown user, wrong password, and disabled/terminated so the
+            // client cannot tell those cases apart. Distinct reason stays in the log.
+            logger.warn("Login failed for username ${username}: ${ae.getClass().getSimpleName()}: ${ae.message}")
+            eci.messageFacade.addError(eci.l10n.localize("The username or password is not valid"))
             return false
         }
         return true
@@ -1011,21 +1012,7 @@ class UserFacadeImpl implements UserFacade {
         }
 
         if (clientIp != null) {
-            // some headers, like CloudFront-Viewer-Address, contain a port as well so remove that
-            int cipColonIdx = clientIp.lastIndexOf(':')
-            if (cipColonIdx >= 0) {
-                // for IPv6 addresses with square braces, only strip before colon if colon after closing square brace
-                int closeSqBrIdx = clientIp.indexOf(']')
-                if (closeSqBrIdx == -1 || closeSqBrIdx < cipColonIdx)
-                    clientIp = clientIp.substring(cipColonIdx + 1)
-            }
-
-            // strip IPv6 square braces if present
-            if (clientIp != null && !clientIp.isEmpty()) {
-                if (clientIp.charAt(0) == (char) '[') clientIp = clientIp.substring(1)
-                if (clientIp.charAt(clientIp.length() - 1) == (char) ']')
-                    clientIp = clientIp.substring(0, clientIp.length() - 1)
-            }
+            clientIp = WebUtilities.canonicalizeClientIp(clientIp)
         }
 
         return clientIp

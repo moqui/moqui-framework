@@ -54,8 +54,7 @@ import jakarta.servlet.http.HttpSession
 import java.nio.charset.StandardCharsets
 import java.sql.Timestamp
 
-import javax.crypto.Mac
-import javax.crypto.spec.SecretKeySpec
+import javax.cache.Cache
 
 /** This class is a facade to easily get information from and about the web context. */
 @CompileStatic
@@ -99,6 +98,8 @@ class WebFacadeImpl implements WebFacade {
 
         MNode webappNode = eci.ecfi.getWebappNode(webappMoquiName)
         boolean uploadExecutableAllow = "true".equals(webappNode.attribute("upload-executable-allow"))
+        WebappInfo wi = eci.ecfi.getWebappInfo(webappMoquiName)
+        if (wi != null && wi.httpHost) request.setAttribute("moqui.webapp.httpHost", wi.httpHost)
 
         // NOTE: the Visit is not setup here but rather in the MoquiSessionListener (for init and destroy)
         // don't set 'ec' in request attributes, not serializable: request.setAttribute("ec", eci)
@@ -858,6 +859,10 @@ class WebFacadeImpl implements WebFacade {
     }
 
     void sendQzSignedResponse(String message) {
+        if (!eci.userFacade.userId) {
+            sendError(HttpServletResponse.SC_UNAUTHORIZED, "Authentication required", null)
+            return
+        }
         try {
             String signature = qzSigner.sign(message)
             response.setContentType("text/plain")
@@ -1211,10 +1216,7 @@ class WebFacadeImpl implements WebFacade {
                     return
                 }
 
-                Mac hmac = Mac.getInstance("HmacSHA256")
-                hmac.init(new SecretKeySpec(sharedSecret.getBytes("UTF-8"), "HmacSHA256"))
-                // NOTE: if this fails try with "ISO-8859-1"
-                String signature = Base64.encoder.encodeToString(hmac.doFinal(messageText.getBytes("UTF-8")))
+                String signature = WebUtilities.hmacSha256Base64(sharedSecret, messageText)
 
                 if (headerValue != signature) {
                     logger.warn("System message receive HMAC verify header value ${headerValue} calculated ${signature} did not match for remote ${systemMessageRemoteId}")
@@ -1256,17 +1258,7 @@ class WebFacadeImpl implements WebFacade {
                 // Timestamp in the header
                 // The character .
                 // The text body of the request
-                String signatureTextToVerify = timestamp + "." + messageText
-
-                Mac hmac = Mac.getInstance("HmacSHA256")
-                hmac.init(new SecretKeySpec(sharedSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"))
-                // NOTE: if this fails try with "ISO-8859-1"
-                byte[] hash = hmac.doFinal(signatureTextToVerify.getBytes(StandardCharsets.UTF_8));
-                String signature = ""
-                for (byte b : hash) {
-                    // Came from https://github.com/stripe/stripe-java/blob/3686feb8f2067878b7bb4619f931580a3d31bf4f/src/main/java/com/stripe/net/Webhook.java#L187
-                    signature += Integer.toString((b & 0xff) + 0x100, 16).substring(1);
-                }
+                String signature = WebUtilities.hmacSha256Hex(sharedSecret, timestamp + "." + messageText)
 
                 if (incomingSignature != signature) {
                     logger.warn("System message receive HMAC verify header value ${incomingSignature} calculated ${signature} did not match for remote ${systemMessageRemoteId}")
@@ -1286,9 +1278,22 @@ class WebFacadeImpl implements WebFacade {
                     return
                 }
 
+                String replayKey = systemMessageRemoteId + ":" + timestamp + ":" + incomingSignature
+                Cache replayCache = eci.cacheFacade.getCache("moqui.security.hmac.replay")
+                if (!replayCache.putIfAbsent(replayKey, Boolean.TRUE)) {
+                    logger.warn("System message receive HMAC replay for remote ${systemMessageRemoteId}")
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "HMAC replay rejected")
+                    return
+                }
+
                 // login anonymous if not logged in
                 eci.userFacade.loginAnonymousIfNoUser()
-            } else if (!"SmatNone".equals(messageAuthEnumId)) {
+            } else if ("SmatNone".equals(messageAuthEnumId)) {
+                // Explicit no-auth remote. Operators who set this have chosen unauthenticated ingest
+                // (HMAC is the signed alternative). Same anonymous login as the HMAC paths so
+                // receive#IncomingSystemMessage (authenticate=true) can run.
+                eci.userFacade.loginAnonymousIfNoUser()
+            } else {
                 logger.error("Got system message for remote ${systemMessageRemoteId} with unsupported messageAuthEnumId ${messageAuthEnumId}, returning error")
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Remote system ${systemMessageRemoteId} auth configuration not valid")
                 return
@@ -1305,9 +1310,8 @@ class WebFacadeImpl implements WebFacade {
              }
 
             // technically SC_ACCEPTED (202) is more accurate, OK (200) more common
-            response.setStatus(HttpServletResponse.SC_OK)
-
-            // TODO: consider returning response with systemMessageIdList in JSON or XML based on Accept header
+            List idList = (List) result?.systemMessageIdList
+            sendJsonResponse([systemMessageIdList: idList ?: []])
         } catch (Throwable t) {
             logger.error("Error handling system message type ${systemMessageTypeId} remote ${systemMessageRemoteId} remote msg ${remoteMessageId}", t)
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error receiving message: ${t.toString()}")
@@ -1398,23 +1402,26 @@ class WebFacadeImpl implements WebFacade {
         response.setHeader("Content-Disposition", "inline")
         OutputStream os = response.outputStream
         try { os.write(trackingPng) } finally { os.close() }
-        // mark the message viewed
+        // mark the message viewed (unauthenticated by design; id is the capability)
         try {
-            String emailMessageId = (String) eci.contextStack.get("emailMessageId")
-            if (emailMessageId != null && !emailMessageId.isEmpty()) {
-                int dotIndex = emailMessageId.indexOf(".")
-                if (dotIndex > 0) emailMessageId = emailMessageId.substring(0, dotIndex)
-                EntityValue emailMessage = eci.entity.find("moqui.basic.email.EmailMessage").condition("emailMessageId", emailMessageId)
-                        .disableAuthz().one()
-                if (emailMessage == null) {
-                    logger.warn("Tried to mark EmailMessage ${emailMessageId} viewed but not found")
-                } else if (!"ES_VIEWED".equals(emailMessage.statusId)) {
-                    eci.service.sync().name("update#moqui.basic.email.EmailMessage").parameter("emailMessageId", emailMessageId)
-                            .parameter("statusId", "ES_VIEWED").parameter("receivedDate", eci.user.nowTimestamp).disableAuthz().call()
-                }
-            }
+            markEmailMessageViewed(eci, (String) eci.contextStack.get("emailMessageId"))
         } catch (Throwable t) {
             logger.error("Error marking EmailMessage viewed", t)
+        }
+    }
+
+    /** Unauthenticated tracking-pixel side effect. Public for proofs; not an HTTP entry point. */
+    static void markEmailMessageViewed(ExecutionContextImpl eci, String emailMessageId) {
+        if (emailMessageId == null || emailMessageId.isEmpty()) return
+        int dotIndex = emailMessageId.indexOf(".")
+        if (dotIndex > 0) emailMessageId = emailMessageId.substring(0, dotIndex)
+        EntityValue emailMessage = eci.entity.find("moqui.basic.email.EmailMessage").condition("emailMessageId", emailMessageId)
+                .disableAuthz().one()
+        if (emailMessage == null) {
+            logger.warn("Tried to mark EmailMessage ${emailMessageId} viewed but not found")
+        } else if (!"ES_VIEWED".equals(emailMessage.statusId)) {
+            eci.service.sync().name("update#moqui.basic.email.EmailMessage").parameter("emailMessageId", emailMessageId)
+                    .parameter("statusId", "ES_VIEWED").parameter("receivedDate", eci.user.nowTimestamp).disableAuthz().call()
         }
     }
 

@@ -250,13 +250,15 @@ public class MoquiStart {
             Object server = serverClass.getConstructor().newInstance();
             Object httpConfig = httpConfigurationClass.getConstructor().newInstance();
 
-            // add ForwardedRequestCustomizer to handle Forwarded and X-Forwarded-* HTTP Request Headers
-            // see https://javadoc.jetty.org/jetty-12.1/org/eclipse/jetty/server/ForwardedRequestCustomizer.html
-            // NOTE: this is the only way Jetty knows about HTTPS/SSL so is needed, but the problem is these headers
-            //     are easily spoofed; this isn't too bad for X-Proxied-Https and X-Forwarded-Proto, and those are needed
-            // TODO: at least find some way to skip X-Forwarded-For: current behavior with new client-ip-header setting
-            //     is it will use that but if no client IP found that way it gets it from Jetty, which gets it from X-Forwarded-For, opening to spoofing
+            // ForwardedRequestCustomizer so Jetty sees HTTPS from X-Forwarded-Proto / X-Proxied-Https.
+            // Do not take the client address from X-Forwarded-For or RFC 7239 Forwarded; those are spoofable
+            // on a directly reachable listener. Operators who need the proxy's view of the client IP should
+            // set webapp_client_ip_header (X-Real-IP, CF-Connecting-IP, ...).
             Object forwardedRequestCustomizer = forwardedRequestCustomizerClass.getConstructor().newInstance();
+            forwardedRequestCustomizerClass.getMethod("setForwardedForHeader", String.class)
+                    .invoke(forwardedRequestCustomizer, "X-Moqui-Unused-Forwarded-For");
+            forwardedRequestCustomizerClass.getMethod("setForwardedHeader", String.class)
+                    .invoke(forwardedRequestCustomizer, "X-Moqui-Unused-Forwarded");
             httpConfigurationClass.getMethod("addCustomizer", customizerClass).invoke(httpConfig, forwardedRequestCustomizer);
 
             Object httpConnectionFactory = httpConnectionFactoryClass.getConstructor(httpConfigurationClass).newInstance(httpConfig);

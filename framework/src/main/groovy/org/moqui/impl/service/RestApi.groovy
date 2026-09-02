@@ -15,6 +15,7 @@ package org.moqui.impl.service
 
 import groovy.transform.CompileStatic
 import org.moqui.BaseException
+import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.AuthenticationRequiredException
 import org.moqui.context.ExecutionContext
@@ -32,6 +33,7 @@ import org.moqui.jcache.MCache
 import org.moqui.util.CollectionUtilities
 import org.moqui.util.MNode
 import org.moqui.util.SystemBinding
+import org.moqui.util.WebUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -365,6 +367,12 @@ class RestApi {
             }
 
             try {
+                // Identity-admin (login keys, MFA factors, …) is never readable through Service REST.
+                // Secret-config (EmailServer, SystemMessageRemote) GET is allowed on declared resources;
+                // writes still need ADMIN below.
+                if (operation in ['one', 'list', 'count'] && WebUtilities.isIdentityAdminEntity(entityName)) {
+                    throw new ArtifactAuthorizationException("Entity ${entityName} is not available through this REST resource")
+                }
                 if (operation == 'one') {
                     EntityFind ef = ec.entity.find(entityName).searchFormMap(ec.context, null, null, null, false)
                     if (masterName) {
@@ -399,7 +407,18 @@ class RestApi {
                     Map<String, Object> headers = ['X-Total-Count':count] as Map<String, Object>
                     return new RestResult([count:count], headers)
                 } else if (operation in ['create', 'update', 'store', 'delete']) {
-                    Map result = ec.getService().sync().name(operation, entityName).parameters(ec.context).call()
+                    if (WebUtilities.isIdentityAdminEntity(entityName)) {
+                        throw new ArtifactAuthorizationException("Entity ${entityName} is not writable through this REST resource")
+                    }
+                    if (WebUtilities.isSecretConfigEntity(entityName) && !ec.user.isInGroup("ADMIN")) {
+                        throw new ArtifactAuthorizationException("Entity ${entityName} is not writable through this REST resource")
+                    }
+                    Map parms = new LinkedHashMap(ec.context)
+                    if (operation != 'delete' && WebUtilities.isUserAccountEntity(entityName)) {
+                        WebUtilities.removeUserAccountSecretsFromMap(parms)
+                        if (!ec.user.isInGroup("ADMIN")) WebUtilities.removeUserAccountIdentityFromMap(parms)
+                    }
+                    Map result = ec.getService().sync().name(operation, entityName).parameters(parms).call()
                     return new RestResult(result, null)
                 } else {
                     throw new IllegalArgumentException("Entity operation ${operation} not supported, must be one of: one, list, count, create, update, store, delete")
@@ -407,6 +426,9 @@ class RestApi {
             } finally {
                 if (loggedInAnonymous) ((UserFacadeImpl) ec.getUser()).logoutAnonymousOnly()
             }
+        }
+        static boolean isUserAccountEntity(String entityName) {
+            return WebUtilities.isUserAccountEntity(entityName)
         }
 
         void addToSwaggerMap(Map<String, Object> swaggerMap, Map<String, Map<String, Object>> resourceMap) {
@@ -628,7 +650,8 @@ class RestApi {
             if (mh == null) throw new MethodNotSupportedException("Method ${method} not supported at ${pathList}")
             return mh.run(pathList, ec)
         }
-        private String getCurrentMethod(ExecutionContext ec) {
+        private String getCurrentMethod(ExecutionContext ec) { return effectiveRequestMethod(ec) }
+        static String effectiveRequestMethod(ExecutionContext ec) {
             HttpServletRequest request = ec.web.getRequest()
             String method = request.getMethod().toLowerCase()
             if ("post".equals(method)) {
@@ -721,8 +744,7 @@ class RestApi {
                 post:ArtifactExecutionInfo.AUTHZA_CREATE, delete:ArtifactExecutionInfo.AUTHZA_DELETE,
                 options:ArtifactExecutionInfo.AUTHZA_VIEW, head:ArtifactExecutionInfo.AUTHZA_VIEW]
         static ArtifactExecutionInfo.AuthzAction getActionFromMethod(ExecutionContext ec) {
-            String method = ec.web.getRequest().getMethod().toLowerCase()
-            return actionByMethodMap.get(method)
+            return actionByMethodMap.get(effectiveRequestMethod(ec))
         }
 
         Map getRamlChildrenMap(Map<String, Object> typesMap) {
@@ -808,7 +830,7 @@ class RestApi {
         Object responseObj
         Map<String, Object> headers = [:]
         RestResult(Object responseObj, Map<String, Object> headers) {
-            this.responseObj = responseObj
+            this.responseObj = WebUtilities.stripUserAccountSecrets(responseObj)
             if (headers) this.headers.putAll(headers)
         }
         void setHeaders(HttpServletResponse response) {

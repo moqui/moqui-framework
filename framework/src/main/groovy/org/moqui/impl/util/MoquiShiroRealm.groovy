@@ -161,39 +161,35 @@ class MoquiShiroRealm implements Realm, Authorizer {
         if (clientIp == null || clientIp.isEmpty()) {
             if (eci.web != null) logger.warn("Web login with no client IP for userId ${newUserAccount.userId}, not checking ipAllowed")
         } else {
-            if (clientIp.contains(":")) {
-                logger.warn("Web login with IPv6 client IP ${clientIp} for userId ${newUserAccount.userId}, not checking ipAllowed")
-            } else {
-                ArrayList<String> ipAllowedList = new ArrayList<>()
-                String uaIpAllowed = newUserAccount.getNoCheckSimple("ipAllowed")
-                if (uaIpAllowed != null && !uaIpAllowed.isEmpty()) ipAllowedList.add(uaIpAllowed)
+            ArrayList<String> ipAllowedList = new ArrayList<>()
+            String uaIpAllowed = newUserAccount.getNoCheckSimple("ipAllowed")
+            if (uaIpAllowed != null && !uaIpAllowed.isEmpty()) ipAllowedList.add(uaIpAllowed)
 
-                EntityList ugmList = eci.entityFacade.find("moqui.security.UserGroupMember")
-                        .condition("userId", newUserAccount.getNoCheckSimple("userId"))
-                        .disableAuthz().useCache(true).list()
-                        .filterByDate(null, null, eci.userFacade.nowTimestamp)
-                ArrayList<String> userGroupIdList = new ArrayList<>()
-                for (EntityValue ugm in ugmList) userGroupIdList.add((String) ugm.get("userGroupId"))
-                userGroupIdList.add("ALL_USERS")
-                EntityList ugList = eci.entityFacade.find("moqui.security.UserGroup")
-                        .condition("ipAllowed", EntityCondition.IS_NOT_NULL, null)
-                        .condition("userGroupId", EntityCondition.IN, userGroupIdList).disableAuthz().useCache(false).list()
-                for (EntityValue ug in ugList) ipAllowedList.add((String) ug.getNoCheckSimple("ipAllowed"))
+            EntityList ugmList = eci.entityFacade.find("moqui.security.UserGroupMember")
+                    .condition("userId", newUserAccount.getNoCheckSimple("userId"))
+                    .disableAuthz().useCache(true).list()
+                    .filterByDate(null, null, eci.userFacade.nowTimestamp)
+            ArrayList<String> userGroupIdList = new ArrayList<>()
+            for (EntityValue ugm in ugmList) userGroupIdList.add((String) ugm.get("userGroupId"))
+            userGroupIdList.add("ALL_USERS")
+            EntityList ugList = eci.entityFacade.find("moqui.security.UserGroup")
+                    .condition("ipAllowed", EntityCondition.IS_NOT_NULL, null)
+                    .condition("userGroupId", EntityCondition.IN, userGroupIdList).disableAuthz().useCache(false).list()
+            for (EntityValue ug in ugList) ipAllowedList.add((String) ug.getNoCheckSimple("ipAllowed"))
 
-                int ipAllowedListSize = ipAllowedList.size()
-                if (ipAllowedListSize > 0) {
-                    boolean anyMatches = false
-                    for (int i = 0; i < ipAllowedListSize; i++) {
-                        String pattern = (String) ipAllowedList.get(i)
-                        if (WebUtilities.ip4Matches(pattern, clientIp)) {
-                            anyMatches = true
-                            break
-                        }
+            int ipAllowedListSize = ipAllowedList.size()
+            if (ipAllowedListSize > 0) {
+                boolean anyMatches = false
+                for (int i = 0; i < ipAllowedListSize; i++) {
+                    String pattern = (String) ipAllowedList.get(i)
+                    if (WebUtilities.ipMatches(pattern, clientIp)) {
+                        anyMatches = true
+                        break
                     }
-                    if (!anyMatches) throw new AccountException(
-                            eci.resource.expand('Authenticate failed for user ${newUserAccount.username} because client IP ${clientIp} is not in allowed list for user or group.',
-                            '', [newUserAccount:newUserAccount, clientIp:clientIp]))
                 }
+                if (!anyMatches) throw new AccountException(
+                        eci.resource.expand('Authenticate failed for user ${newUserAccount.username} because client IP ${clientIp} is not in allowed list for user or group.',
+                        '', [newUserAccount:newUserAccount, clientIp:clientIp]))
             }
         }
 

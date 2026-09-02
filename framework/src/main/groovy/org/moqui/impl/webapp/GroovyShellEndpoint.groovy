@@ -31,6 +31,8 @@ import groovy.transform.CompileStatic
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import org.moqui.context.ArtifactExecutionInfo
+import org.moqui.impl.context.ArtifactExecutionInfoImpl
 import org.moqui.impl.context.ExecutionContextImpl
 
 @CompileStatic
@@ -54,18 +56,37 @@ class GroovyShellEndpoint extends MoquiAbstractEndpoint {
         this.destroyInitialEci = false
         super.onOpen(session, config)
         logger.info("Opening GroovyShellEndpoint session ${session.getId()} for user ${userId}:${username}")
-        eci = ecf.getEci()
-        if (!eci.userFacade.hasPermission("GROOVY_SHELL_WEB")) {
-            throw new IllegalAccessException("User ${username} does not have permission to use Groovy Shell")
+        eci = this.initialEci
+        if (eci == null) {
+            throw new IllegalStateException("No ExecutionContext after WebSocket open")
         }
-        exec = Executors.newSingleThreadExecutor(Thread.ofVirtual().name("GroovyShell-" + session.getId(), 0).factory())
-        scheduler = Executors.newSingleThreadScheduledExecutor()
-        Writer wsWriter = new WsWriter(session)
-        def binding = eci.getContextBinding()
-        binding.setVariable("out", new PrintWriter(wsWriter, true))
-        binding.setVariable("err", new PrintWriter(wsWriter, true))
-        groovyShell = new GroovyShell(ecf.classLoader, binding)
-        resetIdleTimer()
+        try {
+            if (!eci.userFacade.hasPermission("GROOVY_SHELL_WEB")) {
+                throw new IllegalAccessException("User ${username} does not have permission to use Groovy Shell")
+            }
+            // Same bar as GroovyShell.xml: inherit-all on the Tools app, not VIEW-only
+            ArtifactExecutionInfoImpl toolsAeii = new ArtifactExecutionInfoImpl(
+                    "component://tools/screen/Tools.xml", ArtifactExecutionInfo.AT_XML_SCREEN,
+                    ArtifactExecutionInfo.AUTHZA_ALL, null)
+            if (!eci.artifactExecutionFacade.isPermitted(toolsAeii, null, true, false, false, null)) {
+                throw new IllegalAccessException("User ${username} is not authorized for all actions on the Tools app")
+            }
+            exec = Executors.newSingleThreadExecutor(Thread.ofVirtual().name("GroovyShell-" + session.getId(), 0).factory())
+            scheduler = Executors.newSingleThreadScheduledExecutor()
+            Writer wsWriter = new WsWriter(session)
+            def binding = eci.getContextBinding()
+            binding.setVariable("out", new PrintWriter(wsWriter, true))
+            binding.setVariable("err", new PrintWriter(wsWriter, true))
+            groovyShell = new GroovyShell(ecf.classLoader, binding)
+            resetIdleTimer()
+        } catch (Throwable t) {
+            try {
+                eci.destroy()
+            } catch (Throwable ignored) { }
+            eci = null
+            this.initialEci = null
+            throw t
+        }
     }
 
     @Override

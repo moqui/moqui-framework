@@ -30,6 +30,8 @@ import org.xml.sax.Locator;
 import org.xml.sax.XMLReader;
 import org.xml.sax.helpers.DefaultHandler;
 
+import javax.xml.XMLConstants;
+import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 import java.io.*;
 import java.nio.file.Files;
@@ -46,6 +48,39 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
 
     private final static Map<String, MNode> parsedNodeCache = new HashMap<>();
     public static void clearParsedNodeCache() { parsedNodeCache.clear(); }
+
+    /** SAX factory that does not resolve external entities or DTDs. */
+    public static SAXParserFactory newSecureSaxParserFactory() {
+        try {
+            SAXParserFactory spf = SAXParserFactory.newInstance();
+            spf.setXIncludeAware(false);
+            try { spf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true); }
+            catch (Exception e) { logger.warn("Could not set FEATURE_SECURE_PROCESSING on SAXParserFactory", e); }
+            try { spf.setFeature("http://xml.org/sax/features/external-general-entities", false); }
+            catch (Exception e) { logger.warn("Could not disable external-general-entities on SAXParserFactory", e); }
+            try { spf.setFeature("http://xml.org/sax/features/external-parameter-entities", false); }
+            catch (Exception e) { logger.warn("Could not disable external-parameter-entities on SAXParserFactory", e); }
+            try { spf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false); }
+            catch (Exception e) { logger.warn("Could not disable load-external-dtd on SAXParserFactory", e); }
+            return spf;
+        } catch (Exception e) {
+            throw new BaseException("Could not create secure SAXParserFactory", e);
+        }
+    }
+    public static SAXParser newSecureSaxParser() {
+        try {
+            return newSecureSaxParserFactory().newSAXParser();
+        } catch (Exception e) {
+            throw new BaseException("Could not create secure SAXParser", e);
+        }
+    }
+    public static XMLReader newSecureXmlReader() {
+        try {
+            return newSecureSaxParser().getXMLReader();
+        } catch (Exception e) {
+            throw new BaseException("Could not create secure XMLReader", e);
+        }
+    }
 
     /* ========== Factories (XML Parsing) ========== */
 
@@ -99,7 +134,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     public static MNode parse(String location, InputSource isrc) {
         try {
             MNodeXmlHandler xmlHandler = new MNodeXmlHandler(false, location);
-            XMLReader reader = SAXParserFactory.newInstance().newSAXParser().getXMLReader();
+            XMLReader reader = newSecureXmlReader();
             reader.setContentHandler(xmlHandler);
             reader.parse(isrc);
             return xmlHandler.getRootNode();
@@ -123,7 +158,7 @@ public class MNode implements TemplateNodeModel, TemplateSequenceModel, Template
     public static MNode parseRootOnly(String location, InputSource isrc) {
         try {
             MNodeXmlHandler xmlHandler = new MNodeXmlHandler(true, location);
-            XMLReader reader = SAXParserFactory.newInstance().newSAXParser().getXMLReader();
+            XMLReader reader = newSecureXmlReader();
             reader.setContentHandler(xmlHandler);
             reader.parse(isrc);
             return xmlHandler.getRootNode();

@@ -34,6 +34,7 @@ import org.moqui.impl.service.ServiceFacadeImpl
 import org.moqui.impl.service.runner.EntityAutoServiceRunner
 import org.moqui.service.ServiceCallSync
 import org.moqui.util.MNode
+import org.moqui.util.WebUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.xml.sax.*
@@ -41,7 +42,6 @@ import org.xml.sax.helpers.DefaultHandler
 
 import javax.sql.rowset.serial.SerialBlob
 import javax.xml.parsers.SAXParser
-import javax.xml.parsers.SAXParserFactory
 import java.nio.charset.StandardCharsets
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
@@ -71,6 +71,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
     boolean disableAuditLog = false
     boolean disableFkCreate = false
     boolean disableDataFeed = false
+    boolean restrictSensitiveEntities = false
 
     char csvDelimiter = ','
     char csvCommentStart = '#'
@@ -87,8 +88,21 @@ class EntityDataLoaderImpl implements EntityDataLoader {
 
     EntityFacadeImpl getEfi() { return efi }
 
-    @Override EntityDataLoader location(String location) { this.locationList.add(location); return this }
-    @Override EntityDataLoader locationList(List<String> ll) { this.locationList.addAll(ll); return this }
+    @Override EntityDataLoader location(String location) {
+        rejectProductionRemote(location)
+        this.locationList.add(location)
+        return this
+    }
+    @Override EntityDataLoader locationList(List<String> ll) {
+        if (ll == null) return this
+        for (String loc in ll) rejectProductionRemote(loc)
+        this.locationList.addAll(ll)
+        return this
+    }
+    private static void rejectProductionRemote(String location) {
+        if (WebUtilities.isProductionRemoteDataLoadBlocked(location))
+            throw new BaseException("Remote data load from ${location} is not allowed when instance_purpose is production")
+    }
     @Override EntityDataLoader xmlText(String xmlText) { this.xmlText = xmlText; return this }
     @Override EntityDataLoader csvText(String csvText) { this.csvText = csvText; return this }
     @Override EntityDataLoader jsonText(String jsonText) { this.jsonText = jsonText; return this }
@@ -111,6 +125,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
     @Override EntityDataLoader disableAuditLog(boolean disable) { disableAuditLog = disable; return this }
     @Override EntityDataLoader disableFkCreate(boolean disable) { disableFkCreate = disable; return this }
     @Override EntityDataLoader disableDataFeed(boolean disable) { disableDataFeed = disable; return this }
+    @Override EntityDataLoader restrictSensitiveEntities(boolean restrict) { restrictSensitiveEntities = restrict; return this }
 
     @Override EntityDataLoader csvDelimiter(char delimiter) { this.csvDelimiter = delimiter; return this }
     @Override EntityDataLoader csvCommentStart(char commentStart) { this.csvCommentStart = commentStart; return this }
@@ -284,7 +299,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             // load the XML text in its own transaction
             if (this.xmlText) {
                 tf.runUseOrBegin(transactionTimeout, "Error loading XML entity data", {
-                    XMLReader reader = SAXParserFactory.newInstance().newSAXParser().XMLReader
+                    XMLReader reader = MNode.newSecureXmlReader()
                     exh.setLocation("xmlText")
                     reader.setContentHandler(exh)
                     reader.parse(new InputSource(new StringReader(this.xmlText)))
@@ -349,7 +364,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                     long beforeRecords = exh.valuesRead ?: 0
                     exh.setLocation(location)
 
-                    SAXParser parser = SAXParserFactory.newInstance().newSAXParser()
+                    SAXParser parser = MNode.newSecureSaxParser()
                     parser.parse(inputStream, exh)
 
                     recordsLoaded = (exh.valuesRead?:0) - beforeRecords
@@ -377,7 +392,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                                 long beforeRecords = exh.valuesRead ?: 0
                                 exh.setLocation(location)
 
-                                SAXParser parser = SAXParserFactory.newInstance().newSAXParser()
+                                SAXParser parser = MNode.newSecureSaxParser()
                                 parser.parse(zis, exh)
 
                                 long curFileLoaded = (exh.valuesRead?:0) - beforeRecords
@@ -525,6 +540,9 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         }
 
         void handleValue(EntityValue value, String location) {
+            if (edli.restrictSensitiveEntities && WebUtilities.isRestrictedGenericEntity(value.resolveEntityName())) {
+                throw new EntityException("Entity ${value.resolveEntityName()} is not allowed in this data load")
+            }
             boolean tryInsert = edli.useTryInsert
             if (tryInsert && value instanceof EntityValueBase) {
                 EntityValueBase evb = (EntityValueBase) value
@@ -562,6 +580,9 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             }
         }
         void handlePlainMap(String entityName, Map value, String location) {
+            if (edli.restrictSensitiveEntities && WebUtilities.isRestrictedGenericEntity(entityName)) {
+                throw new EntityException("Entity ${entityName} is not allowed in this data load")
+            }
             EntityDefinition ed = ec.entityFacade.getEntityDefinition(entityName)
             if (ed == null) throw new BaseException("Could not find entity ${entityName}")
             if (edli.onlyCreate) {
@@ -761,6 +782,9 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             } else {
                 if (edli.efi.isEntityDefined(elementName)) {
                     currentEntityDef = edli.efi.getEntityDefinition(elementName)
+                    if (edli.restrictSensitiveEntities && WebUtilities.isRestrictedGenericEntity(currentEntityDef.getFullEntityName())) {
+                        throw new SAXException("Entity ${currentEntityDef.getFullEntityName()} is not allowed in this data load")
+                    }
                     // logger.warn("Found entity ${currentEntityDef.getFullEntityName()} for ${entityName}")
                     rootValueMap = getAttributesMap(attributes, currentEntityDef)
                 } else if (edli.sfi.isServiceDefined(elementName)) {

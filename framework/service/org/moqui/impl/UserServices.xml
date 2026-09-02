@@ -132,8 +132,9 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="userAccount.successiveFailedLogins"
                  from="userAccount.successiveFailedLogins ? userAccount.successiveFailedLogins + 1 : 1"/>
             <set field="maxFailures" from="(ec.ecfi.confXmlRoot.first('user-facade').first('login').attribute('max-failures') ?: 3) as Integer"/>
-            <!-- if successiveFailedLogins is greater than max in conf then disable account -->
-            <if condition="userAccount.successiveFailedLogins > maxFailures &amp;&amp; userAccount.disabled != 'Y'">
+            <!-- if successiveFailedLogins is greater than max in conf then disable account;
+                 refresh disabledDateTime even when already disabled so the window restarts -->
+            <if condition="userAccount.successiveFailedLogins > maxFailures">
                 <set field="userAccount.disabled" value="Y"/>
                 <set field="userAccount.disabledDateTime" from="ec.user.nowTimestamp"/>
             </if>
@@ -142,7 +143,7 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <service verb="update" noun="Password" authenticate="anonymous-all" allow-remote="true">
+    <service verb="update" noun="Password" authenticate="anonymous-all" allow-remote="false">
         <description>Set a user's password. The userId must match the current user and the oldPassword must match the
             user's currentPassword or special permission is required, or user has already pre-authenticated and specified an authz code.</description>
         <in-parameters>
@@ -173,7 +174,8 @@ along with this software (see the LICENSE.md file). If not, see
                 <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
                     <field-map field-name="userId" from="ec.user.userId"/></entity-find-one>
             </else></if>
-            <if condition="userAccount == null"><return message="Could not find user with name ${username}" public="true" type="danger"/></if>
+            <set field="passwordUpdatePublicMsg" value="Password could not be updated with the information provided."/>
+            <if condition="userAccount == null"><return message="${passwordUpdatePublicMsg}" public="true" type="danger"/></if>
             <set field="userId" from="userAccount.userId"/>
             <set field="username" from="userAccount.username"/>
 
@@ -210,20 +212,36 @@ along with this software (see the LICENSE.md file). If not, see
 
                     <script>
                         def token = new org.apache.shiro.authc.UsernamePasswordToken((String) userAccount.username, (String) oldPassword)
-                        def info = new org.apache.shiro.authc.SimpleAuthenticationInfo(userAccount.username, userAccount.currentPassword,
-                                userAccount.passwordSalt ? new org.apache.shiro.lang.util.SimpleByteSource((String) userAccount.passwordSalt) : '', "moquiRealm")
+                        def saltSrc = userAccount.passwordSalt ? new org.apache.shiro.lang.util.SimpleByteSource((String) userAccount.passwordSalt) : null
+                        def info = saltSrc != null ?
+                                new org.apache.shiro.authc.SimpleAuthenticationInfo(userAccount.username, userAccount.currentPassword, saltSrc, "moquiRealm") :
+                                new org.apache.shiro.authc.SimpleAuthenticationInfo(userAccount.username, userAccount.currentPassword, "moquiRealm")
                     </script>
                     <if condition="!userAccount.currentPassword || !ec.ecfi.getCredentialsMatcher(userAccount.passwordHashType, 'Y'.equals(userAccount.passwordBase64)).doCredentialsMatch(token, info)">
                         <if condition="userAccount.resetPassword"><then>
-                            <!-- try the resetPassword -->
+                            <!-- try the resetPassword; honour password.@email-expire-hours; missing set date is expired -->
+                            <set field="resetStillValid" from="false" type="Boolean"/>
+                            <if condition="userAccount.resetPasswordSetDate">
+                                <set field="expireHours" from="ec.ecfi.confXmlRoot.first('user-facade').first('password').attribute('email-expire-hours')" default-value="48" type="Integer"/>
+                                <set field="resetExpireAt" from="new java.sql.Timestamp(userAccount.resetPasswordSetDate.time + (expireHours * 3600000L))"/>
+                                <if condition="!ec.user.nowTimestamp.after(resetExpireAt)"><set field="resetStillValid" from="true" type="Boolean"/></if>
+                            </if>
                             <script>
-                                info = new org.apache.shiro.authc.SimpleAuthenticationInfo(userAccount.username, userAccount.resetPassword,
-                                        userAccount.passwordSalt ? new org.apache.shiro.lang.util.SimpleByteSource((String) userAccount.passwordSalt) : '', "moquiRealm")
+                                if (resetStillValid) {
+                                    def resetSaltSrc = userAccount.passwordSalt ? new org.apache.shiro.lang.util.SimpleByteSource((String) userAccount.passwordSalt) : null
+                                    info = resetSaltSrc != null ?
+                                            new org.apache.shiro.authc.SimpleAuthenticationInfo(userAccount.username, userAccount.resetPassword, resetSaltSrc, "moquiRealm") :
+                                            new org.apache.shiro.authc.SimpleAuthenticationInfo(userAccount.username, userAccount.resetPassword, "moquiRealm")
+                                }
                             </script>
-                            <if condition="!ec.ecfi.getCredentialsMatcher(userAccount.passwordHashType, 'Y'.equals(userAccount.passwordBase64)).doCredentialsMatch(token, info)">
-                                <return message="Password did not match current password or reset password for user ${username}" public="true" type="danger"/></if>
+                            <if condition="!resetStillValid || !ec.ecfi.getCredentialsMatcher(userAccount.passwordHashType, 'Y'.equals(userAccount.passwordBase64)).doCredentialsMatch(token, info)">
+                                <service-call name="org.moqui.impl.UserServices.increment#UserAccountFailedLogins"
+                                        in-map="[userId:userId]" transaction="force-new"/>
+                                <return message="${passwordUpdatePublicMsg}" public="true" type="danger"/></if>
                         </then><else>
-                            <return message="Password incorrect for user ${username}" public="true" type="danger"/>
+                            <service-call name="org.moqui.impl.UserServices.increment#UserAccountFailedLogins"
+                                    in-map="[userId:userId]" transaction="force-new"/>
+                            <return message="${passwordUpdatePublicMsg}" public="true" type="danger"/>
                         </else></if>
                     </if>
 
@@ -348,6 +366,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <field-map field-name="passwordSetDate" from="ec.user.nowTimestamp"/>
                 <field-map field-name="requirePasswordChange"/>
                 <field-map field-name="resetPassword" from="null"/>
+                <field-map field-name="resetPasswordSetDate" from="null"/>
                 <field-map field-name="disabled" from="disabled"/>
             </service-call>
             <set field="updateSuccessful" from="true"/>
@@ -374,8 +393,6 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="userId"/>
             <parameter name="username"><description>May be used instead of userId to identify user.</description></parameter>
-            <parameter name="bodyParameters" type="Map" default="[:]"/>
-            <parameter name="emailTemplateId" default-value="PASSWORD_RESET"/>
         </in-parameters>
         <actions>
             <!-- find by userId -->
@@ -390,30 +407,41 @@ along with this software (see the LICENSE.md file). If not, see
                 <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount" for-update="true">
                     <field-map field-name="emailAddress" from="username"/></entity-find-one>
             </if>
+            <set field="resetPublicMsg" value="If an account exists for that username or email, a reset password was sent. It may only be used to change your password. Your current password is still valid."/>
             <if condition="userAccount == null">
-                <message public="true" type="danger">Could not find account with username or email address ${username}</message>
-                <return error="true" message="Account not found"/>
+                <log level="warn" message="Password reset requested for unknown username [${username}]"/>
+                <message public="true" type="success">${resetPublicMsg}</message>
+                <return/>
             </if>
             <if condition="!userAccount.emailAddress">
-                <message public="true" type="danger">Account with username ${username} does not have an email address</message>
-                <return error="true" message="Account has no email address"/>
+                <log level="warn" message="Password reset requested for username [${userAccount.username}] with no email address"/>
+                <message public="true" type="success">${resetPublicMsg}</message>
+                <return/>
+            </if>
+            <if condition="userAccount.resetPasswordSetDate">
+                <set field="minIntervalMin" from="(ec.ecfi.confXmlRoot.first('user-facade').first('login').attribute('disable-minutes') ?: 5) as Integer"/>
+                <set field="retryAfter" from="new java.sql.Timestamp(userAccount.resetPasswordSetDate.time + (minIntervalMin * 60000L))"/>
+                <if condition="!ec.user.nowTimestamp.after(retryAfter)">
+                    <message public="true" type="success">${resetPublicMsg}</message>
+                    <return/>
+                </if>
             </if>
 
             <!-- reset the password to a random value -->
             <set field="resetPassword" from="getRandomString(12)"/>
             <set field="passwordNode" from="ec.ecfi.confXmlRoot.first('user-facade').first('password')"/>
             <set field="userAccount.resetPassword" from="ec.ecfi.getSimpleHash(resetPassword, userAccount.passwordSalt, userAccount.passwordHashType, 'Y'.equals(userAccount.passwordBase64))"/>
+            <set field="userAccount.resetPasswordSetDate" from="ec.user.nowTimestamp"/>
             <set field="userAccount.requirePasswordChange" from="(passwordNode.attribute('email-require-change') == 'true') ? 'Y' : 'N'"/>
             <entity-update value-field="userAccount"/>
 
-            <!-- send an email with the new password -->
+            <!-- send an email with the new password; template is always PASSWORD_RESET -->
             <service-call name="org.moqui.impl.EmailServices.send#EmailTemplate" async="true">
-                <field-map field-name="emailTemplateId"/>
+                <field-map field-name="emailTemplateId" value="PASSWORD_RESET"/>
                 <field-map field-name="toAddresses" from="userAccount.emailAddress"/>
-                <field-map field-name="bodyParameters" from="bodyParameters + [userAccount:userAccount, resetPassword:resetPassword]"/>
+                <field-map field-name="bodyParameters" from="[userAccount:userAccount, resetPassword:resetPassword]"/>
             </service-call>
-            <message public="true" type="success">A reset password was sent to the email of username ${userAccount.username}. This password may only be used to change your password. Your current password is still valid.</message>
-            <if condition="userAccount.requirePasswordChange == 'Y'"><message public="true" type="info">You must change your password before login.</message></if>
+            <message public="true" type="success">${resetPublicMsg}</message>
         </actions>
     </service>
 
@@ -431,7 +459,8 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="ec.entity.find('moqui.security.UserAccount').count() > 1">
                 <return error="true" message="Can only create initial admin account if there are no UserAccount records"/></if>
             <service-call name="org.moqui.impl.UserServices.create#UserAccount" in-map="context" out-map="context"/>
-            <service-call name="create#moqui.security.UserGroupMember" in-map="[userId:userId, userGroupId:'ADMIN']"/>
+            <service-call name="create#moqui.security.UserGroupMember" in-map="[userId:userId, userGroupId:'ADMIN']"
+                    disable-authz="true"/>
         </actions>
     </service>
 

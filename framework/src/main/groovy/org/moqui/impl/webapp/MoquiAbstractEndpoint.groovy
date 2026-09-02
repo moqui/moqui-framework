@@ -45,6 +45,8 @@ abstract class MoquiAbstractEndpoint extends Endpoint implements MessageHandler.
     protected String userId = (String) null
     protected String username = (String) null
     protected boolean destroyInitialEci = true
+    /** ECI created for this open. GroovyShellEndpoint keeps it; others destroy it in onOpen. */
+    protected ExecutionContextImpl initialEci = (ExecutionContextImpl) null
 
     MoquiAbstractEndpoint() { super() }
 
@@ -62,7 +64,20 @@ abstract class MoquiAbstractEndpoint extends Endpoint implements MessageHandler.
         // Jetty 12 EE 11 bug https://github.com/jetty/jetty.project/issues/11809
         // httpSession = handshakeRequest != null ? (HttpSession) handshakeRequest.getHttpSession() : (HttpSession) config.userProperties.get("httpSession")
         httpSession = (HttpSession) config.userProperties.get("httpSession")
+
+        // Same as MoquiServlet.service: do not inherit a leftover ECI/user on this dispatch thread.
+        ExecutionContextImpl leftover = ecfi.activeContext.get()
+        if (leftover != null) {
+            logger.warn("In WebSocket onOpen there is already an ExecutionContext for user ${leftover.user.username} (from ${leftover.forThreadId}:${leftover.forThreadName}) in this thread (${Thread.currentThread().id}:${Thread.currentThread().name}), destroying")
+            try {
+                leftover.destroy()
+            } catch (Throwable t) {
+                logger.error("Error destroying ExecutionContext already in place in WebSocket onOpen", t)
+            }
+        }
+
         ExecutionContextImpl eci = ecfi.getEci()
+        this.initialEci = eci
         try {
             if (httpSession != null) {
                 eci.userFacade.initFromHttpSession(httpSession)
@@ -85,6 +100,11 @@ abstract class MoquiAbstractEndpoint extends Endpoint implements MessageHandler.
         } finally {
             if (eci != null && destroyInitialEci) {
                 eci.destroy()
+                this.initialEci = null
+            } else if (eci != null) {
+                // Endpoint owns the ECI for the connection; unbind from this dispatch thread.
+                ecfi.activeContext.remove()
+                ecfi.activeContextMap.remove(Thread.currentThread().threadId())
             }
         }
         /*

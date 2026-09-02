@@ -114,6 +114,123 @@ Other production notes:
   `sse-ping-seconds` (default 15).
 - Blank `api-key` omits auth. RestClient redacts `Authorization`, `api-key`, and `x-api-key` on LLM calls.
 
+## Release 4.0.1 - Not Yet Released
+
+Moqui Framework 4.0.1 is a patch follow-up to 4.0.0. It includes a more
+thorough AI-assisted security review with SECURITY_SURFACE.md documentation
+and two new test suites (Spock and external Python; see SECURITY_TESTS.md).
+
+Please update to this release or backport changes. If backporting, contact a
+Board Member for more information to ensure full coverage.
+
+To help with review of deployments, the SECURITY_SURFACE.md doc consolidates
+and clarifies security details that have been more scattered and less formal.
+
+### XML Screen transition authorization
+
+- Added `transition.@authz-action` (`view`, `create`, `update`, `delete`, `all`).
+  Transitions are authorized for that action when they run and when links check
+  whether they are permitted. They are no longer always treated as VIEW.
+  - Default if omitted: a transition-level `service-call` uses that service's
+    authz-action (or verb); `read-only` transitions default to view; other
+    transitions with actions default to update; redirect-only transitions default
+    to view. `read-only` is still about insecure URL parameters, not authz.
+- Reviewed Tools/System transitions so privileged ones set `authz-action`
+  explicitly (`update` or `all`): Service Run, cache clear, entity data export,
+  ElFinder commands, instance start/stop, and similar. A VIEW-only inheritable
+  ArtifactAuthz no longer runs those operations.
+- Groovy Shell WebSocket now also requires AUTHZA_ALL on the Tools app (in
+  addition to the `GROOVY_SHELL_WEB` permission).
+
+### WebSocket handshake credentials
+
+- `UserFacadeImpl.initFromHandshakeRequest` no longer logs anyone in from the
+  upgrade **query string** (`api_key`, `login_key`, `authUsername` /
+  `authPassword`). That matched neither HTTP request init (body/header only, not
+  the query string) nor `SECURITY_SURFACE.md`.
+- The handshake still uses the existing HTTP session, then HTTP Basic and
+  `api_key` / `login_key` **headers**. Callers that put a key on
+  `/groovysh?api_key=` (or `/notws`) must send a header or rely on the session
+  cookie from a prior login.
+
+### Security proof tests
+
+- Added a catalog in `SECURITY_TESTS.md` mapped to OWASP Top 10:2025 and
+  `SECURITY_SURFACE.md`.
+- In-process Spock proofs under `framework/src/test/groovy/Security*.groovy`
+  (run with `./gradlew :framework:test`).
+- HTTP proofs against a running server in `framework/test/` (pytest + requests,
+  not Gradle). Start Moqui, then `pytest`.
+
+### Other web and REST hardening
+
+- Entity Data Snapshot download takes a single path segment and requires update
+  authz (same as delete). Parent-segment names are not found.
+- `/fop` sanitizes `Content-Disposition` filenames and restricts `contentType`
+  to PDF/PostScript.
+- `hasLoggedOut` is applied from the session username on the next request.
+- `POST /rest/login` returns 401 when credentials are not valid (HTML Login is
+  unchanged).
+- Post-login redirects compare absolute URLs to the configured webapp host, not
+  the request `Host` header. With the default empty host, only relative paths
+  are accepted, and the `Location` header is path-only so the container does
+  not rewrite it from `Host`.
+- Service REST authorizes `X-HTTP-Method-Override` using the override method.
+- Generic entity REST update/create/store drops UserAccount password hash
+  fields (`currentPassword`, `resetPassword`, salt, hash type). GET of
+  UserAccount over Service REST and entity REST omits the same fields.
+- Screen JSON responses (`Accept: application/json`) omit password and
+  other credential fields from `currentParameters`.
+- REST schema dumps (`entity.json` / swagger / raml) require the `REST_SCHEMA`
+  permission (seeded on ADMIN). Swagger no longer sets `Access-Control-Allow-Origin: *`.
+- Timestamped system-message HMAC rejects a repeated signature inside the
+  window (atomic `putIfAbsent`).
+- WebSocket endpoint ExecutionContext handling: each upgrade starts with a
+  fresh context on the dispatch thread; handshake auth applies only to that
+  connection.
+- Client IP canonicalization for IPv6 (and IPv4 `:port`); `ipAllowed` uses the
+  same matching for both. Embedded Jetty still reads `X-Forwarded-Proto` but
+  does not take the client address from `X-Forwarded-For`.
+- ElFinder: `component://` and `file:` roots remain browsable; write commands
+  on those roots are refused when `instance_purpose` is production. Directory
+  delete and entry names are cleaned up.
+- Login keys stay hashed values from `getLoginKey()` for the current user.
+  Generic entity REST does not create or list `UserLoginKey`.
+- Auto Screen, Data Edit, Data Import, and `put#EntitySyncData` refuse
+  identity-admin and secret-config entities (UserGroupMember, ArtifactAuthz,
+  UserAuthcFactor, UserPasswordHistory, EmailServer, and similar). UserAccount
+  remains available through Data Edit. System/Security screens are unchanged.
+- DataSnapshot download, delete, import, and upload take a single path segment
+  under `db/snapshot/`.
+- Login redirects reject CR/LF in the path; `email_allowed_hosts` suffix match
+  is DNS-only (IPv4 fragments are exact).
+- A leftover `resetPassword` with no `resetPasswordSetDate` is treated as
+  expired (`password.@email-expire-hours`).
+- `PATCH /rest/s1/moqui/users` identity fields (`disabled`, `username`,
+  `emailAddress`, and similar) require the ADMIN group. `MOQUI_API` ALL can
+  still update display fields. EmailServer host/port/password writes through
+  Service REST also require ADMIN.
+- System/Security: membership in `user_privileged_groups` (default ADMIN,
+  ADMIN_ADV) and grants of `user_sealed_permissions` (tool-gate permissions
+  plus ADMIN_PASSWORD, ElasticRemote, KibanaRemote, REST_SCHEMA) require the
+  caller to already hold that group or permission. Both lists are conf
+  properties. Seed/install is unchanged.
+- `email_allowed_hosts` (empty by default) limits the hosts poll/send may
+  connect to. Recipient filtering remains `EmailServer.allowedToDomains`.
+- `send#SystemMessageRest` signs `SmatHmacSha256` and `SmatHmacSha256Timestamp`.
+  `/rest/sm` returns JSON `{systemMessageIdList:[...]}` so send can store
+  `remoteMessageId`. `SmatNone` is real no-auth ingest (`loginAnonymousIfNoUser`).
+- Data Import remote `location=` (http/https/ftp) is refused when
+  `instance_purpose` is production.
+- Artifact tarpit hit windows use milliseconds (`maxHitsDuration` seconds).
+- WebSocket handshake Origin must be empty, same-origin, or in CORS
+  `allow-origins`.
+- Upload executable check also treats `#!` as executable (ZIP/JAR still allowed).
+- `simplifyRequestParameters` (body-only) decodes query-string names before
+  comparing them to the parameter map.
+- HMAC replay cache is `type="distributed"` (effective when a distributed
+  factory is configured).
+
 ## Release 4.0.0 - 27 Feb 2026
 
 Moqui framework v4.0.0 is a major new release with massive changes some of which

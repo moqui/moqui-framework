@@ -24,10 +24,14 @@ import java.io.InputStream;
 import java.io.ObjectOutputStream;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
+import java.net.InetAddress;
+import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -42,6 +46,8 @@ import java.util.RandomAccess;
 import java.util.Set;
 
 import javax.annotation.Nonnull;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 
 import org.apache.commons.fileupload2.core.FileItem;
 
@@ -126,8 +132,8 @@ public class WebUtilities {
             if (query != null && !query.isEmpty()) {
                 for (String nameValuePair : query.split("&")) {
                     int eqIdx = nameValuePair.indexOf("=");
-                    if (eqIdx < 0) urlParms.add(nameValuePair);
-                    else urlParms.add(nameValuePair.substring(0, eqIdx));
+                    String rawName = eqIdx < 0 ? nameValuePair : nameValuePair.substring(0, eqIdx);
+                    urlParms.add(decodeQueryComponent(rawName));
                 }
             }
         }
@@ -157,6 +163,16 @@ public class WebUtilities {
             }
         }
         return reqParmMap;
+    }
+
+    /** Decode a query-string name/value so it matches servlet container parameter-map keys. Malformed % sequences stay raw. */
+    public static String decodeQueryComponent(String raw) {
+        if (raw == null || raw.isEmpty()) return raw;
+        try {
+            return URLDecoder.decode(raw, StandardCharsets.UTF_8.name());
+        } catch (Exception e) {
+            return raw;
+        }
     }
 
     /** Sort of like JSON but output in JS syntax for HTML attributes like in a Vue Template */
@@ -289,6 +305,7 @@ public class WebUtilities {
             boolean allMatch = true;
             for (int i = 0; i < patternArray.length; i++) {
                 String curPattern = patternArray[i];
+                if (i >= addressArray.length) { allMatch = false; break; }
                 String curAddress = addressArray[i];
                 if (curPattern.equals("*") || curPattern.equals(curAddress)) continue;
                 if (curPattern.contains("-")) {
@@ -306,13 +323,432 @@ public class WebUtilities {
         return anyMatches;
     }
 
+    /**
+     * Strip wrapping brackets and :port from a client IP. IPv4:port (CloudFront-Viewer-Address) drops the port;
+     * [IPv6]:port keeps the IPv6 literal. Unbracketed IPv6 is not treated as host:port.
+     */
+    public static String canonicalizeClientIp(String clientIp) {
+        if (clientIp == null) return null;
+        String ip = clientIp.trim();
+        if (ip.isEmpty()) return ip;
+
+        if (ip.charAt(0) == '[') {
+            int close = ip.indexOf(']');
+            if (close > 1) {
+                return normalizeIpLiteral(ip.substring(1, close));
+            }
+        }
+
+        int firstColon = ip.indexOf(':');
+        int lastColon = ip.lastIndexOf(':');
+        if (firstColon >= 0 && firstColon == lastColon) {
+            String left = ip.substring(0, firstColon);
+            if (isDottedIpv4(left)) return left;
+            return ip;
+        }
+        if (firstColon >= 0) {
+            int pct = ip.indexOf('%');
+            if (pct > 0) ip = ip.substring(0, pct);
+            return normalizeIpLiteral(ip);
+        }
+        return ip;
+    }
+
+    private static boolean isDottedIpv4(String s) {
+        if (s == null || s.isEmpty()) return false;
+        String[] parts = s.split("\\.", -1);
+        if (parts.length != 4) return false;
+        for (int i = 0; i < 4; i++) {
+            try {
+                int n = Integer.parseInt(parts[i]);
+                if (n < 0 || n > 255) return false;
+            } catch (NumberFormatException e) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static String normalizeIpLiteral(String ip) {
+        try {
+            InetAddress addr = InetAddress.getByName(ip);
+            String host = addr.getHostAddress();
+            int pct = host.indexOf('%');
+            if (pct > 0) host = host.substring(0, pct);
+            return host;
+        } catch (Exception e) {
+            return ip;
+        }
+    }
+
+    /** IPv4 patterns use {@link #ip4Matches}; IPv6 is an exact match after {@link #canonicalizeClientIp}. */
+    public static boolean ipMatches(String patternString, String address) {
+        if (patternString == null || patternString.isEmpty()) return true;
+        String canonAddr = canonicalizeClientIp(address);
+        if (canonAddr == null || canonAddr.isEmpty()) return false;
+        String[] patterns = patternString.split(",");
+        for (int pi = 0; pi < patterns.length; pi++) {
+            String raw = patterns[pi].trim();
+            if (raw.isEmpty()) continue;
+            if (raw.equals("*") || raw.equals("*.*.*.*")) return true;
+            String pattern = canonicalizeClientIp(raw);
+            if (pattern == null || pattern.isEmpty()) continue;
+            boolean patternV6 = pattern.indexOf(':') >= 0;
+            boolean addrV6 = canonAddr.indexOf(':') >= 0;
+            if (patternV6 || addrV6) {
+                if (ipv6Equal(pattern, canonAddr)) return true;
+            } else if (ip4Matches(pattern, canonAddr)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean ipv6Equal(String a, String b) {
+        if (a.equals(b)) return true;
+        try {
+            byte[] ba = InetAddress.getByName(a).getAddress();
+            byte[] bb = InetAddress.getByName(b).getAddress();
+            return Arrays.equals(ba, bb);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * True if url is a same-origin path or absolute URL safe to use as a post-login redirect.
+     * Relative paths must start with a single slash (not //). Absolute http(s) URLs must match configuredHost
+     * (webapp http-host / https-host). If configuredHost is empty, absolute URLs are rejected.
+     */
+    public static boolean isSameOriginRedirect(String url, HttpServletRequest request) {
+        String configured = null;
+        if (request != null) {
+            Object attr = request.getAttribute("moqui.webapp.httpHost");
+            if (attr instanceof CharSequence) configured = attr.toString();
+        }
+        return isSameOriginRedirect(url, request, configured);
+    }
+
+    public static boolean isSameOriginRedirect(String url, HttpServletRequest request, String configuredHost) {
+        if (url == null || request == null) return false;
+        String p = url.trim();
+        if (p.isEmpty()) return false;
+        String lower = p.toLowerCase(Locale.ROOT);
+        if (p.indexOf('\\') >= 0) return false;
+        if (containsIsoControl(p)) return false;
+        if (lower.startsWith("javascript:") || lower.startsWith("data:") || lower.startsWith("vbscript:")) return false;
+        if (p.startsWith("//")) return false;
+        if (p.startsWith("/")) return true;
+        if (!lower.startsWith("http://") && !lower.startsWith("https://")) return false;
+        if (configuredHost == null || configuredHost.isEmpty()) return false;
+        try {
+            URI uri = URI.create(p);
+            if (uri.getUserInfo() != null) return false;
+            String host = uri.getHost();
+            if (host == null || host.isEmpty()) return false;
+            return host.equalsIgnoreCase(configuredHost);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /** Drop CR/LF/NUL from a Location value so sendRedirect cannot split headers. */
+    public static String sanitizeRedirectLocation(String location) {
+        if (location == null) return null;
+        StringBuilder sb = new StringBuilder(location.length());
+        for (int i = 0; i < location.length(); i++) {
+            char c = location.charAt(i);
+            if (c == '\r' || c == '\n' || c == '\0') continue;
+            sb.append(c);
+        }
+        String out = sb.toString().trim();
+        return out.isEmpty() ? "/" : out;
+    }
+
+    /**
+     * True for a single filesystem/resource path segment: no parent, separator, scheme, or ISO control.
+     * Used for DataSnapshot filename / zipFilename (download, delete, import, upload).
+     */
+    public static boolean isSafeSinglePathSegment(String name) {
+        if (name == null || name.isEmpty()) return false;
+        if (".".equals(name) || "..".equals(name)) return false;
+        if (name.contains("..") || name.contains("/") || name.contains("\\") || name.contains(":")) return false;
+        return !containsIsoControl(name);
+    }
+
+    /** Last segment of a client filename; backslash treated as a separator. Null-safe. */
+    public static String lastPathSegment(String name) {
+        if (name == null) return null;
+        String n = name.replace('\\', '/');
+        int slash = n.lastIndexOf('/');
+        if (slash >= 0) n = n.substring(slash + 1);
+        return n;
+    }
+
+    private static boolean containsIsoControl(String s) {
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c < 32 || c == 127) return true;
+        }
+        return false;
+    }
+
+    /** UserAccount fields that are password material. Omitted from REST JSON and not accepted on generic entity writes. */
+    public static final Set<String> USER_ACCOUNT_SECRET_FIELDS = new HashSet<>(Arrays.asList(
+            "currentPassword", "resetPassword", "passwordSalt", "passwordHashType", "passwordBase64"));
+
+    /** UserAccount fields that control authentication and identity. Generic REST drops these unless the caller is ADMIN. */
+    public static final Set<String> USER_ACCOUNT_IDENTITY_FIELDS = new HashSet<>(Arrays.asList(
+            "disabled", "username", "emailAddress", "ipAllowed", "externalAuthId", "requirePasswordChange",
+            "hasLoggedOut", "disabledDateTime", "successiveFailedLogins"));
+
+    private static final Set<String> CREDENTIAL_PARAMETER_NAMES_LC = new HashSet<>(Arrays.asList(
+            "password", "oldpassword", "newpassword", "newpasswordverify", "currentpassword",
+            "resetpassword", "authpassword", "api_key", "login_key", "passwordsalt",
+            "passwordhashtype", "passwordbase64", "passwordverify"));
+
+    /** Simple names and short aliases for identity-admin entities (not UserAccount). */
+    private static final Set<String> IDENTITY_ADMIN_ENTITY_KEYS = new HashSet<>(Arrays.asList(
+            "userloginkey", "usergroupmember", "usergrouppermission", "userpermission",
+            "artifactauthz", "artifactgroup", "artifactgroupmember", "artifacttarpit",
+            "usergrouppermissions", "userpermissions", "artifactgroups",
+            "userauthcfactor", "userpasswordhistory"));
+
+    private static final Set<String> SECRET_CONFIG_ENTITY_KEYS = new HashSet<>(Arrays.asList(
+            "emailserver", "systemmessageremote"));
+
+    private static String simpleEntityKey(String entityName) {
+        if (entityName == null || entityName.isEmpty()) return "";
+        String n = entityName.trim();
+        int dot = n.lastIndexOf('.');
+        if (dot >= 0 && dot < n.length() - 1) n = n.substring(dot + 1);
+        return n.toLowerCase(Locale.ROOT);
+    }
+
+    public static boolean isUserAccountEntity(String entityName) {
+        if (entityName == null || entityName.isEmpty()) return false;
+        return "moqui.security.UserAccount".equals(entityName) || "users".equals(entityName)
+                || entityName.endsWith(".UserAccount");
+    }
+
+    /** UserLoginKey, group membership/permissions, artifact authz, MFA factors, password history. Not UserAccount. */
+    public static boolean isIdentityAdminEntity(String entityName) {
+        return IDENTITY_ADMIN_ENTITY_KEYS.contains(simpleEntityKey(entityName));
+    }
+
+    /** EmailServer and SystemMessageRemote (host/password and HMAC secret). */
+    public static boolean isSecretConfigEntity(String entityName) {
+        return SECRET_CONFIG_ENTITY_KEYS.contains(simpleEntityKey(entityName));
+    }
+
+    /**
+     * Entities the Auto Screen / Data Edit / Data Import generic engines must not take from a request entity name.
+     * UserAccount stays available there (Tools Data Edit is an existing admin path); identity-admin and
+     * secret-config entities are not. System/Security screens use literal entity names and are unchanged.
+     */
+    public static boolean isRestrictedGenericEntity(String entityName) {
+        return isIdentityAdminEntity(entityName) || isSecretConfigEntity(entityName);
+    }
+
+    /** Comma-separated IDs; empty/null yields an empty set. */
+    public static Set<String> csvIdSet(String list) {
+        Set<String> out = new HashSet<>();
+        if (list == null || list.isEmpty()) return out;
+        String[] parts = list.split(",");
+        for (int i = 0; i < parts.length; i++) {
+            String p = parts[i].trim();
+            if (!p.isEmpty()) out.add(p);
+        }
+        return out;
+    }
+
+    /**
+     * Connect-host allow-list. Empty/null allowedList permits any host.
+     * A list entry matches an exact hostname/IP (case-insensitive). DNS names also match
+     * a subdomain ({@code smtp.example.com} matches {@code example.com}; {@code notexample.com} does not).
+     * IPv4/IPv6 and numeric suffixes are exact only ({@code 127.0.0.1} does not match {@code 1}).
+     */
+    public static boolean hostAllowedByConf(String host, String allowedList) {
+        if (allowedList == null || allowedList.trim().isEmpty()) return true;
+        if (host == null) return false;
+        String h = host.trim().toLowerCase(Locale.ROOT);
+        if (h.isEmpty()) return false;
+        if (h.endsWith(".")) h = h.substring(0, h.length() - 1);
+        String[] parts = allowedList.split(",");
+        for (int i = 0; i < parts.length; i++) {
+            String d = parts[i].trim().toLowerCase(Locale.ROOT);
+            if (d.isEmpty()) continue;
+            if (d.endsWith(".")) d = d.substring(0, d.length() - 1);
+            if (h.equals(d)) return true;
+            if (isDnsNameForSuffix(d) && h.endsWith("." + d)) return true;
+        }
+        return false;
+    }
+
+    /** Suffix match is for DNS labels, not IPv4 fragments ({@code 1}, {@code 0.1}) or IPv6. */
+    private static boolean isDnsNameForSuffix(String d) {
+        if (d.indexOf(':') >= 0) return false;
+        for (int i = 0; i < d.length(); i++) {
+            char c = d.charAt(i);
+            if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) return true;
+        }
+        return false;
+    }
+
+    /**
+     * True for http(s)/ftp(s) locations (and protocol-relative {@code //host/path}).
+     * Local schemes ({@code component://}, {@code file:}, classpath, dbresource) and bare paths are false.
+     */
+    public static boolean isNetworkFetchLocation(String location) {
+        if (location == null) return false;
+        String loc = location.trim();
+        if (loc.isEmpty()) return false;
+        String lower = loc.toLowerCase(Locale.ROOT);
+        if (lower.startsWith("http://") || lower.startsWith("https://")) return true;
+        if (lower.startsWith("ftp://") || lower.startsWith("ftps://")) return true;
+        return loc.startsWith("//");
+    }
+
+    /**
+     * Data Import / EntityDataLoader must not fetch a remote URL when {@code instance_purpose} is production.
+     * Dev and test keep remote {@code location=} as a maintenance tool.
+     */
+    public static boolean isProductionRemoteDataLoadBlocked(String location) {
+        if (!"production".equals(System.getProperty("instance_purpose"))) return false;
+        return isNetworkFetchLocation(location);
+    }
+
+    /**
+     * WebSocket Origin allow check. Empty Origin is allowed (non-browser clients).
+     * Same-origin is Origin host equal to the handshake Host header or configured webapp http/https host.
+     * {@code allowOrigins} is the same list as CORS {@code webapp.@allow-origins} ({@code *} allows all).
+     */
+    public static boolean webSocketOriginAllowed(String originHeader, String hostHeader,
+            Collection<String> allowOrigins, String configuredHttpHost, String configuredHttpsHost) {
+        if (originHeader == null || originHeader.trim().isEmpty()) return true;
+        String origin = originHeader.trim().toLowerCase(Locale.ROOT);
+        Set<String> allow = new HashSet<>();
+        if (allowOrigins != null) {
+            for (String a : allowOrigins) {
+                if (a != null && !a.trim().isEmpty()) allow.add(a.trim().toLowerCase(Locale.ROOT));
+            }
+        }
+        if (allow.contains("*")) return true;
+        String originDomain = originHost(origin);
+        if (allow.contains(origin) || allow.contains(originDomain)) return true;
+        if (hostMatchesOrigin(originDomain, hostHeader)) return true;
+        if (hostMatchesOrigin(originDomain, configuredHttpHost)) return true;
+        if (hostMatchesOrigin(originDomain, configuredHttpsHost)) return true;
+        for (String allowOrigin : allow) {
+            String allowDomain = originHost(allowOrigin);
+            if (originDomain.equals(allowDomain)) return true;
+            if (isDnsNameForSuffix(allowDomain) && originDomain.endsWith("." + allowDomain)) return true;
+        }
+        return false;
+    }
+
+    private static String originHost(String originOrHost) {
+        if (originOrHost == null) return "";
+        String h = originOrHost.trim().toLowerCase(Locale.ROOT);
+        int sep = h.indexOf("://");
+        if (sep > 0) h = h.substring(sep + 3);
+        int slash = h.indexOf('/');
+        if (slash >= 0) h = h.substring(0, slash);
+        int colon = h.indexOf(':');
+        if (colon > 0) h = h.substring(0, colon);
+        return h;
+    }
+
+    private static boolean hostMatchesOrigin(String originDomain, String host) {
+        if (originDomain == null || originDomain.isEmpty() || host == null || host.trim().isEmpty()) return false;
+        return originDomain.equals(originHost(host));
+    }
+
+    public static byte[] hmacSha256(String secret, String message) {
+        if (secret == null) secret = "";
+        if (message == null) message = "";
+        try {
+            Mac hmac = Mac.getInstance("HmacSHA256");
+            hmac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            return hmac.doFinal(message.getBytes(StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            throw new IllegalStateException("HMAC-SHA256 failed", e);
+        }
+    }
+
+    public static String hmacSha256Base64(String secret, String message) {
+        return Base64.getEncoder().encodeToString(hmacSha256(secret, message));
+    }
+
+    public static String hmacSha256Hex(String secret, String message) {
+        byte[] hash = hmacSha256(secret, message);
+        StringBuilder sb = new StringBuilder(hash.length * 2);
+        for (int i = 0; i < hash.length; i++) {
+            sb.append(Integer.toString((hash[i] & 0xff) + 0x100, 16).substring(1));
+        }
+        return sb.toString();
+    }
+
+    /** Stripe-style {@code t=<epochSeconds>,v1=<hex>} header for {@code SmatHmacSha256Timestamp}. */
+    public static String hmacSha256TimestampHeader(String secret, String message, long epochSeconds) {
+        return "t=" + epochSeconds + ",v1=" + hmacSha256Hex(secret, epochSeconds + "." + (message == null ? "" : message));
+    }
+
+    /** Drop password-hash fields from a parameter map in place (generic entity create/update/store). */
+    public static void removeUserAccountSecretsFromMap(Map<?, ?> map) {
+        if (map == null) return;
+        for (String field : USER_ACCOUNT_SECRET_FIELDS) map.remove(field);
+    }
+
+    /** Drop identity-control fields from a parameter map in place. */
+    public static void removeUserAccountIdentityFromMap(Map<?, ?> map) {
+        if (map == null) return;
+        for (String field : USER_ACCOUNT_IDENTITY_FIELDS) map.remove(field);
+    }
+
+    /**
+     * Copy of obj for JSON output with UserAccount password-hash fields removed at every map level.
+     * Maps and collections are copied; other values are returned as-is.
+     */
+    public static Object stripUserAccountSecrets(Object obj) {
+        if (obj instanceof Map) {
+            Map<Object, Object> out = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> entry : ((Map<?, ?>) obj).entrySet()) {
+                Object key = entry.getKey();
+                if (key instanceof String && USER_ACCOUNT_SECRET_FIELDS.contains(key)) continue;
+                out.put(key, stripUserAccountSecrets(entry.getValue()));
+            }
+            return out;
+        } else if (obj instanceof Collection) {
+            List<Object> out = new ArrayList<>();
+            for (Object value : (Collection<?>) obj) out.add(stripUserAccountSecrets(value));
+            return out;
+        }
+        return obj;
+    }
+
+    /** Copy of request parameters with credential field names omitted (case-insensitive). */
+    public static Map<String, Object> stripCredentialParameters(Map<String, ?> parms) {
+        if (parms == null) return null;
+        Map<String, Object> out = new LinkedHashMap<>();
+        for (Map.Entry<String, ?> entry : parms.entrySet()) {
+            String key = entry.getKey();
+            if (key != null && CREDENTIAL_PARAMETER_NAMES_LC.contains(key.toLowerCase(Locale.ROOT))) continue;
+            out.put(key, entry.getValue());
+        }
+        return out;
+    }
+
     public static byte[] windowsPex = {(byte) 0x4d, (byte) 0x5a};
     public static byte[] linuxElf = {(byte) 0x7f, (byte) 0x45, (byte) 0x4c, (byte) 0x46};
     public static byte[] javaClass = {(byte) 0xca, (byte) 0xfe, (byte) 0xba, (byte) 0xbe};
     public static byte[] macOs = {(byte) 0xfe, (byte) 0xed, (byte) 0xfa, (byte) 0xce};
-    public static byte[][] allOsExecutables = {windowsPex, linuxElf, javaClass, macOs};
+    public static byte[] macOs64 = {(byte) 0xfe, (byte) 0xed, (byte) 0xfa, (byte) 0xcf};
+    public static byte[] macOsReverse = {(byte) 0xce, (byte) 0xfa, (byte) 0xed, (byte) 0xfe};
+    public static byte[] macOs64Reverse = {(byte) 0xcf, (byte) 0xfa, (byte) 0xed, (byte) 0xfe};
+    public static byte[][] allOsExecutables = {windowsPex, linuxElf, javaClass, macOs, macOs64, macOsReverse, macOs64Reverse};
 
-    /** Looks for byte patterns for Windows Portable Executable (4d5a), Linux ELF (7f454c46), Java class (cafebabe), macOS (feedface) */
+    /** See {@link #isExecutable(byte[])}. Reads the first 4 bytes of the upload. */
     public static boolean isExecutable(FileItem item) throws IOException {
         InputStream is = item.getInputStream();
         byte[] bytes = new byte[4];
@@ -320,11 +756,16 @@ public class WebUtilities {
         is.close();
         return isExecutable(bytes);
     }
-    /** Looks for byte patterns for Windows Portable Executable (4d5a), Linux ELF (7f454c46), Java class (cafebabe), macOS (feedface) */
+    /**
+     * Looks for byte patterns for Windows PE (4d5a), Linux ELF (7f454c46), Java class (cafebabe), macOS Mach-O
+     * (feedface/feedfacf and byte-swapped), and {@code #!} shebang. ZIP/JAR ({@code PK}) is not treated as executable.
+     */
     public static boolean isExecutable(byte[] bytes) {
-        boolean foundPattern = false;
+        if (bytes == null || bytes.length == 0) return false;
+        if (bytes.length >= 2 && bytes[0] == (byte) 0x23 && bytes[1] == (byte) 0x21) return true;
         for (int i = 0; i < allOsExecutables.length; i++) {
             byte[] execPattern = allOsExecutables[i];
+            if (bytes.length < execPattern.length) continue;
             boolean execMatches = true;
             for (int j = 0; j < execPattern.length; j++) {
                 if (bytes[j] != execPattern[j]) {
@@ -332,12 +773,9 @@ public class WebUtilities {
                     break;
                 }
             }
-            if (execMatches) {
-                foundPattern = true;
-                break;
-            }
+            if (execMatches) return true;
         }
-        return foundPattern;
+        return false;
     }
 
     public static String simpleHttpStringRequest(String location, String requestBody, String contentType) {

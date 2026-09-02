@@ -27,19 +27,34 @@
     <default-property name="webapp_upload_executable_allow" value="false"/>
 
     <!--
-        While there is no default value for webapp_client_ip_header, embedded Jetty looks at Forwarded and
-        X-Forwarded-For headers via ForwardedRequestCustomizer (see MoquiStart.java); this is necessary so that
-        Jetty knows if a proxied request came via HTTPS vs HTTP, but is risky because clients can set a value for
-        the header to spoof any of these settings including a client IP address; if the outer-most proxy handles
-        X-Forwarded-For by always setting it to its client IP address instead of the common default behavior of
-        appending to an existing X-Forwarded-For header then it is fine, but to avoid this set webapp_client_ip_header
-        to something more reliable for the proxy used.
+        webapp_client_ip_header is how Moqui reads the client IP from a trusted proxy (X-Real-IP, CF-Connecting-IP,
+        CloudFront-Viewer-Address, or X-Forwarded-For if the outer-most proxy overwrites rather than appends).
+        Embedded Jetty still uses ForwardedRequestCustomizer for X-Forwarded-Proto / X-Proxied-Https so it knows
+        if a proxied request was HTTPS; it does not take the client address from X-Forwarded-For or Forwarded
+        (see MoquiStart.java).
 
         nginx-proxy: X-Real-IP (see https://github.com/nginx-proxy/nginx-proxy/blob/main/nginx.tmpl)
         Cloudflare: CF-Connecting-IP (or True-Client-IP if that feature is enabled)
         AWS Cloudfront: CloudFront-Viewer-Address (requires config in Cloudfront origin request policy)
     -->
     <default-property name="webapp_client_ip_header" value=""/>
+
+    <!--
+        user_privileged_groups: UserGroupMember create/update/delete for these groups is allowed only if the
+        caller is already a member (seed/install and disableAuthz skip the check). Comma-separated group IDs.
+        user_sealed_permissions: UserGroupPermission create/update/delete for these IDs is allowed only if the
+        caller already has that permission. Comma-separated permission IDs.
+    -->
+    <default-property name="user_privileged_groups" value="ADMIN,ADMIN_ADV"/>
+    <default-property name="user_sealed_permissions"
+            value="GROOVY_SHELL_WEB,SQL_RUNNER_WEB,SERVICE_LOAD_RUNNER,ADMIN_LOGIN_AS,ADMIN_PASSWORD,ElasticRemote,KibanaRemote,REST_SCHEMA"/>
+
+    <!--
+        email_allowed_hosts: comma-separated hostnames/IPs poll#EmailServer and send#Email may connect to.
+        Empty (default) allows any host. smtp.example.com matches example.com; notexample.com does not.
+        EmailServer.allowedToDomains is a separate recipient-domain filter.
+    -->
+    <default-property name="email_allowed_hosts" value=""/>
 
     <!-- Properties for the primary (transactional group) datasource -->
     <default-property name="entity_ds_db_conf" value="h2"/>
@@ -170,6 +185,8 @@
 
         <!-- this is a count of all artifact hits, expire once idle for over 15 minutes -->
         <cache name="artifact.tarpit.hits" expire-time-idle="900" max-elements="10000" value-type="ArrayList"/>
+        <!-- type=distributed shares replay keys when a real distributed factory is configured; default factory is local MCache. -->
+        <cache name="moqui.security.hmac.replay" type="distributed" expire-time-live="300" max-elements="10000" value-type="Boolean"/>
     </cache-list>
     <server-stats bin-length-seconds="900" visit-enabled="true" visit-ip-info-on-login="true" visitor-enabled="true">
         <!-- these are meant to be good production settings -->
@@ -553,6 +570,7 @@
         <load-entity location="classpath://entity/ScreenEntities.xml"/>
         <load-entity location="classpath://entity/Screen.eecas.xml"/>
         <load-entity location="classpath://entity/SecurityEntities.xml"/>
+        <load-entity location="classpath://entity/Security.eecas.xml"/>
         <load-entity location="classpath://entity/ServerEntities.xml"/>
         <load-entity location="classpath://entity/ServiceEntities.xml"/>
         <load-entity location="classpath://entity/TestEntities.xml"/>

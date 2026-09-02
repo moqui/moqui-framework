@@ -114,6 +114,10 @@ try {
 
     String smtpHost = emailServer.smtpHost
     int smtpPort = (emailServer.smtpPort ?: "25") as int
+    if (!org.moqui.util.WebUtilities.hostAllowedByConf(smtpHost, org.moqui.util.SystemBinding.getPropOrEnv("email_allowed_hosts"))) {
+        ec.message.addError(ec.resource.expand('Email host ${host} is not in email_allowed_hosts', '', [host:smtpHost]))
+        return
+    }
 
     HtmlEmail email = new HtmlEmail()
     email.setCharset("utf-8")

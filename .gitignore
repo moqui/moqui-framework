@@ -4,6 +4,11 @@ build
 .gradle
 /framework/dependencies
 
+# Python HTTP security tests
+/framework/test/.venv/
+**/__pycache__/
+.pytest_cache/
+
 # build generated files
 /moqui*.war
 /Save*.zip
@@ -74,6 +79,7 @@ nb-configuration.xml
 .cline/
 .roo/
 .aider/
+.grok/
 
 # Env style secrets
 .env

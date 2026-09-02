@@ -251,6 +251,8 @@ along with this software (see the LICENSE.md file). If not, see
             <description>NOTE: not an encrypted field because one way hash encryption used for it</description></field>
         <field name="resetPassword" type="text-medium">
             <description>Set to random password for password reset, can be used only to update password</description></field>
+        <field name="resetPasswordSetDate" type="date-time">
+            <description>When resetPassword was last set; used with password.@email-expire-hours</description></field>
         <field name="passwordSalt" type="text-medium"/>
         <field name="passwordHashType" type="text-short"/>
         <field name="passwordBase64" type="text-indicator">
@@ -273,8 +275,9 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="emailAddress" type="text-medium" enable-audit-log="update">
             <description>The email address to use for forgot password emails and other system messages.</description></field>
         <field name="ipAllowed" type="text-medium">
-            <description>If specified only allow login from matching IP4 address. Comma separated patterns where each pattern has 4
-                dot separated segments each segment may be number, '*' for wildcard, or '-' separate number range (like '0-31').</description>
+            <description>If specified only allow login from matching client IP. Comma separated patterns: IPv4 has 4
+                dot separated segments each segment may be number, '*' for wildcard, or '-' separate number range (like '0-31');
+                IPv6 is an exact match after canonicalization.</description>
         </field>
         <relationship type="one" title="Currency" related="moqui.basic.Uom" short-alias="currencyUom">
             <key-map field-name="currencyUomId"/></relationship>
