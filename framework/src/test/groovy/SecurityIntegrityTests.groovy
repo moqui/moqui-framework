@@ -3,6 +3,7 @@
  * Grant of Patent License.
  */
 import org.moqui.Moqui
+import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.context.ExecutionContext
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.WebFacadeImpl
@@ -373,6 +374,79 @@ class SecurityIntegrityTests extends Specification {
         SecurityTestSupport.logout(ec)
         ec.message.clearAll()
         // Unique timestamped username; UserAccount is in a DataFeed so a raw delete is not worth it here.
+    }
+
+    def "generic entity REST does not create UserLoginKey"() {
+        when:
+        SecurityTestSupport.login(ec, SecurityTestSupport.ENT_ALL_USERNAME, SecurityTestSupport.ENT_ALL_PASSWORD)
+        Throwable thrown = null
+        try {
+            ec.entity.rest("post", ["moqui.security.UserLoginKey"],
+                    [loginKey: "should-not-store", userId: SecurityTestSupport.ENT_ALL_USER_ID,
+                     fromDate: ec.user.nowTimestamp], false)
+        } catch (Throwable t) { thrown = t }
+        def stored = null
+        SecurityTestSupport.withAuthzDisabled(ec) {
+            stored = ec.entity.find("moqui.security.UserLoginKey").condition("loginKey", "should-not-store").one()
+        }
+        then:
+        thrown instanceof ArtifactAuthorizationException
+        stored == null
+        cleanup:
+        SecurityTestSupport.logout(ec)
+        ec.message.clearAll()
+    }
+
+    def "put EntitySyncData does not store UserGroupPermission"() {
+        given:
+        String xml = '<entity-facade-xml><moqui.security.UserGroupPermission userGroupId="' +
+                SecurityTestSupport.ES_ALL_GROUP_ID +
+                '" userPermissionId="REST_SCHEMA" fromDate="2026-09-01 12:00:00.0"/></entity-facade-xml>'
+        when:
+        SecurityTestSupport.login(ec, SecurityTestSupport.ES_ALL_USERNAME, SecurityTestSupport.ES_ALL_PASSWORD)
+        Throwable thrown = null
+        Map result = null
+        try {
+            result = ec.service.sync().name("org.moqui.impl.EntitySyncServices.put#EntitySyncData")
+                    .parameter("entityData", xml).call()
+        } catch (Throwable t) { thrown = t }
+        def row = null
+        SecurityTestSupport.withAuthzDisabled(ec) {
+            row = ec.entity.find("moqui.security.UserGroupPermission")
+                    .condition("userGroupId", SecurityTestSupport.ES_ALL_GROUP_ID)
+                    .condition("userPermissionId", "REST_SCHEMA").one()
+        }
+        then:
+        row == null
+        thrown != null || ec.message.hasError() || (result != null && ((result.recordsStored ?: 1) as long) == 0L)
+        cleanup:
+        SecurityTestSupport.logout(ec)
+        ec.message.clearAll()
+        SecurityTestSupport.withAuthzDisabled(ec) {
+            def leftover = ec.entity.find("moqui.security.UserGroupPermission")
+                    .condition("userGroupId", SecurityTestSupport.ES_ALL_GROUP_ID)
+                    .condition("userPermissionId", "REST_SCHEMA").one()
+            leftover?.delete()
+        }
+    }
+
+    def "data loader restrictSensitiveEntities rejects UserLoginKey"() {
+        when:
+        String xml = '<entity-facade-xml><moqui.security.UserLoginKey loginKey="loader-should-not" userId="' +
+                SecurityTestSupport.NONE_USER_ID + '" fromDate="2026-09-01 12:00:00.0"/></entity-facade-xml>'
+        Throwable thrown = null
+        try {
+            ec.entity.makeDataLoader().xmlText(xml).restrictSensitiveEntities(true).load()
+        } catch (Throwable t) { thrown = t }
+        def stored = null
+        SecurityTestSupport.withAuthzDisabled(ec) {
+            stored = ec.entity.find("moqui.security.UserLoginKey").condition("loginKey", "loader-should-not").one()
+        }
+        then:
+        thrown != null
+        stored == null
+        cleanup:
+        ec.message.clearAll()
     }
 
     def "email tracking pixel marks a known message viewed"() {

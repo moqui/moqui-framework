@@ -23,7 +23,10 @@ class SecurityAccessControlTests extends Specification {
         rest = SecurityTestSupport.restScreenTest(ec)
     }
     def cleanupSpec() { SecurityTestSupport.logout(ec); ec.destroy() }
-    def setup() { SecurityTestSupport.logout(ec) }
+    def setup() {
+        SecurityTestSupport.logout(ec)
+        ec.message.clearAll()
+    }
 
     def "unauthenticated request does not render Tools dashboard"() {
         when:
@@ -179,6 +182,131 @@ class SecurityAccessControlTests extends Specification {
         ScreenTestRender str = tools.render("dashboard", null, "get")
         then:
         SecurityTestSupport.looksLikeAuthzFailure(str) || SecurityTestSupport.looksLikeAuthnFailure(str)
+    }
+
+    def "AutoFind of SystemMessageRemote is refused"() {
+        when:
+        SecurityTestSupport.login(ec, SecurityTestSupport.VIEW_USERNAME, SecurityTestSupport.VIEW_PASSWORD)
+        ScreenTestRender str = tools.render("AutoScreen/AutoFind",
+                [aen: "moqui.service.message.SystemMessageRemote"], "get")
+        String all = ((str.errorMessages ?: []) + [str.output ?: ""]).join("\n").toLowerCase()
+        then:
+        all.contains("not available through this tool") || SecurityTestSupport.looksLikeAuthzFailure(str)
+        !all.contains("sec-hmac-test-secret")
+    }
+
+    def "AutoScreen create of UserGroupPermission is refused"() {
+        when:
+        SecurityTestSupport.login(ec, SecurityTestSupport.ALL_USERNAME, SecurityTestSupport.ALL_PASSWORD)
+        ScreenTestRender str = tools.render("AutoScreen/AutoEdit/AutoEditDetail/create",
+                SecurityTestSupport.csrfParams(ec, [
+                        aen: "moqui.security.UserGroup",
+                        den: "moqui.security.UserGroupPermission",
+                        userGroupId: SecurityTestSupport.ALL_GROUP_ID,
+                        userPermissionId: "REST_SCHEMA",
+                        fromDate: "2026-09-01 12:00:00.000"]), "post")
+        String all = ((str.errorMessages ?: []) + [str.output ?: ""]).join("\n").toLowerCase()
+        def row = null
+        SecurityTestSupport.withAuthzDisabled(ec) {
+            row = ec.entity.find("moqui.security.UserGroupPermission")
+                    .condition("userGroupId", SecurityTestSupport.ALL_GROUP_ID)
+                    .condition("userPermissionId", "REST_SCHEMA").one()
+        }
+        then:
+        all.contains("not available through this tool") || SecurityTestSupport.looksLikeAuthzFailure(str)
+        row == null
+    }
+
+    def "AutoFind of Enumeration still renders"() {
+        when:
+        SecurityTestSupport.login(ec, SecurityTestSupport.ALL_USERNAME, SecurityTestSupport.ALL_PASSWORD)
+        ScreenTestRender str = tools.render("AutoScreen/AutoFind",
+                [aen: "moqui.basic.Enumeration"], "get")
+        String all = ((str.errorMessages ?: []) + [str.output ?: ""]).join("\n").toLowerCase()
+        then:
+        // Do not scan the HTML dump with looksLikeAuthzFailure / looksLikeAuthnFailure: those
+        // match a bare "403"/"401" in timestamps and ids on a 50-row Enumeration page.
+        !all.contains("not available through this tool")
+        (str.errorMessages ?: []).isEmpty()
+        all.contains("find enumeration") || all.contains("enumid")
+    }
+
+    def "SYSTEM_APP ALL cannot add ADMIN group membership"() {
+        given:
+        String uid = SecurityTestSupport.userIdForUsername(ec, SecurityTestSupport.ALL_USERNAME)
+        when:
+        SecurityTestSupport.login(ec, SecurityTestSupport.ALL_USERNAME, SecurityTestSupport.ALL_PASSWORD)
+        ScreenTestRender str = system.render("Security/UserGroup/GroupUsers/createUserGroupMember",
+                SecurityTestSupport.csrfParams(ec, [userGroupId: "ADMIN", userId: uid,
+                        fromDate: ec.user.nowTimestamp.toString()]), "post")
+        String all = ((str.errorMessages ?: []) + [str.output ?: ""]).join("\n").toLowerCase()
+        def row = null
+        SecurityTestSupport.withAuthzDisabled(ec) {
+            row = ec.entity.find("moqui.security.UserGroupMember")
+                    .condition("userGroupId", "ADMIN").condition("userId", uid).one()
+        }
+        then:
+        all.contains("not authorized") || SecurityTestSupport.looksLikeAuthzFailure(str)
+        row == null
+    }
+
+    def "SYSTEM_APP ALL cannot add ADMIN_ADV group membership"() {
+        given:
+        String uid = SecurityTestSupport.userIdForUsername(ec, SecurityTestSupport.ALL_USERNAME)
+        when:
+        SecurityTestSupport.login(ec, SecurityTestSupport.ALL_USERNAME, SecurityTestSupport.ALL_PASSWORD)
+        ScreenTestRender str = system.render("Security/UserGroup/GroupUsers/createUserGroupMember",
+                SecurityTestSupport.csrfParams(ec, [userGroupId: "ADMIN_ADV", userId: uid,
+                        fromDate: ec.user.nowTimestamp.toString()]), "post")
+        String all = ((str.errorMessages ?: []) + [str.output ?: ""]).join("\n").toLowerCase()
+        def row = null
+        SecurityTestSupport.withAuthzDisabled(ec) {
+            row = ec.entity.find("moqui.security.UserGroupMember")
+                    .condition("userGroupId", "ADMIN_ADV").condition("userId", uid).one()
+        }
+        then:
+        all.contains("not authorized") || SecurityTestSupport.looksLikeAuthzFailure(str)
+        row == null
+    }
+
+    def "SYSTEM_APP ALL cannot grant GROOVY_SHELL_WEB"() {
+        when:
+        SecurityTestSupport.login(ec, SecurityTestSupport.ALL_USERNAME, SecurityTestSupport.ALL_PASSWORD)
+        ScreenTestRender str = system.render("Security/UserGroup/UserGroupDetail/createUserGroupPermission",
+                SecurityTestSupport.csrfParams(ec, [userGroupId: SecurityTestSupport.ALL_GROUP_ID,
+                        userPermissionId: "GROOVY_SHELL_WEB", fromDate: ec.user.nowTimestamp.toString()]), "post")
+        String all = ((str.errorMessages ?: []) + [str.output ?: ""]).join("\n").toLowerCase()
+        def row = null
+        SecurityTestSupport.withAuthzDisabled(ec) {
+            row = ec.entity.find("moqui.security.UserGroupPermission")
+                    .condition("userGroupId", SecurityTestSupport.ALL_GROUP_ID)
+                    .condition("userPermissionId", "GROOVY_SHELL_WEB").one()
+        }
+        then:
+        all.contains("not authorized") || SecurityTestSupport.looksLikeAuthzFailure(str)
+        row == null
+    }
+
+    def "SYSTEM_APP ALL can add a member to its own group"() {
+        given:
+        String uid = SecurityTestSupport.userIdForUsername(ec, SecurityTestSupport.NONE_USERNAME)
+        java.sql.Timestamp fromDate = null
+        when:
+        SecurityTestSupport.login(ec, SecurityTestSupport.ALL_USERNAME, SecurityTestSupport.ALL_PASSWORD)
+        fromDate = ec.user.nowTimestamp
+        ScreenTestRender str = system.render("Security/UserGroup/GroupUsers/createUserGroupMember",
+                SecurityTestSupport.csrfParams(ec, [userGroupId: SecurityTestSupport.ALL_GROUP_ID, userId: uid,
+                        fromDate: fromDate.toString()]), "post")
+        def row = null
+        SecurityTestSupport.withAuthzDisabled(ec) {
+            row = ec.entity.find("moqui.security.UserGroupMember")
+                    .condition("userGroupId", SecurityTestSupport.ALL_GROUP_ID).condition("userId", uid).one()
+        }
+        then:
+        !SecurityTestSupport.looksLikeAuthzFailure(str)
+        row != null
+        cleanup:
+        SecurityTestSupport.withAuthzDisabled(ec) { row?.delete() }
     }
 
     def "REST login succeeds without a session token"() {

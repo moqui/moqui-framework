@@ -34,6 +34,7 @@ import org.moqui.impl.service.ServiceFacadeImpl
 import org.moqui.impl.service.runner.EntityAutoServiceRunner
 import org.moqui.service.ServiceCallSync
 import org.moqui.util.MNode
+import org.moqui.util.WebUtilities
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.xml.sax.*
@@ -70,6 +71,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
     boolean disableAuditLog = false
     boolean disableFkCreate = false
     boolean disableDataFeed = false
+    boolean restrictSensitiveEntities = false
 
     char csvDelimiter = ','
     char csvCommentStart = '#'
@@ -110,6 +112,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
     @Override EntityDataLoader disableAuditLog(boolean disable) { disableAuditLog = disable; return this }
     @Override EntityDataLoader disableFkCreate(boolean disable) { disableFkCreate = disable; return this }
     @Override EntityDataLoader disableDataFeed(boolean disable) { disableDataFeed = disable; return this }
+    @Override EntityDataLoader restrictSensitiveEntities(boolean restrict) { restrictSensitiveEntities = restrict; return this }
 
     @Override EntityDataLoader csvDelimiter(char delimiter) { this.csvDelimiter = delimiter; return this }
     @Override EntityDataLoader csvCommentStart(char commentStart) { this.csvCommentStart = commentStart; return this }
@@ -524,6 +527,9 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         }
 
         void handleValue(EntityValue value, String location) {
+            if (edli.restrictSensitiveEntities && WebUtilities.isRestrictedGenericEntity(value.resolveEntityName())) {
+                throw new EntityException("Entity ${value.resolveEntityName()} is not allowed in this data load")
+            }
             boolean tryInsert = edli.useTryInsert
             if (tryInsert && value instanceof EntityValueBase) {
                 EntityValueBase evb = (EntityValueBase) value
@@ -561,6 +567,9 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             }
         }
         void handlePlainMap(String entityName, Map value, String location) {
+            if (edli.restrictSensitiveEntities && WebUtilities.isRestrictedGenericEntity(entityName)) {
+                throw new EntityException("Entity ${entityName} is not allowed in this data load")
+            }
             EntityDefinition ed = ec.entityFacade.getEntityDefinition(entityName)
             if (ed == null) throw new BaseException("Could not find entity ${entityName}")
             if (edli.onlyCreate) {
@@ -760,6 +769,9 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             } else {
                 if (edli.efi.isEntityDefined(elementName)) {
                     currentEntityDef = edli.efi.getEntityDefinition(elementName)
+                    if (edli.restrictSensitiveEntities && WebUtilities.isRestrictedGenericEntity(currentEntityDef.getFullEntityName())) {
+                        throw new SAXException("Entity ${currentEntityDef.getFullEntityName()} is not allowed in this data load")
+                    }
                     // logger.warn("Found entity ${currentEntityDef.getFullEntityName()} for ${entityName}")
                     rootValueMap = getAttributesMap(attributes, currentEntityDef)
                 } else if (edli.sfi.isServiceDefined(elementName)) {

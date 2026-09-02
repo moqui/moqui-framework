@@ -459,7 +459,8 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="ec.entity.find('moqui.security.UserAccount').count() > 1">
                 <return error="true" message="Can only create initial admin account if there are no UserAccount records"/></if>
             <service-call name="org.moqui.impl.UserServices.create#UserAccount" in-map="context" out-map="context"/>
-            <service-call name="create#moqui.security.UserGroupMember" in-map="[userId:userId, userGroupId:'ADMIN']"/>
+            <service-call name="create#moqui.security.UserGroupMember" in-map="[userId:userId, userGroupId:'ADMIN']"
+                    disable-authz="true"/>
         </actions>
     </service>
 

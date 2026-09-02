@@ -39,6 +39,23 @@
     -->
     <default-property name="webapp_client_ip_header" value=""/>
 
+    <!--
+        user_privileged_groups: UserGroupMember create/update/delete for these groups is allowed only if the
+        caller is already a member (seed/install and disableAuthz skip the check). Comma-separated group IDs.
+        user_sealed_permissions: UserGroupPermission create/update/delete for these IDs is allowed only if the
+        caller already has that permission. Comma-separated permission IDs.
+    -->
+    <default-property name="user_privileged_groups" value="ADMIN,ADMIN_ADV"/>
+    <default-property name="user_sealed_permissions"
+            value="GROOVY_SHELL_WEB,SQL_RUNNER_WEB,SERVICE_LOAD_RUNNER,ADMIN_LOGIN_AS,ADMIN_PASSWORD,ElasticRemote,KibanaRemote,REST_SCHEMA"/>
+
+    <!--
+        email_allowed_hosts: comma-separated hostnames/IPs poll#EmailServer and send#Email may connect to.
+        Empty (default) allows any host. smtp.example.com matches example.com; notexample.com does not.
+        EmailServer.allowedToDomains is a separate recipient-domain filter.
+    -->
+    <default-property name="email_allowed_hosts" value=""/>
+
     <!-- Properties for the primary (transactional group) datasource -->
     <default-property name="entity_ds_db_conf" value="h2"/>
     <default-property name="entity_ds_host" value="127.0.0.1"/>
@@ -522,6 +539,7 @@
         <load-entity location="classpath://entity/ScreenEntities.xml"/>
         <load-entity location="classpath://entity/Screen.eecas.xml"/>
         <load-entity location="classpath://entity/SecurityEntities.xml"/>
+        <load-entity location="classpath://entity/Security.eecas.xml"/>
         <load-entity location="classpath://entity/ServerEntities.xml"/>
         <load-entity location="classpath://entity/ServiceEntities.xml"/>
         <load-entity location="classpath://entity/TestEntities.xml"/>

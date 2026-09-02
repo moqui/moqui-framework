@@ -129,6 +129,13 @@ The two runners cannot share the database at the same time (Moqui locks `btm2.tl
 | Screen JSON `currentParameters` omits password / credential fields | A02 | `SecurityMisconfigTests` | `test_a07_more.py` |
 | REST schema dumps: anonymous 401, no `REST_SCHEMA` 403, no `ACAO: *` | A01 | N/A | `test_api_rest.py` |
 | `/rest/sm` timestamped HMAC rejects a repeated signature inside the window | A02 | fixtures in `SecurityTestSupport` | `test_api_rest.py` |
+| Generic entity REST does not create or list `UserLoginKey`; `getLoginKey` remains the mint path | A01 | `SecurityIntegrityTests`, `SecurityAuthnTests` | `test_api_rest.py` |
+| Auto Screen / Data Edit refuse identity-admin and secret-config entities; Enumeration AutoFind still renders | A01 | `SecurityAccessControlTests`, `SecurityMisconfigTests` | N/A |
+| `put#EntitySyncData` and Data Import do not store those entities (Enumeration companion stays) | A01 | `SecurityIntegrityTests` | `test_api_rest.py` |
+| `PATCH /moqui/users` identity fields (`disabled`, `emailAddress`, …) need ADMIN; `userFullName` still stores | A01 | `SecurityMisconfigTests` | `test_api_rest.py` |
+| EmailServer host/port not writable with `MOQUI_API` ALL alone; GET list still works | A01 | N/A | `test_api_rest.py` |
+| SYSTEM_APP ALL cannot add `ADMIN` / `ADMIN_ADV` membership or grant sealed permissions; can still add members to its own group | A01 | `SecurityAccessControlTests` | N/A |
+| `email_allowed_hosts` default empty (any host); matcher is exact or DNS subdomain | A02 | `SecurityMisconfigTests` | N/A |
 
 ### Designed exposure (documented, not a control)
 
@@ -138,6 +145,7 @@ These rows record a default that is deliberately permissive. They are not proofs
 | --- | --- | --- |
 | Groovy Shell WebSocket endpoint `/groovysh` is enabled by default (RCE by design for `ADMIN_ADV` + `GROOVY_SHELL_WEB`) | A02 | `SecurityMisconfigTests` |
 | `reset#Password` is `authenticate="anonymous-all"` and `allow-remote="true"` (remote-callable password reset is untrusted input) | A07 | `SecurityIntegrityTests` |
+| `email_allowed_hosts` default is empty (poll/send may connect to any host until operators set the list) | A02 | `SecurityMisconfigTests` |
 
 ### Proof strength notes
 
@@ -162,7 +170,7 @@ Still open; not public failing PoCs:
   `receive#IncomingSystemMessage` still requires a user, so an anonymous POST is not accepted. `test_api_rest.py`
   pins not-200 plus an auth-failure signal (today the status is 500). `SECURITY_SURFACE.md:151` overstates the exposure.
 - **Authorized Data Import `location=`:** AUTHZA_ALL can pass a remote URL into `EntityDataLoader` (SSRF-class by design).
-- **Positive HTTP `api_key` header** with a minted key. There is no minting transition; Spock covers `getLoginKey` / handshake header login.
+- **Positive HTTP `api_key` header** using a key from `getLoginKey()` (not from generic entity writes). Spock covers `getLoginKey` / handshake header login. Generic entity REST cannot create `UserLoginKey`.
 - **MFA positive flow** (sendOtp → verifyOtp → login with code); only the no-pre-auth rejection is covered.
 - **Tarpit velocity for services and transitions**; only conf flags plus the demo ALL_SCREENS 429 are covered.
   Needs `ArtifactTarpit` rows for `AT_SERVICE` / `AT_XML_SCREEN_TRANS`, which `SecurityTestSupport` does not create.

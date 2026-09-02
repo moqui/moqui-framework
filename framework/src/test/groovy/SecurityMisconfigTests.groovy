@@ -174,6 +174,71 @@ class SecurityMisconfigTests extends Specification {
         !WebUtilities.isSameOriginRedirect("https://evil.example/phish", stub.request, "")
     }
 
+    @Unroll
+    def "restricted generic entity names: #label"() {
+        expect:
+        WebUtilities.isRestrictedGenericEntity(name) == restricted
+        WebUtilities.isIdentityAdminEntity(name) == identity
+        WebUtilities.isSecretConfigEntity(name) == secret
+        where:
+        label                    | name                                      | restricted | identity | secret
+        "UserLoginKey full"      | "moqui.security.UserLoginKey"             | true       | true     | false
+        "UserLoginKey simple"    | "UserLoginKey"                            | true       | true     | false
+        "UserGroupPermission"    | "moqui.security.UserGroupPermission"      | true       | true     | false
+        "alias users"            | "users"                                   | false      | false    | false
+        "UserAccount"            | "moqui.security.UserAccount"              | false      | false    | false
+        "EmailServer"            | "moqui.basic.email.EmailServer"           | true       | false    | true
+        "SystemMessageRemote"    | "moqui.service.message.SystemMessageRemote"| true      | false    | true
+        "Enumeration"            | "moqui.basic.Enumeration"                 | false      | false    | false
+        "empty"                  | ""                                        | false      | false    | false
+    }
+
+    @Unroll
+    def "hostAllowedByConf #label"() {
+        expect:
+        WebUtilities.hostAllowedByConf(host, allowed) == ok
+        where:
+        label              | host                  | allowed              | ok
+        "empty list"       | "evil.example"        | ""                   | true
+        "null list"        | "evil.example"        | null                 | true
+        "exact"            | "smtp.example.com"    | "smtp.example.com"   | true
+        "subdomain"        | "smtp.example.com"    | "example.com"        | true
+        "not suffix"       | "notexample.com"      | "example.com"        | false
+        "other host"       | "127.0.0.1"           | "example.com"        | false
+        "ip exact"         | "127.0.0.1"           | "127.0.0.1"          | true
+        "blank host"       | ""                    | "example.com"        | false
+        "case"             | "SMTP.Example.COM"    | "example.com"        | true
+    }
+
+    def "default email_allowed_hosts is empty"() {
+        expect:
+        (SecurityTestSupport.defaultProperty("email_allowed_hosts") ?: "") == ""
+    }
+
+    def "default privileged groups and sealed permissions are set"() {
+        when:
+        String groups = SecurityTestSupport.defaultProperty("user_privileged_groups")
+        String perms = SecurityTestSupport.defaultProperty("user_sealed_permissions")
+        then:
+        groups.contains("ADMIN")
+        groups.contains("ADMIN_ADV")
+        perms.contains("GROOVY_SHELL_WEB")
+        perms.contains("REST_SCHEMA")
+    }
+
+    def "removeUserAccountIdentityFromMap drops control fields"() {
+        when:
+        Map src = [userId: "SEC_NONE_ONLY", disabled: "Y", emailAddress: "a@b.c",
+                   userFullName: "keep", locale: "en"]
+        WebUtilities.removeUserAccountIdentityFromMap(src)
+        then:
+        src.userId == "SEC_NONE_ONLY"
+        src.userFullName == "keep"
+        src.locale == "en"
+        !src.containsKey("disabled")
+        !src.containsKey("emailAddress")
+    }
+
     def "stripUserAccountSecrets omits hash fields from nested maps"() {
         when:
         Map nested = [currentPassword: "hash", username: "sec.none.only",

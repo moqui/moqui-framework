@@ -80,6 +80,23 @@ and clarifies security details that have been more scattered and less formal.
 - ElFinder: `component://` and `file:` roots remain browsable; write commands
   on those roots are refused when `instance_purpose` is production. Directory
   delete and entry names are cleaned up.
+- Login keys stay hashed values from `getLoginKey()` for the current user.
+  Generic entity REST does not create or list `UserLoginKey`.
+- Auto Screen, Data Edit, Data Import, and `put#EntitySyncData` refuse
+  identity-admin and secret-config entities (UserGroupMember, ArtifactAuthz,
+  EmailServer, and similar). UserAccount remains available through Data Edit.
+  System/Security screens are unchanged.
+- `PATCH /rest/s1/moqui/users` identity fields (`disabled`, `username`,
+  `emailAddress`, and similar) require the ADMIN group. `MOQUI_API` ALL can
+  still update display fields. EmailServer host/port/password writes through
+  Service REST also require ADMIN.
+- System/Security: membership in `user_privileged_groups` (default ADMIN,
+  ADMIN_ADV) and grants of `user_sealed_permissions` (tool-gate permissions
+  plus ADMIN_PASSWORD, ElasticRemote, KibanaRemote, REST_SCHEMA) require the
+  caller to already hold that group or permission. Both lists are conf
+  properties. Seed/install is unchanged.
+- `email_allowed_hosts` (empty by default) limits the hosts poll/send may
+  connect to. Recipient filtering remains `EmailServer.allowedToDomains`.
 
 ## Release 4.0.0 - 27 Feb 2026
 

@@ -17,6 +17,7 @@ import groovy.transform.CompileStatic
 import org.codehaus.groovy.runtime.typehandling.GroovyCastException
 import org.moqui.BaseArtifactException
 import org.moqui.BaseException
+import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.etl.SimpleEtl
 import org.moqui.impl.context.ArtifactExecutionInfoImpl
@@ -1702,7 +1703,11 @@ class EntityFacadeImpl implements EntityFacade {
         }
 
         // at this point we should have the entity we actually want to operate on, and all PK field values from the path
+        String lastEntityName = lastEd.getFullEntityName()
         if (operation == 'find') {
+            if (WebUtilities.isIdentityAdminEntity(lastEntityName) || WebUtilities.isSecretConfigEntity(lastEntityName)) {
+                throw new ArtifactAuthorizationException("Entity ${lastEntityName} is not available through generic entity REST")
+            }
             if (lastEd.containsPrimaryKey(parameters)) {
                 // if we have a full PK lookup by PK and return the single value
                 Map<String, Object> pkValues = [:]
@@ -1751,6 +1756,12 @@ class EntityFacadeImpl implements EntityFacade {
             }
         } else {
             // use the entity auto service runner for other operations (create, store, update, delete)
+            if (WebUtilities.isIdentityAdminEntity(lastEntityName) || WebUtilities.isUserAccountEntity(lastEntityName)) {
+                throw new ArtifactAuthorizationException("Entity ${lastEntityName} is not writable through generic entity REST")
+            }
+            if (WebUtilities.isSecretConfigEntity(lastEntityName) && !ecfi.getEci().userFacade.isInGroup("ADMIN")) {
+                throw new ArtifactAuthorizationException("Entity ${lastEntityName} is not writable through generic entity REST")
+            }
             Map result = ecfi.serviceFacade.sync().name(operation, lastEd.fullEntityName).parameters(parameters).call()
             return WebUtilities.stripUserAccountSecrets(result)
         }

@@ -2,7 +2,7 @@
 
 This is a map of network and application entry points in **moqui-framework** and **moqui-runtime** (the `webroot` and `tools` base components). It is for operators, security researchers, and AI-assisted review of these two repositories. It is not a vulnerability report, not a WAF, and not a substitute for the [Security](https://www.moqui.org/m/docs/framework/Security) and [Run and Deploy](https://www.moqui.org/m/docs/framework/Run+and+Deploy) docs.
 
-Application and tool components (Mantle, HiveMind, PopCommerce, `moqui-sso`, Camel, FOP engine, CUPS, and so on) add their own screens, services, and REST roots. Those are out of scope here except where the framework exposes a servlet or endpoint they plug into.
+Application and tool components (Mantle, HiveMind, PopCommerce, `moqui-sso`, Camel, FOP engine, CUPS, and so on) add their own screens, services, and REST roots. Those are out of scope here except where the framework exposes a servlet or endpoint they plug into. SSO `returnTo` / RelayState must use the same `WebUtilities.isSameOriginRedirect` helper as Login.
 
 Reporting undisclosed issues: see [SECURITY.md](SECURITY.md) (`moqui-board@googlegroups.com`).
 
@@ -31,13 +31,15 @@ Each surface: path or bind, default, authn, authz, untrusted input, review consi
 
 The WebSocket handshake (`initFromHandshakeRequest`) uses the existing HTTP session, then the same Basic and `api_key` / `login_key` **headers**. It does not read credentials from the upgrade query string.
 
-There is no `/rest/api_key` minting transition and no `/rest/moquiSessionToken` fetch (both removed). Login keys are hashed `UserLoginKey` values from `ec.user.getLoginKey()`.
+There is no `/rest/api_key` minting transition and no `/rest/moquiSessionToken` fetch (both removed). Login keys are hashed `UserLoginKey` values from `ec.user.getLoginKey()` (current user only). Generic entity REST, Auto Screen, Data Edit, Data Import, and `put#EntitySyncData` do not create or list `UserLoginKey`.
 
 ### Authorization in one paragraph
 
 Screens use `require-authentication`: `true` (default), `false`, `anonymous-view`, or `anonymous-all`. Artifact authz (`ArtifactAuthz` / `ArtifactGroup`) is checked as each screen, transition, service, REST path, and entity is pushed on the execution stack. **Inheritable** allow/always records authorize children on that stack (sub-screens, transitions, services, entities) unless a more specific DENY wins. Screen transitions use `authz-action` (`view` / `create` / `update` / `delete` / `all`): explicit, else from a transition-level `service-call`, else `view` if `read-only`, else `update` if the transition has actions, else `view`. A VIEW-only inheritable authz does **not** run mutating Tools/System transitions (cache clear, Service Run, instance start, and similar). A few tools also check `UserPermission` (`GROOVY_SHELL_WEB`, `SQL_RUNNER_WEB`, `SERVICE_LOAD_RUNNER`, `ADMIN_LOGIN_AS`, `ADMIN_PASSWORD`, `ElasticRemote`, `KibanaRemote`). Details: [Security — Artifact-Aware Authorization](https://www.moqui.org/m/docs/framework/Security).
 
 Seed (runtime `ToolsSecurityData.xml`, framework `SecurityTypeData.xml`): `ADMIN` has `AUTHZT_ALWAYS` + `AUTHZA_ALL` + `inheritAuthz=Y` on the Tools app root, System app root, and `/moqui` Service REST root (`MOQUI_API`). `ADMIN_ADV` has the tool-gate permissions above (`GROOVY_SHELL_WEB`, `SQL_RUNNER_WEB`, `SERVICE_LOAD_RUNNER`, `ADMIN_LOGIN_AS`); `ADMIN` also has `ADMIN_PASSWORD`, `ElasticRemote`, and `KibanaRemote`. `ALL_USERS` can view Screen Tree / App List.
+
+System/Security screens still administer users and groups, but membership in `user_privileged_groups` (default `ADMIN`, `ADMIN_ADV`) can be changed only by a current member of that group. `UserGroupPermission` rows for `user_sealed_permissions` (default the tool-gate list plus `ADMIN_PASSWORD`, `ElasticRemote`, `KibanaRemote`, `REST_SCHEMA`) can be granted only by a caller who already has that permission. Both lists are `default-property` values in `MoquiDefaultConf.xml`. Seed/install (`disableAuthz`) is unchanged.
 
 ### Cross-cutting controls (assume unless a row says otherwise)
 
@@ -116,9 +118,9 @@ Default seed: `ADMIN` inherit-all on the app root. Extra `UserPermission` gates 
 | --- | --- | --- |
 | Groovy Shell | `GROOVY_SHELL_WEB` + AUTHZA_ALL on the screen; also `/groovysh` WS | RCE in the JVM |
 | SQL Runner, SQL Script Runner | `SQL_RUNNER_WEB` + AUTHZA_ALL; SQL from secure (body) parameters | Arbitrary SQL on a datasource |
-| Entity Data Import | inherit-all | XML/JSON/CSV/location load — bulk entity writes |
+| Entity Data Import | inherit-all | XML/JSON/CSV/location load — bulk entity writes. Identity-admin and secret-config entities (UserLoginKey, UserGroupMember, EmailServer, …) are refused; use System/Security screens or seed data. UserAccount is still allowed here. |
 | Entity Data Export, Data Snapshot | inherit-all | Bulk read / dump of entity data |
-| Auto Screen, Data Edit, Data View | inherit-all | Generic entity CRUD UI |
+| Auto Screen, Data Edit, Data View | inherit-all | Generic entity CRUD UI. Identity-admin and secret-config entities are refused (VIEW-only inherit is not a dump of HMAC secrets or login keys). UserAccount remains available; identity-admin changes go through System/Security. |
 | Service Run | inherit-all | Call any authorized service by name |
 | Service Load Runner | `SERVICE_LOAD_RUNNER` + AUTHZA_ALL | Load generator against services |
 | Artifact Stats, Speed Test | inherit-all | Stats / load; Speed Test is disabled on demo.moqui.org |
@@ -147,8 +149,8 @@ Default seed: `ADMIN` inherit-all on the app root. Extra `UserPermission` gates 
 | Path | What | Authn | Authz / other gates | Considerations |
 | --- | --- | --- | --- | --- |
 | `POST /rest/login` | Session login | username/password (`code` if MFA); **no CSRF token** | — | If MFA is required and no code, JSON factor info; complete with `POST /rest/sendOtp` and `/rest/verifyOtp`. `POST /rest/logout` ends the session. |
-| `/rest/e1`, `/rest/m1`, deprecated `/rest/v1` | **Generic entity CRUD** (any entity or master) | required | **entity** artifact authz (`AT_ENTITY`). Tarpit off for entities by default. `rest.xml` does not inherit ADMIN-all | Wide engine; width is the caller’s entity (or inheritable) authz, not “ADMIN can hit Tools.” Bulk JSON list bodies. `X-HTTP-Method-Override` on POST. `dependents` / `master` documents. UserAccount JSON omits password hash fields (same list as Service REST). Do not grant catch-all entity authz to internet users. |
-| `/rest/s1/{root}/...` | Declared Service REST (`*.rest.xml`) | per resource (`authenticate` on the resource/method) | `AT_REST_PATH`; seed `MOQUI_API` `/moqui` inherit-all for `ADMIN` | Runtime root **moqui**: artifacts, dataDocuments, basic geo/enum/status/uom, email, print, entity sync, systemMessages, users, wiki. Other components add roots. UserAccount JSON (list/one and nested maps) omits `currentPassword`, `resetPassword`, salt, and hash type. |
+| `/rest/e1`, `/rest/m1`, deprecated `/rest/v1` | **Generic entity CRUD** (any entity or master) | required | **entity** artifact authz (`AT_ENTITY`). Tarpit off for entities by default. `rest.xml` does not inherit ADMIN-all | Wide engine; width is the caller’s entity (or inheritable) authz, not “ADMIN can hit Tools.” Bulk JSON list bodies. `X-HTTP-Method-Override` on POST. `dependents` / `master` documents. UserAccount JSON omits password hash fields (same list as Service REST). Identity-admin and secret-config entities are not available here. Do not grant catch-all entity authz to internet users. |
+| `/rest/s1/{root}/...` | Declared Service REST (`*.rest.xml`) | per resource (`authenticate` on the resource/method) | `AT_REST_PATH`; seed `MOQUI_API` `/moqui` inherit-all for `ADMIN` | Runtime root **moqui**: artifacts, dataDocuments, basic geo/enum/status/uom, email, print, entity sync, systemMessages, users, wiki. Other components add roots. UserAccount JSON (list/one and nested maps) omits `currentPassword`, `resetPassword`, salt, and hash type. `PATCH` of users identity fields (`disabled`, `username`, `emailAddress`, …) requires the ADMIN group; EmailServer host/port/password writes do too. |
 | `/rest/sm/{type}/{remote}/{id?}` | Inbound SystemMessage | `require-session-token="false"`; see auth enum | login + service authz, **or** HMAC then `loginAnonymousIfNoUser`, **or** `SmatNone` (no auth) | Path: `systemMessageTypeId` / `systemMessageRemoteId` / optional `remoteMessageId`. Body is the message. `SmatHmacSha256`: header HMAC-SHA256 of body, Base64. `SmatHmacSha256Timestamp`: Stripe-style `t=` / `v1=`, hex HMAC of `timestamp.body`, **5 minute** window + 10s skew; a repeated `(remote, t, v1)` inside the window is rejected. `SmatNone` is an explicit no-auth remote. Only configured remotes. |
 | `/rest/entity.json` `.raml` `.swagger`, `master.*`, `service.swagger` `.raml` | Schema dumps | required | login + `REST_SCHEMA` permission (ADMIN seed) | Model and API shape. |
 | `/rpc/json` | JSON-RPC 2.0 | via service parameters / request init | **only services with `allow-remote="true"`**, then service authz | Named params; JSON-RPC batches (array body) run each call through the same allow-remote + authz checks. XML-RPC is gone. Adding `allow-remote` is an exposure decision. |
@@ -164,12 +166,12 @@ Framework services with `allow-remote="true"` (not a complete ecosystem list): `
 | **SubEtha SMTP** (`SubEthaSmtpToolFactory`) | **disabled** | `MOQUI_LOCAL` EmailServer seed: `localhost:2525`, user `email.root`, password `EMAIL_CHANGEME` | SMTP AUTH: that mail user **or any valid UserAccount** password (`MoquiShiroRealm.checkCredentials`) | Received `MimeMessage` runs **EMECA** rules. Untrusted email is the payload. Change the seed password; do not publish 2525; TLS only if `smtpStartTls=Y`. |
 | **H2 TCP server** (`H2ServerToolFactory`) | **on if any H2 datasource** | `-tcpPort 9092 -ifExists -baseDir ${moqui_runtime}/db/h2` (no `-tcpAllowOthers` in the default args) | H2 user/password (`entity_ds_user` / `entity_ds_password`, defaults `sa`/`sa`) | Comment in conf: `jdbc:h2:tcp://localhost:9092/moqui`. Production should not use H2. If it does, do not add `-tcpAllowOthers`; firewall 9092. Disable with `tool-factory.@disabled` or empty `start-server-args`. |
 | **Jackrabbit** (`JackrabbitRunToolFactory`) | **disabled** | spawned process; `jackrabbit_moqui.properties` default port **8081** | process-local / Jackrabbit config | JCR repo. Keep off unless needed; do not expose 8081. |
-| **IMAP/POP3 poll** (`poll#EmailServer`) | Service job **paused** in seed | outbound client, default every 15 min if unpaused | mailbox credentials on `EmailServer` | Same untrusted email → EMECA path as SubEtha. Input channel, not a listen port. |
-| **Outbound SMTP** | if `EmailServer` configured | client | — | `allowedToDomains` on `EmailServer`. Body from email screens/templates. |
+| **IMAP/POP3 poll** (`poll#EmailServer`) | Service job **paused** in seed | outbound client, default every 15 min if unpaused | mailbox credentials on `EmailServer` | Same untrusted email → EMECA path as SubEtha. Input channel, not a listen port. Connect host must be in `email_allowed_hosts` when that list is non-empty. |
+| **Outbound SMTP** | if `EmailServer` configured | client | — | `allowedToDomains` on `EmailServer` (recipients). Connect host: `email_allowed_hosts` in `MoquiDefaultConf.xml` (empty = any host). Body from email screens/templates. |
 | **OpenSearch / Elasticsearch** | client `http://127.0.0.1:9200`; `MoquiStart` may launch `runtime/opensearch` | cluster HTTP | keep private; `/elastic` is the Moqui-side HTTP exposure |
 | **JDBC** | configured datasource | — | never on a public interface |
 | **Scheduled jobs** | check every `scheduled_job_check_time` seconds (default 60; `0` disables) | internal | service authz as the job user | Seed jobs: cleanup and `render#ScheduledScreens` **running**; EntitySync all, SystemMessage send/consume, poll email, search delete **paused**. Jobs can call powerful services. |
-| **EntitySync** put/get | `allow-remote="true"` | JSON-RPC and `/rest/s1/moqui/entity/syncs/data/*` | `EntitySyncServices` group: `ADMIN` in seed | Replication ingest is a write surface. |
+| **EntitySync** put/get | `allow-remote="true"` | JSON-RPC and `/rest/s1/moqui/entity/syncs/data/*` | `EntitySyncServices` group: `ADMIN` in seed | Replication ingest is a write surface. Identity-admin and secret-config entities are not stored (this is not the identity-admin UI). |
 | **Worker thread pool** | on | internal | — | Not a network listener. |
 
 ## Heavy lock-down (demo.moqui.org as reference)
@@ -228,7 +230,7 @@ Authz overwrite example (same primary key as seed):
 
 ### Gaps in the demo recipe (review notes, not a dunk)
 
-- Entity REST `/rest/e1` is **not** the `MOQUI_API` group; it is generic entity authz. VIEW-only Tools/System does not by itself turn off entity CRUD over REST (there is no seed catch-all entity allow, so this is 403 unless an app grants entity inherit)
+- Entity REST `/rest/e1` is **not** the `MOQUI_API` group; it is generic entity authz. VIEW-only Tools/System does not by itself turn off entity CRUD over REST (there is no seed catch-all entity allow, so this is 403 unless an app grants entity inherit). Auto Screen / Data Edit no longer treat inherit as access to identity-admin and secret-config entities (UserLoginKey, UserGroupMember, EmailServer, …); use System/Security screens. UserAccount is still available through Data Edit.
 - `/fop/*` and `/notws` remain (needed for PDF and SPA notifications)
 - `/elastic/*` servlet remains; demo thru-dates `ElasticRemote` so ADMIN cannot use the proxy
 - Demo still loads demo users and passwords; that is the opposite of production data policy

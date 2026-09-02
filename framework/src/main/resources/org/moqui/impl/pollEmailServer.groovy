@@ -50,6 +50,10 @@ String password = emailServer.mailPassword
 String protocol = emailServer.storeProtocol ?: "imaps"
 int port = (emailServer.storePort ?: "993") as int
 String storeFolder = emailServer.storeFolder ?: "INBOX"
+if (!org.moqui.util.WebUtilities.hostAllowedByConf(host, org.moqui.util.SystemBinding.getPropOrEnv("email_allowed_hosts"))) {
+    ec.message.addError(ec.resource.expand('Email host ${host} is not in email_allowed_hosts', '', [host:host]))
+    return
+}
 
 // def urlName = new URLName(protocol, host, port as int, "", user, password)
 Session session = Session.getInstance(System.getProperties())

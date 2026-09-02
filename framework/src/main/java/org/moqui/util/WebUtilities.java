@@ -442,10 +442,32 @@ public class WebUtilities {
     public static final Set<String> USER_ACCOUNT_SECRET_FIELDS = new HashSet<>(Arrays.asList(
             "currentPassword", "resetPassword", "passwordSalt", "passwordHashType", "passwordBase64"));
 
+    /** UserAccount fields that control authentication and identity. Generic REST drops these unless the caller is ADMIN. */
+    public static final Set<String> USER_ACCOUNT_IDENTITY_FIELDS = new HashSet<>(Arrays.asList(
+            "disabled", "username", "emailAddress", "ipAllowed", "externalAuthId", "requirePasswordChange",
+            "hasLoggedOut", "disabledDateTime", "successiveFailedLogins"));
+
     private static final Set<String> CREDENTIAL_PARAMETER_NAMES_LC = new HashSet<>(Arrays.asList(
             "password", "oldpassword", "newpassword", "newpasswordverify", "currentpassword",
             "resetpassword", "authpassword", "api_key", "login_key", "passwordsalt",
             "passwordhashtype", "passwordbase64", "passwordverify"));
+
+    /** Simple names and short aliases for identity-admin entities (not UserAccount). */
+    private static final Set<String> IDENTITY_ADMIN_ENTITY_KEYS = new HashSet<>(Arrays.asList(
+            "userloginkey", "usergroupmember", "usergrouppermission", "userpermission",
+            "artifactauthz", "artifactgroup", "artifactgroupmember", "artifacttarpit",
+            "usergrouppermissions", "userpermissions", "artifactgroups"));
+
+    private static final Set<String> SECRET_CONFIG_ENTITY_KEYS = new HashSet<>(Arrays.asList(
+            "emailserver", "systemmessageremote"));
+
+    private static String simpleEntityKey(String entityName) {
+        if (entityName == null || entityName.isEmpty()) return "";
+        String n = entityName.trim();
+        int dot = n.lastIndexOf('.');
+        if (dot >= 0 && dot < n.length() - 1) n = n.substring(dot + 1);
+        return n.toLowerCase(Locale.ROOT);
+    }
 
     public static boolean isUserAccountEntity(String entityName) {
         if (entityName == null || entityName.isEmpty()) return false;
@@ -453,10 +475,68 @@ public class WebUtilities {
                 || entityName.endsWith(".UserAccount");
     }
 
+    /** UserLoginKey, group membership/permissions, and artifact authz. Not UserAccount. */
+    public static boolean isIdentityAdminEntity(String entityName) {
+        return IDENTITY_ADMIN_ENTITY_KEYS.contains(simpleEntityKey(entityName));
+    }
+
+    /** EmailServer and SystemMessageRemote (host/password and HMAC secret). */
+    public static boolean isSecretConfigEntity(String entityName) {
+        return SECRET_CONFIG_ENTITY_KEYS.contains(simpleEntityKey(entityName));
+    }
+
+    /**
+     * Entities the Auto Screen / Data Edit / Data Import generic engines must not take from a request entity name.
+     * UserAccount stays available there (Tools Data Edit is an existing admin path); identity-admin and
+     * secret-config entities are not. System/Security screens use literal entity names and are unchanged.
+     */
+    public static boolean isRestrictedGenericEntity(String entityName) {
+        return isIdentityAdminEntity(entityName) || isSecretConfigEntity(entityName);
+    }
+
+    /** Comma-separated IDs; empty/null yields an empty set. */
+    public static Set<String> csvIdSet(String list) {
+        Set<String> out = new HashSet<>();
+        if (list == null || list.isEmpty()) return out;
+        String[] parts = list.split(",");
+        for (int i = 0; i < parts.length; i++) {
+            String p = parts[i].trim();
+            if (!p.isEmpty()) out.add(p);
+        }
+        return out;
+    }
+
+    /**
+     * Connect-host allow-list. Empty/null allowedList permits any host.
+     * A list entry matches an exact hostname/IP (case-insensitive) or a DNS subdomain
+     * ({@code smtp.example.com} matches {@code example.com}; {@code notexample.com} does not).
+     */
+    public static boolean hostAllowedByConf(String host, String allowedList) {
+        if (allowedList == null || allowedList.trim().isEmpty()) return true;
+        if (host == null) return false;
+        String h = host.trim().toLowerCase(Locale.ROOT);
+        if (h.isEmpty()) return false;
+        if (h.endsWith(".")) h = h.substring(0, h.length() - 1);
+        String[] parts = allowedList.split(",");
+        for (int i = 0; i < parts.length; i++) {
+            String d = parts[i].trim().toLowerCase(Locale.ROOT);
+            if (d.isEmpty()) continue;
+            if (d.endsWith(".")) d = d.substring(0, d.length() - 1);
+            if (h.equals(d) || h.endsWith("." + d)) return true;
+        }
+        return false;
+    }
+
     /** Drop password-hash fields from a parameter map in place (generic entity create/update/store). */
     public static void removeUserAccountSecretsFromMap(Map<?, ?> map) {
         if (map == null) return;
         for (String field : USER_ACCOUNT_SECRET_FIELDS) map.remove(field);
+    }
+
+    /** Drop identity-control fields from a parameter map in place. */
+    public static void removeUserAccountIdentityFromMap(Map<?, ?> map) {
+        if (map == null) return;
+        for (String field : USER_ACCOUNT_IDENTITY_FIELDS) map.remove(field);
     }
 
     /**

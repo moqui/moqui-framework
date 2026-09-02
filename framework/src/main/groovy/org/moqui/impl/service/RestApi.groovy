@@ -15,6 +15,7 @@ package org.moqui.impl.service
 
 import groovy.transform.CompileStatic
 import org.moqui.BaseException
+import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.AuthenticationRequiredException
 import org.moqui.context.ExecutionContext
@@ -400,9 +401,16 @@ class RestApi {
                     Map<String, Object> headers = ['X-Total-Count':count] as Map<String, Object>
                     return new RestResult([count:count], headers)
                 } else if (operation in ['create', 'update', 'store', 'delete']) {
+                    if (WebUtilities.isIdentityAdminEntity(entityName)) {
+                        throw new ArtifactAuthorizationException("Entity ${entityName} is not writable through this REST resource")
+                    }
+                    if (WebUtilities.isSecretConfigEntity(entityName) && !ec.user.isInGroup("ADMIN")) {
+                        throw new ArtifactAuthorizationException("Entity ${entityName} is not writable through this REST resource")
+                    }
                     Map parms = new LinkedHashMap(ec.context)
                     if (operation != 'delete' && WebUtilities.isUserAccountEntity(entityName)) {
                         WebUtilities.removeUserAccountSecretsFromMap(parms)
+                        if (!ec.user.isInGroup("ADMIN")) WebUtilities.removeUserAccountIdentityFromMap(parms)
                     }
                     Map result = ec.getService().sync().name(operation, entityName).parameters(parms).call()
                     return new RestResult(result, null)

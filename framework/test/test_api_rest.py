@@ -425,6 +425,29 @@ def test_x_http_method_override_authz_uses_override_action(http, base_url, requi
     assert "create" not in body
 
 
+def _users_list_items(listed):
+    if listed.status_code != 200:
+        return []
+    try:
+        data = listed.json()
+    except Exception:
+        return []
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict):
+        for key in ("users", "list", "valueList"):
+            if isinstance(data.get(key), list):
+                return data[key]
+    return []
+
+
+def _user_id_for_username(listed, username):
+    for item in _users_list_items(listed):
+        if isinstance(item, dict) and item.get("username") == username:
+            return item.get("userId")
+    return None
+
+
 def test_service_rest_users_patch_does_not_store_current_password(http, base_url, require_server):
     r = require_rest_login(http, base_url, "sec.api.all", "SecApiAll1!!")
     tok = r.headers.get("X-CSRF-Token") or r.headers.get("moquiSessionToken")
@@ -451,6 +474,123 @@ def test_service_rest_users_patch_does_not_store_current_password(http, base_url
     )
     body = (r3.text or "").lower().replace(" ", "")
     assert r3.status_code != 200 or '"loggedin":true' not in body
+
+
+def test_service_rest_users_patch_does_not_store_disabled(http, base_url, require_server):
+    r = require_rest_login(http, base_url, "sec.api.all", "SecApiAll1!!")
+    tok = r.headers.get("X-CSRF-Token") or r.headers.get("moquiSessionToken")
+    listed = http.get(base_url + "/rest/s1/moqui/users", timeout=10)
+    target = _user_id_for_username(listed, "sec.none.only")
+    if not target:
+        pytest.skip("sec.none.only not in /moqui/users list")
+    r2 = http.patch(
+        base_url + "/rest/s1/moqui/users/" + target,
+        json={"disabled": "Y", "emailAddress": "sec-should-not@example.com"},
+        headers={"X-CSRF-Token": tok} if tok else {},
+        timeout=10,
+    )
+    # Field is dropped; 200 with no change is a pass, 403 is also a pass.
+    assert r2.status_code in (200, 400, 403, 404)
+    got = http.get(base_url + "/rest/s1/moqui/users/" + target, timeout=10)
+    if got.status_code == 200:
+        data = got.json()
+        assert data.get("disabled") != "Y"
+        assert data.get("emailAddress") != "sec-should-not@example.com"
+    r3 = http.post(
+        base_url + "/rest/login",
+        json={"username": "sec.none.only", "password": "SecNone1!!"},
+        timeout=10,
+    )
+    body = (r3.text or "").lower().replace(" ", "")
+    assert r3.status_code == 200
+    assert '"loggedin":true' in body
+
+
+def test_service_rest_users_patch_stores_full_name(http, base_url, require_server):
+    r = require_rest_login(http, base_url, "sec.api.all", "SecApiAll1!!")
+    tok = r.headers.get("X-CSRF-Token") or r.headers.get("moquiSessionToken")
+    listed = http.get(base_url + "/rest/s1/moqui/users", timeout=10)
+    target = _user_id_for_username(listed, "sec.none.only")
+    if not target:
+        pytest.skip("sec.none.only not in /moqui/users list")
+    original = None
+    got0 = http.get(base_url + "/rest/s1/moqui/users/" + target, timeout=10)
+    if got0.status_code == 200:
+        original = got0.json().get("userFullName")
+    r2 = http.patch(
+        base_url + "/rest/s1/moqui/users/" + target,
+        json={"userFullName": "sec none only"},
+        headers={"X-CSRF-Token": tok} if tok else {},
+        timeout=10,
+    )
+    assert r2.status_code == 200
+    got = http.get(base_url + "/rest/s1/moqui/users/" + target, timeout=10)
+    assert got.status_code == 200
+    assert got.json().get("userFullName") == "sec none only"
+    if original is not None:
+        http.patch(
+            base_url + "/rest/s1/moqui/users/" + target,
+            json={"userFullName": original},
+            headers={"X-CSRF-Token": tok} if tok else {},
+            timeout=10,
+        )
+
+
+def test_entity_rest_does_not_create_user_login_key(http, base_url, require_server):
+    r = require_rest_login(http, base_url, "sec.ent.all", "SecEntAll1!!")
+    tok = r.headers.get("X-CSRF-Token") or r.headers.get("moquiSessionToken")
+    r2 = http.post(
+        base_url + "/rest/e1/moqui.security.UserLoginKey",
+        json={"loginKey": "http-should-not-store", "userId": "EX_JOHN_DOE",
+              "fromDate": "2026-09-01 12:00:00.000"},
+        headers={"X-CSRF-Token": tok} if tok else {},
+        timeout=10,
+    )
+    assert r2.status_code in (401, 403)
+    r3 = http.get(
+        base_url + "/rest/e1/moqui.security.UserLoginKey",
+        timeout=10,
+    )
+    assert r3.status_code in (401, 403)
+
+
+def test_email_server_host_not_writable_without_admin(http, base_url, require_server):
+    r = require_rest_login(http, base_url, "sec.api.all", "SecApiAll1!!")
+    tok = r.headers.get("X-CSRF-Token") or r.headers.get("moquiSessionToken")
+    listed = http.get(base_url + "/rest/s1/moqui/email/servers", timeout=10)
+    assert listed.status_code == 200
+    r2 = http.patch(
+        base_url + "/rest/s1/moqui/email/servers/MOQUI_LOCAL",
+        json={"storeHost": "127.0.0.1", "storePort": "9143"},
+        headers={"X-CSRF-Token": tok} if tok else {},
+        timeout=10,
+    )
+    assert r2.status_code in (401, 403)
+    got = http.get(base_url + "/rest/s1/moqui/email/servers/MOQUI_LOCAL", timeout=10)
+    if got.status_code == 200:
+        data = got.json()
+        assert data.get("storeHost") != "127.0.0.1"
+
+
+def test_entity_sync_put_does_not_store_user_group_permission(http, base_url, require_server):
+    r = require_rest_login(http, base_url, "sec.es.all", "SecEsAll1!!")
+    tok = r.headers.get("X-CSRF-Token") or r.headers.get("moquiSessionToken")
+    xml = (
+        '<entity-facade-xml><moqui.security.UserGroupPermission '
+        'userGroupId="SEC_ES_ALL_GROUP" userPermissionId="REST_SCHEMA" '
+        'fromDate="2026-09-01 12:00:00.0"/></entity-facade-xml>'
+    )
+    r2 = http.post(
+        base_url + "/rpc/json",
+        json={"jsonrpc": "2.0", "id": 1,
+              "method": "org.moqui.impl.EntitySyncServices.put#EntitySyncData",
+              "params": {"entityData": xml}},
+        headers={"X-CSRF-Token": tok} if tok else {},
+        timeout=20,
+    )
+    body = (r2.text or "").lower().replace(" ", "")
+    assert r2.status_code != 200 or '"error"' in body or "notallowed" in body or "recordsstored\":0" in body
+    assert "recordsstored\":1" not in body
 
 
 def test_jsonrpc_array_body_returns_one_result_per_call(http, base_url, require_server, username, password):
