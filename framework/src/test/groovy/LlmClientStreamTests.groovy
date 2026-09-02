@@ -123,6 +123,20 @@ class LlmClientStreamTests extends Specification {
         handler.lastApiKey == null
     }
 
+    def "reasoning_content chunks are assembled and not forwarded as content deltas"() {
+        given:
+        handler.scenario = "reasoning"
+        def listener = new ProtoListener()
+        when:
+        new OpenAiCompatProtocol().chatStream(req(), listener)
+        then:
+        listener.failure == null
+        listener.complete.finishReason == LlmFinishReason.STOP
+        listener.complete.reasoning == "Let me think."
+        listener.complete.content == "Hello"
+        listener.deltas == ["Hello"]
+    }
+
     def "tool_call argument chunks are concatenated by index"() {
         given:
         handler.scenario = "tool_calls"
@@ -281,6 +295,12 @@ class LlmClientStreamTests extends Specification {
                     writeChunk(response, sse(contentChunk("lo")), false)
                     writeChunk(response, sse(contentChunk(null, "stop")), false)
                     writeChunk(response, sse(usageChunk(3, 2, 5)), false)
+                    writeChunk(response, "data: [DONE]\n\n", true)
+                    callback.succeeded()
+                } else if ("reasoning".equals(sc)) {
+                    writeChunk(response, sse('{"choices":[{"index":0,"delta":{"reasoning_content":"Let me "}}]}'), false)
+                    writeChunk(response, sse('{"choices":[{"index":0,"delta":{"reasoning_content":"think."}}]}'), false)
+                    writeChunk(response, sse(contentChunk("Hello", "stop")), false)
                     writeChunk(response, "data: [DONE]\n\n", true)
                     callback.succeeded()
                 } else if ("tool_calls".equals(sc)) {

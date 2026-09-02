@@ -59,6 +59,8 @@ public interface LlmProtocol {
 
     final class ProtocolResult {
         public String content;
+        /** Provider thinking / reasoning_content when present (logged, not persisted). */
+        public String reasoning;
         public LlmFinishReason finishReason;
         public String providerErrorCode;
         public List<LlmToolCall> toolCalls;

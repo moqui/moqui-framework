@@ -78,6 +78,7 @@ public final class LlmRetryClassifier {
         boolean hasToolCalls = toolCalls != null && !toolCalls.isEmpty();
         result.content = content;
         result.toolCalls = toolCalls;
+        result.reasoning = reasoningOf(message);
 
         String overflowHaystack = joinNonNull(errorCode, errorType, errorMessage, rawJson);
 
@@ -212,6 +213,15 @@ public final class LlmRetryClassifier {
 
     static Map<?, ?> asMap(Object o) {
         return o instanceof Map ? (Map<?, ?>) o : null;
+    }
+
+    /** DeepSeek/Qwen/llama.cpp thinking fields on message or delta. */
+    static String reasoningOf(Map<?, ?> map) {
+        if (map == null) return null;
+        String s = str(map.get("reasoning_content"));
+        if (s == null || s.isBlank()) s = str(map.get("reasoning"));
+        if (s == null || s.isBlank()) s = str(map.get("thinking"));
+        return s != null && !s.isBlank() ? s : null;
     }
 
     static String nullToEmpty(String s) { return s == null ? "" : s; }

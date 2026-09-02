@@ -545,6 +545,16 @@ public final class LlmGateway {
         Map<String, Object> args = LlmJson.tryToMap(call.arguments);
         m.put("arguments", args != null ? args : call.arguments);
         m.put("execution", executionName(call.execution));
+        m.put("summary", LlmTrace.summarizeCall(call.name, args != null ? args : call.arguments));
+        return m;
+    }
+    public static Map<String, Object> toolResultToMap(LlmToolCall call, Object result, LlmTool.Execution execution) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", call != null ? call.id : null);
+        m.put("name", call != null ? call.name : null);
+        m.put("execution", executionName(execution != null ? execution : (call != null ? call.execution : null)));
+        m.put("content", result);
+        m.put("summary", LlmTrace.summarizeResult(call != null ? call.name : null, result));
         return m;
     }
     public static Map<String, Object> errorData(Throwable t) {
@@ -565,6 +575,7 @@ public final class LlmGateway {
         m.put("finishReason", r != null && r.finishReason != null ? r.finishReason.name().toLowerCase() : "stop");
         m.put("usage", r != null ? usageToMap(r.usage) : null);
         m.put("yielded", r != null && r.yielded);
+        m.put("durationMs", r != null ? r.durationMs : 0L);
         return m;
     }
     public static Map<String, Object> yieldData(List<LlmToolCall> pending) {

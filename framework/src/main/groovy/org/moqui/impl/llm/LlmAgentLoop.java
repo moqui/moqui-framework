@@ -46,6 +46,7 @@ final class LlmAgentLoop {
 
     private final LlmClientImpl client;
     private LlmStreamListener listener;
+    private List<ResumeEmit> resumeEmits;
 
     static LlmClientImpl currentClient() { return CURRENT_CLIENT.get(); }
 
@@ -68,9 +69,11 @@ final class LlmAgentLoop {
             });
             client.markStreamingPersisted();
             if (listener != null) listener.onConversation(client.conversation.getConversationId());
+            flushResumeEmits();
         } else {
             working = client.buildWindow();
             applyResumeResults(working);
+            flushResumeEmits();
         }
 
         List<LlmToolResult> roundResults = new ArrayList<>();
@@ -176,6 +179,7 @@ final class LlmAgentLoop {
             if (!serverCalls.isEmpty() && listener != null) listener.onPing();
             for (LlmToolCall call : serverCalls) {
                 client.throwIfCancelled();
+                LlmTrace.logToolCall(call.name, call.arguments);
                 if (listener != null) listener.onToolCall(call, LlmTool.Execution.SERVER);
                 Object executed = executeOne(call);
                 client.throwIfCancelled();
@@ -183,6 +187,7 @@ final class LlmAgentLoop {
                 roundResults.add(new LlmToolResult(call.id, call.name, stored));
                 appendTool(working, call.id, call.name, stored);
                 noteSkillLifecycle(call.name, call.arguments, stored);
+                LlmTrace.logToolResult(call.name, stored);
                 if (listener != null) listener.onToolResult(call, stored, LlmTool.Execution.SERVER);
             }
 
@@ -190,6 +195,12 @@ final class LlmAgentLoop {
                 if (!client.allowClientTools) {
                     for (LlmToolCall call : clientCalls) {
                         Map<String, Object> err = errorMap(CLIENT_UNAVAILABLE);
+                        LlmTrace.logToolCall(call.name, call.arguments);
+                        LlmTrace.logToolResult(call.name, err);
+                        if (listener != null) {
+                            listener.onToolCall(call, LlmTool.Execution.CLIENT);
+                            listener.onToolResult(call, err, LlmTool.Execution.CLIENT);
+                        }
                         roundResults.add(new LlmToolResult(call.id, call.name, err));
                         appendTool(working, call.id, call.name, err);
                     }
@@ -203,6 +214,12 @@ final class LlmAgentLoop {
                     Map<String, Object> args = LlmJson.tryToMap(call.arguments);
                     if (args == null) {
                         Map<String, Object> err = errorMap(MALFORMED + call.arguments);
+                        LlmTrace.logToolCall(call.name, call.arguments);
+                        LlmTrace.logToolResult(call.name, err);
+                        if (listener != null) {
+                            listener.onToolCall(copy, LlmTool.Execution.CLIENT);
+                            listener.onToolResult(copy, err, LlmTool.Execution.CLIENT);
+                        }
                         roundResults.add(new LlmToolResult(call.id, call.name, err));
                         appendTool(working, call.id, call.name, err);
                         continue;
@@ -216,6 +233,10 @@ final class LlmAgentLoop {
                     pending.add(copy);
                 }
                 if (pending.isEmpty()) continue;
+                for (LlmToolCall copy : pending) {
+                    LlmTrace.logToolCall(copy.name, copy.arguments);
+                    if (listener != null) listener.onToolCall(copy, LlmTool.Execution.CLIENT);
+                }
                 if (client.conversation != null) {
                     client.conversation.persistIsolated(() -> {
                         client.conversation.setPendingToolCallsInternal(pending);
@@ -247,27 +268,38 @@ final class LlmAgentLoop {
     }
 
     private ProtocolResult invokeProtocol(ProtocolRequest req) {
-        if (listener == null) return client.profile.protocol.chat(req);
-        ProtocolResult[] box = new ProtocolResult[1];
-        Throwable[] fail = new Throwable[1];
-        req.stream = true;
-        req.onStreamOpen = client::registerInFlight;
+        if (listener != null) req.stream = true;
+        LlmTrace.logRequest(client, req);
+        long t0 = System.currentTimeMillis();
+        ProtocolResult result = null;
         try {
-            client.profile.protocol.chatStream(req, new ProtocolStreamListener() {
-                @Override public void onDelta(String textDelta) {
-                    if (textDelta != null && !textDelta.isEmpty()) listener.onDelta(textDelta);
-                }
-                @Override public void onComplete(ProtocolResult result) { box[0] = result; }
-                @Override public void onFailure(Throwable t) { fail[0] = t; }
-            });
+            if (listener == null) {
+                result = client.profile.protocol.chat(req);
+                return result;
+            }
+            ProtocolResult[] box = new ProtocolResult[1];
+            Throwable[] fail = new Throwable[1];
+            req.onStreamOpen = client::registerInFlight;
+            try {
+                client.profile.protocol.chatStream(req, new ProtocolStreamListener() {
+                    @Override public void onDelta(String textDelta) {
+                        if (textDelta != null && !textDelta.isEmpty()) listener.onDelta(textDelta);
+                    }
+                    @Override public void onComplete(ProtocolResult r) { box[0] = r; }
+                    @Override public void onFailure(Throwable t) { fail[0] = t; }
+                });
+            } finally {
+                client.unregisterInFlight();
+            }
+            if (fail[0] != null) {
+                throw new LlmException("LLM stream failed: " + fail[0].getMessage(), fail[0],
+                        LlmFinishReason.ERROR, 0, client.profile.name, client.convId());
+            }
+            result = box[0];
+            return result;
         } finally {
-            client.unregisterInFlight();
+            LlmTrace.logResponse(client, result, System.currentTimeMillis() - t0);
         }
-        if (fail[0] != null) {
-            throw new LlmException("LLM stream failed: " + fail[0].getMessage(), fail[0],
-                    LlmFinishReason.ERROR, 0, client.profile.name, client.convId());
-        }
-        return box[0];
     }
 
     private void completeConversation() {
@@ -318,11 +350,13 @@ final class LlmAgentLoop {
             conv.appendInternal(LlmMessage.tool(id, tr.name, contentText(tr.content)));
             if (id != null) seen.add(id);
             noteSkillLifecycle(tr.name, null, tr.content);
+            noteResumeEmit(id, tr.name, tr.content);
         }
         for (LlmToolCall pendingCall : pending) {
             if (pendingCall == null || pendingCall.id == null || seen.contains(pendingCall.id)) continue;
-            conv.appendInternal(LlmMessage.tool(pendingCall.id, pendingCall.name,
-                    LlmJson.toJson(errorMap("client tool result missing"))));
+            Map<String, Object> missing = errorMap("client tool result missing");
+            conv.appendInternal(LlmMessage.tool(pendingCall.id, pendingCall.name, LlmJson.toJson(missing)));
+            noteResumeEmit(pendingCall.id, pendingCall.name, missing);
         }
         conv.setPendingToolCallsInternal(null);
     }
@@ -333,6 +367,33 @@ final class LlmAgentLoop {
             if (tr == null) continue;
             working.add(LlmMessage.tool(tr.toolCallId, tr.name, contentText(tr.content)));
             noteSkillLifecycle(tr.name, null, tr.content);
+            noteResumeEmit(tr.toolCallId, tr.name, tr.content);
+        }
+    }
+
+    private void noteResumeEmit(String id, String name, Object content) {
+        LlmToolCall call = new LlmToolCall(id, name, null);
+        call.execution = LlmTool.Execution.CLIENT;
+        if (resumeEmits == null) resumeEmits = new ArrayList<>();
+        resumeEmits.add(new ResumeEmit(call, content));
+    }
+
+    private void flushResumeEmits() {
+        if (resumeEmits == null) return;
+        for (ResumeEmit e : resumeEmits) {
+            if (e == null || e.call == null) continue;
+            LlmTrace.logToolResult(e.call.name, e.content);
+            if (listener != null) listener.onToolResult(e.call, e.content, LlmTool.Execution.CLIENT);
+        }
+        resumeEmits = null;
+    }
+
+    private static final class ResumeEmit {
+        final LlmToolCall call;
+        final Object content;
+        ResumeEmit(LlmToolCall call, Object content) {
+            this.call = call;
+            this.content = content;
         }
     }
 

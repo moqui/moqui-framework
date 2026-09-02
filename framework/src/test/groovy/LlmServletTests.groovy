@@ -24,6 +24,7 @@ import org.moqui.llm.LlmException
 import org.moqui.llm.LlmMessage
 import org.moqui.llm.LlmTool
 import org.moqui.llm.LlmToolCall
+import org.moqui.llm.LlmToolResult
 import org.moqui.llm.test.FakeLlmProtocol
 import spock.lang.Specification
 
@@ -246,7 +247,8 @@ class LlmServletTests extends Specification {
         def r = client.conversation(conv).tool(new GatewayRecordingTool("request")).user("hi").stream(listener)
         then:
         r.content == "after"
-        def events = sw.toString().findAll(/event: (\w+)/) { it[1] }
+        def text = sw.toString()
+        def events = text.findAll(/event: (\w+)/) { it[1] }
         events.contains("conversation")
         events.contains("ping")
         events.contains("tool_call")
@@ -254,6 +256,62 @@ class LlmServletTests extends Specification {
         events.last() == "done"
         proto.chatStreamCount == 2
         proto.chatCount == 0
+        text.contains('"summary"')
+        text.contains('"durationMs"')
+    }
+
+    def "stream with write_ui emits tool_call then yield then done with summary"() {
+        given:
+        def proto = new FakeLlmProtocol()
+        proto.results = [
+                FakeLlmProtocol.toolCalls(new LlmToolCall("c1", "write_ui",
+                        '{"title":"Hi","fields":[{"name":"n","widget":"text-line"}]}'))
+        ]
+        def conv = LlmConversationImpl.create(null, "default", null)
+        def client = new LlmClientImpl(null, LlmFacadeImpl.ProfileState.forTest("default", proto, "m", false, 2, 0f, 5), { false })
+        def sw = new StringWriter()
+        def sink = new SseSink(sw)
+        def listener = new ServletStreamListener(sink, client)
+        when:
+        def r = client.conversation(conv).tool(LlmTool.writeUi()).allowClientTools(true).user("form").stream(listener)
+        then:
+        r.yielded
+        def text = sw.toString()
+        def events = text.findAll(/event: (\w+)/) { it[1] }
+        events.contains("conversation")
+        events.contains("tool_call")
+        events.contains("yield")
+        events.contains("done")
+        events.indexOf("tool_call") < events.indexOf("yield")
+        text.contains("write_ui")
+        text.contains('"summary"')
+        text.contains("kind=form")
+        text.contains('"durationMs"')
+    }
+
+    def "resume stream emits tool_result summary for write_ui"() {
+        given:
+        def proto = new FakeLlmProtocol()
+        proto.results = [FakeLlmProtocol.stop("after")]
+        def conv = LlmConversationImpl.create(null, "default", null)
+        conv.@statusId = LlmConversationImpl.STATUS_YIELDED
+        conv.setPendingToolCallsInternal([new LlmToolCall("c1", "write_ui", '{}')])
+        def client = new LlmClientImpl(null, LlmFacadeImpl.ProfileState.forTest("default", proto, "m", false, 2, 0f, 5), { false })
+        def sw = new StringWriter()
+        def sink = new SseSink(sw)
+        def listener = new ServletStreamListener(sink, client)
+        when:
+        def r = client.conversation(conv).markResumeFromYielded().tool(LlmTool.writeUi()).allowClientTools(true)
+                .toolResults([new LlmToolResult("c1", "write_ui", [submitted: true, button: "submit"])])
+                .stream(listener)
+        then:
+        r.content == "after"
+        def text = sw.toString()
+        def events = text.findAll(/event: (\w+)/) { it[1] }
+        events.contains("tool_result")
+        events.indexOf("tool_result") < events.indexOf("done")
+        text.contains("submitted")
+        text.contains('"summary"')
     }
 
     def "cancel is 200 on Streaming and Yielded, 409 otherwise"() {

@@ -80,13 +80,16 @@ public class EnterSimTool implements LlmTool {
         if (maxObj instanceof Number) maxIter = Math.max(32, Math.min(64, ((Number) maxObj).intValue()));
 
         ExecutionContextImpl eci = (ExecutionContextImpl) ec;
+        LlmClientImpl parent = LlmAgentLoop.currentClient();
+        String convId = parent != null ? parent.convId() : null;
         if (eci.simSession) {
             Map<String, Object> already = new LinkedHashMap<>();
             already.put("error", "already in sim");
             already.put("sim", Boolean.TRUE);
+            LlmTrace.logSimEnter(convId, goal, maxIter, false);
+            LlmTrace.logSimExit(convId, 0, null, "already in sim");
             return already;
         }
-        LlmClientImpl parent = LlmAgentLoop.currentClient();
         boolean startedOverlay = false;
         boolean prevSim = eci.simSession;
         if (!ec.getEntity().isTxCacheActive()) {
@@ -97,6 +100,8 @@ public class EnterSimTool implements LlmTool {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("sim", Boolean.TRUE);
         result.put("goal", goal);
+        long simStart = System.currentTimeMillis();
+        LlmTrace.logSimEnter(convId, goal, maxIter, startedOverlay);
         try {
             LlmClientImpl nested;
             if (parent != null) nested = parent.nestForSim(maxIter);
@@ -126,6 +131,11 @@ public class EnterSimTool implements LlmTool {
             logger.warn("enter_sim nested agent failed: " + t.getMessage());
             result.put("error", t.getMessage());
         } finally {
+            Object proposed = result.get("proposedSkillName");
+            Object err = result.get("error");
+            LlmTrace.logSimExit(convId, System.currentTimeMillis() - simStart,
+                    proposed != null ? proposed.toString() : null,
+                    err != null ? err.toString() : null);
             eci.simSession = prevSim;
             if (startedOverlay) {
                 try { ec.getEntity().stopTxCache(); }

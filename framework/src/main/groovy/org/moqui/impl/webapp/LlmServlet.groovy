@@ -296,11 +296,7 @@ class ServletStreamListener implements LlmStreamListener {
         emit("tool_call", m)
     }
     @Override void onToolResult(LlmToolCall call, Object result, LlmTool.Execution execution) {
-        Map<String, Object> m = new LinkedHashMap<>()
-        m.put("id", call != null ? call.id : null)
-        m.put("name", call != null ? call.name : null)
-        m.put("execution", execution == LlmTool.Execution.CLIENT ? "client" : "server")
-        m.put("content", result)
+        Map<String, Object> m = LlmGateway.toolResultToMap(call, result, execution)
         emit("tool_result", m)
     }
     @Override void onPing() { emit("ping", LlmGateway.pingData()) }

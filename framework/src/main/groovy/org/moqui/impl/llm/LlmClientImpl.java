@@ -275,6 +275,8 @@ public class LlmClientImpl implements LlmClient {
             req.onStreamOpen = this::registerInFlight;
             ProtocolResult[] resultBox = new ProtocolResult[1];
             Throwable[] failBox = new Throwable[1];
+            LlmTrace.logRequest(this, req);
+            long protoStart = System.currentTimeMillis();
             try {
                 profile.protocol.chatStream(req, new ProtocolStreamListener() {
                     @Override public void onDelta(String textDelta) {
@@ -284,15 +286,18 @@ public class LlmClientImpl implements LlmClient {
                     @Override public void onFailure(Throwable t) { failBox[0] = t; }
                 });
             } catch (LlmException e) {
+                LlmTrace.logResponse(this, resultBox[0], System.currentTimeMillis() - protoStart);
                 listener.onError(e);
                 throw e;
             } catch (RuntimeException e) {
+                LlmTrace.logResponse(this, resultBox[0], System.currentTimeMillis() - protoStart);
                 listener.onFailure(e);
                 throw new LlmException("LLM protocol stream failed: " + e.getMessage(), e,
                         LlmFinishReason.ERROR, 0, profile.name, convId());
             } finally {
                 unregisterInFlight();
             }
+            LlmTrace.logResponse(this, resultBox[0], System.currentTimeMillis() - protoStart);
 
             if (failBox[0] != null) {
                 listener.onFailure(failBox[0]);
@@ -390,16 +395,22 @@ public class LlmClientImpl implements LlmClient {
                 List<LlmMessage> window = buildWindow();
                 ProtocolRequest req = buildRequest(model, window);
                 ProtocolResult result;
+                LlmTrace.logRequest(this, req);
+                long protoStart = System.currentTimeMillis();
                 try {
                     result = profile.protocol.chat(req);
                 } catch (ArtifactAuthorizationException | ArtifactTarpitException e) {
+                    LlmTrace.logResponse(this, null, System.currentTimeMillis() - protoStart);
                     throw e;
                 } catch (LlmException e) {
+                    LlmTrace.logResponse(this, null, System.currentTimeMillis() - protoStart);
                     throw e;
                 } catch (RuntimeException e) {
+                    LlmTrace.logResponse(this, null, System.currentTimeMillis() - protoStart);
                     throw new LlmException("LLM protocol call failed: " + e.getMessage(), e,
                             LlmFinishReason.ERROR, 0, profile.name, convId());
                 }
+                LlmTrace.logResponse(this, result, System.currentTimeMillis() - protoStart);
                 if (result == null) {
                     throw new LlmException("LLM protocol returned no result",
                             null, LlmFinishReason.ERROR, 0, profile.name, convId());

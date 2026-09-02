@@ -247,6 +247,16 @@ class LlmClientTests extends Specification {
         r.toolCalls[0].name == "request"
     }
 
+    def "message reasoning_content is copied onto ProtocolResult"() {
+        when:
+        def r = LlmRetryClassifier.classify(200,
+                '{"choices":[{"finish_reason":"stop","message":{"content":"hi","reasoning_content":"I should greet."}}]}')
+        then:
+        r.finishReason == LlmFinishReason.STOP
+        r.content == "hi"
+        r.reasoning == "I should greet."
+    }
+
     def "finish_reason stop with content is STOP"() {
         when:
         def r = LlmRetryClassifier.classify(200,

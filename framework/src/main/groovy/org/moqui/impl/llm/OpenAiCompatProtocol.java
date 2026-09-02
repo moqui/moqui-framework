@@ -403,6 +403,7 @@ public class OpenAiCompatProtocol implements LlmProtocol {
         private final String requestModel;
         private final boolean logContent;
         private final StringBuilder content = new StringBuilder();
+        private final StringBuilder reasoning = new StringBuilder();
         private final TreeMap<Integer, ToolCallAcc> toolCalls = new TreeMap<>();
         private final Map<String, Integer> toolCallIdToIndex = new LinkedHashMap<>();
         private String finishReason;
@@ -468,6 +469,8 @@ public class OpenAiCompatProtocol implements LlmProtocol {
                     if (listener != null) listener.onDelta(s);
                 }
             }
+            String think = LlmRetryClassifier.reasoningOf(delta);
+            if (think != null && !think.isEmpty()) reasoning.append(think);
 
             Object tcs = delta.get("tool_calls");
             if (tcs instanceof List) {
@@ -540,6 +543,7 @@ public class OpenAiCompatProtocol implements LlmProtocol {
             if (finishReason != null) choice.put("finish_reason", finishReason);
             Map<String, Object> message = new LinkedHashMap<>();
             message.put("content", content.length() == 0 ? null : content.toString());
+            if (reasoning.length() > 0) message.put("reasoning_content", reasoning.toString());
             if (!toolCalls.isEmpty()) message.put("tool_calls", toolCallsAsOpenAi());
             choice.put("message", message);
             choices.add(choice);
