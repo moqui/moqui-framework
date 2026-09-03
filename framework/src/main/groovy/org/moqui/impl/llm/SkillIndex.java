@@ -15,6 +15,7 @@ package org.moqui.impl.llm;
 
 import org.moqui.context.ArtifactExecutionFacade;
 import org.moqui.context.ExecutionContext;
+import org.moqui.entity.EntityCondition;
 import org.moqui.entity.EntityList;
 import org.moqui.entity.EntityValue;
 import org.moqui.impl.context.ExecutionContextFactoryImpl;
@@ -25,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import java.util.function.Supplier;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -149,7 +151,7 @@ public class SkillIndex {
         if (ec != null && ec.getEntity() != null) {
             try {
                 EntityList rows = withAuthzDisabled(ec, () -> ec.getEntity().find("moqui.llm.LlmSkill")
-                        .condition("statusId", "LsksActive")
+                        .condition("statusId", EntityCondition.IN, Arrays.asList("LsksActive", "LsksProposed"))
                         .useCache(false).list());
                 int n = rows == null ? 0 : rows.size();
                 for (int i = 0; i < n; i++) {

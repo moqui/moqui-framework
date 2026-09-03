@@ -149,10 +149,32 @@ public class EnterSimTool implements LlmTool {
                 catch (Throwable t) { logger.warn("enter_sim overlay stop: " + t.getMessage()); }
             }
         }
-        result.put("simActive", Boolean.FALSE);
-        result.put("selected", Boolean.FALSE);
-        result.put("hint", simExitHint(result));
-        return result;
+        return finalizeSimExit(result);
+    }
+
+    /** Gate-critical fields first so truncation keeps the select instruction. */
+    public static Map<String, Object> finalizeSimExit(Map<String, Object> result) {
+        if (result == null) result = new LinkedHashMap<>();
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("sim", Boolean.TRUE);
+        out.put("simActive", Boolean.FALSE);
+        out.put("selected", Boolean.FALSE);
+        Object name = result.get("proposedSkillName");
+        Object id = result.get("proposedSkillId");
+        Object status = result.get("proposedSkillStatus");
+        if (name != null && !name.toString().isBlank()) {
+            out.put("proposedSkillName", name);
+            out.put("select", name.toString());
+        }
+        if (id != null) out.put("proposedSkillId", id);
+        if (status != null) out.put("proposedSkillStatus", status);
+        out.put("hint", simExitHint(result));
+        for (Map.Entry<String, Object> e : result.entrySet()) {
+            if (e.getKey() == null || out.containsKey(e.getKey())) continue;
+            if ("proposedSkillBody".equals(e.getKey()) && result.get("content") != null) continue;
+            out.put(e.getKey(), e.getValue());
+        }
+        return out;
     }
 
     public static String simExitHint(Map<String, Object> result) {

@@ -730,8 +730,10 @@ public class LlmClientImpl implements LlmClient {
     LlmClientImpl nestForSim(int maxIter) {
         LlmClientImpl nested = new LlmClientImpl(ec, profile, transactionInPlace);
         nested.maxIterations(maxIter > 0 ? maxIter : 32);
+        nested.allowedPaths.addAll(allowedPaths);
         nested.tool(LlmTool.browse());
         nested.tool(LlmTool.runService());
+        nested.tool(LlmTool.request());
         return nested;
     }
 
@@ -749,13 +751,28 @@ public class LlmClientImpl implements LlmClient {
         if (json == null || json.length() <= toolResultMaxChars) return result;
         Map<String, Object> truncated = new LinkedHashMap<>();
         truncated.put("truncated", true);
-        truncated.put("preview", json.substring(0, toolResultMaxChars));
         truncated.put("size", json.length());
         if (result instanceof Map) {
-            Object status = ((Map<?, ?>) result).get("status");
-            if (status != null) truncated.put("status", status);
+            Map<?, ?> m = (Map<?, ?>) result;
+            copyTruncationKey(truncated, m, "error");
+            copyTruncationKey(truncated, m, "instruction");
+            copyTruncationKey(truncated, m, "hint");
+            copyTruncationKey(truncated, m, "select");
+            copyTruncationKey(truncated, m, "proposedSkillName");
+            copyTruncationKey(truncated, m, "proposedSkillId");
+            copyTruncationKey(truncated, m, "proposedSkillStatus");
+            copyTruncationKey(truncated, m, "selected");
+            copyTruncationKey(truncated, m, "simActive");
+            copyTruncationKey(truncated, m, "sim");
+            copyTruncationKey(truncated, m, "status");
+            copyTruncationKey(truncated, m, "ok");
         }
+        truncated.put("preview", json.substring(0, toolResultMaxChars));
         return truncated;
+    }
+
+    private static void copyTruncationKey(Map<String, Object> dest, Map<?, ?> src, String key) {
+        if (src.containsKey(key) && src.get(key) != null) dest.put(key, src.get(key));
     }
 
     private void applyAllowLists(LlmTool tool) {

@@ -12,6 +12,7 @@
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
 
+import groovy.json.JsonSlurper
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
 import org.moqui.entity.EntityValue
@@ -155,6 +156,7 @@ Call run_service create#moqui.test.TestEntity with testId and testMedium.
         enterTool[-1].content.contains("proposedSkillId")
         enterTool[-1].content.contains("NOT selected")
         enterTool[-1].content.contains("select=" + skillName)
+        enterTool[-1].content.contains("\"select\"")
 
         cleanup:
         boolean d = ec.artifactExecution.disableAuthz()
@@ -415,6 +417,7 @@ Call run_service create#moqui.test.TestEntity.
         enterTool[-1].content.contains("proposedSkillId")
         enterTool[-1].content.contains("NOT selected")
         enterTool[-1].content.contains(skillName)
+        enterTool[-1].content.contains("\"select\"")
         r.toolResults.any { it.name == "run_service" && it.content instanceof Map && ((Map) it.content).error == "skill_required" }
 
         cleanup:
@@ -444,6 +447,73 @@ Call run_service create#moqui.test.TestEntity.
         EnterSimTool.simExitHint([proposedSkillName: "n1", proposedSkillId: "SID1", proposedSkillStatus: "LsksProposed"])
                 .contains("select=n1")
         EnterSimTool.simExitHint([:]).contains("No skill was persisted")
+        def assembled = EnterSimTool.finalizeSimExit([proposedSkillName: "n1", proposedSkillId: "SID1",
+                proposedSkillStatus: "LsksProposed", content: "body", proposedSkillBody: "body"])
+        assembled.select == "n1"
+        assembled.selected == false
+        assembled.simActive == false
+        !assembled.containsKey("proposedSkillBody")
+        assembled.keySet().toList().indexOf("hint") < assembled.keySet().toList().indexOf("content")
+    }
+
+    def "truncated enter_sim result still has select hint and skillId"() {
+        given:
+        String stamp = Long.toString(System.currentTimeMillis())
+        String skillName = "huge-skill-" + stamp
+        String pad = "x" * 9000
+        def proto = new FakeLlmProtocol()
+        proto.handler = { ProtocolRequest req ->
+            boolean sim = isSim(req)
+            def last = lastTool(req)
+            if (sim) {
+                if (last?.name == "run_service") {
+                    return FakeLlmProtocol.stop("""---
+name: ${skillName}
+description: huge
+risk: reversible
+---
+${pad}
+""")
+                }
+                return FakeLlmProtocol.toolCalls(new LlmToolCall("sim1", "run_service",
+                        '{"serviceName":"create#moqui.test.TestEntity","parameters":{"testId":"H' + stamp + '"}}'))
+            }
+            if (last?.name == "enter_sim") return FakeLlmProtocol.stop("got sim")
+            if (last?.name == "find_skill")
+                return FakeLlmProtocol.toolCalls(new LlmToolCall("e1", "enter_sim", '{"goal":"huge"}'))
+            return FakeLlmProtocol.toolCalls(new LlmToolCall("f1", "find_skill", '{"query":"huge"}'))
+        }
+        LlmClientImpl client = agent(proto).forceSkillUse(true)
+
+        when:
+        LlmResponse r = client.user("huge").call()
+        def enterTool = proto.lastRequest.window.findAll { it.role == LlmMessage.Role.TOOL && it.name == "enter_sim" }
+        def parsed = new JsonSlurper().parseText(enterTool[-1].content)
+
+        then:
+        r.content == "got sim"
+        parsed.truncated == true
+        parsed.hint.toString().contains("NOT selected")
+        parsed.select == skillName
+        parsed.proposedSkillId
+        parsed.proposedSkillName == skillName
+
+        cleanup:
+        boolean d = ec.artifactExecution.disableAuthz()
+        boolean b = ec.transaction.begin(null)
+        try {
+            def sk = ec.entity.find("moqui.llm.LlmSkill").condition("name", skillName).useCache(false).one()
+            if (sk != null) {
+                ec.entity.find("moqui.llm.LlmSkillUse").condition("skillId", sk.skillId).deleteAll()
+                sk.delete()
+            }
+            if (b) ec.transaction.commit()
+        } catch (Throwable t) {
+            if (b) ec.transaction.rollback("huge skill cleanup", t)
+            throw t
+        } finally {
+            if (!d) ec.artifactExecution.enableAuthz()
+        }
     }
 
     def "getByName finds shipped and proposed skills"() {
@@ -458,6 +528,7 @@ Call run_service create#moqui.test.TestEntity.
         def shipped = SkillIndex.getByName(ec, "create-user-account")
         def proposed = SkillIndex.getByName(ec, name)
         def missing = SkillIndex.getByName(ec, "no-such-skill-xyz")
+        def retrieved = SkillIndex.retrieve(ec, name, 5)
 
         then:
         shipped?.name == "create-user-account"
@@ -465,6 +536,7 @@ Call run_service create#moqui.test.TestEntity.
         proposed?.name == name
         proposed?.skillId == persisted.skillId
         missing == null
+        retrieved.any { it.name == name }
 
         cleanup:
         boolean d = ec.artifactExecution.disableAuthz()
