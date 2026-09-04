@@ -17,7 +17,10 @@ and clarifies security details that have been more scattered and less formal.
 - Library updates in `framework/build.gradle` (that file is the full list). Notable:
   - Groovy 5.0.3 to 5.1.1
   - Apache Shiro 2.0.6 to 2.2.1 (still 2.x, not 3). Fixes session
-    fixation (CVE-2026-43827) and missing Secure cookie flag (CVE-2026-43828)
+    fixation (CVE-2026-43827) and missing Secure cookie flag (CVE-2026-43828).
+    Moqui already rotates the HTTP session in `loginUser` (`makeNewSession`);
+    Shiro 2.2's extra `changeSessionId()` on login is skipped so the
+    authenticated Subject stays on the session the client cookie names.
   - jackson-databind 2.20.1 to 2.22.2, including CVE-2026-54514,
     CVE-2026-54515, CVE-2026-77310, CVE-2026-19032, and CVE-2026-83557
   - Jetty 12.1.5 to 12.1.12 (EE11 artifacts in lockstep), including gzip
