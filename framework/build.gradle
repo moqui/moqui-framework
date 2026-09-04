@@ -56,11 +56,11 @@ tasks.withType(GroovyCompile) { options.compilerArgs << "-proc:none" }
 // NOTE: for dependency types and 'api' definition see: https://docs.gradle.org/current/userguide/java_library_plugin.html
 dependencies {
     // Groovy
-    api 'org.apache.groovy:groovy:5.0.3' // Apache 2.0
-    api 'org.apache.groovy:groovy-dateutil:5.0.3' // Apache 2.0
-    api 'org.apache.groovy:groovy-json:5.0.3' // Apache 2.0
-    api 'org.apache.groovy:groovy-templates:5.0.3' // Apache 2.0
-    api 'org.apache.groovy:groovy-xml:5.0.3' // Apache 2.0
+    api 'org.apache.groovy:groovy:5.1.1' // Apache 2.0
+    api 'org.apache.groovy:groovy-dateutil:5.1.1' // Apache 2.0
+    api 'org.apache.groovy:groovy-json:5.1.1' // Apache 2.0
+    api 'org.apache.groovy:groovy-templates:5.1.1' // Apache 2.0
+    api 'org.apache.groovy:groovy-xml:5.1.1' // Apache 2.0
 
     // Bitronix Transaction Manager, a modernized fork
     api 'org.moqui:btm:4.0.1' // Apache 2.0
@@ -71,12 +71,12 @@ dependencies {
         exclude group: 'com.sun.mail', module: 'jakarta.mail'
         exclude group: 'com.sun.activation', module: 'jakarta.activation'
     }
-    api 'org.apache.commons:commons-collections4:4.5.0' // Apache 2.0
-    api 'org.apache.commons:commons-fileupload2-jakarta-servlet6:2.0.0-M4' // Apache 2.0
-    api 'commons-codec:commons-codec:1.20.0' // Apache 2.0
-    api 'commons-io:commons-io:2.21.0' // Apache 2.0
-    api 'commons-logging:commons-logging:1.3.5' // Apache 2.0
-    api 'commons-validator:commons-validator:1.10.1' // Apache 2.0
+    api 'org.apache.commons:commons-collections4:4.6.0' // Apache 2.0
+    api 'org.apache.commons:commons-fileupload2-jakarta-servlet6:2.0.0-M5' // Apache 2.0
+    api 'commons-codec:commons-codec:1.22.1' // Apache 2.0
+    api 'commons-io:commons-io:2.22.0' // Apache 2.0
+    api 'commons-logging:commons-logging:1.4.0' // Apache 2.0
+    api 'commons-validator:commons-validator:1.11.0' // Apache 2.0
 
     // Cron Utils
     api 'com.cronutils:cron-utils:9.2.1' // Apache 2.0
@@ -88,7 +88,7 @@ dependencies {
 
     // Freemarker
     // Remember to change the version number in FtlTemplateRenderer and MNode class when upgrading
-    api 'org.freemarker:freemarker:2.3.34' // Apache 2.0
+    api 'org.freemarker:freemarker:2.3.35' // Apache 2.0
 
     // H2 Database
     api 'com.h2database:h2:2.4.240' // MPL 2.0, EPL 1.0
@@ -97,7 +97,7 @@ dependencies {
     api 'jakarta.transaction:jakarta.transaction-api:2.0.1'
     api 'javax.cache:cache-api:1.1.1'
     api 'javax.jcr:jcr:2.0'
-    api('jakarta.xml.bind:jakarta.xml.bind-api:4.0.4') { transitive = false } // EPL 2.0
+    api('jakarta.xml.bind:jakarta.xml.bind-api:4.0.5') { transitive = false } // EPL 2.0
     api 'jakarta.activation:jakarta.activation-api:2.1.4' // activation api
     api 'org.eclipse.angus:angus-activation:2.0.3' // activation implementation
     api 'jakarta.websocket:jakarta.websocket-api:2.2.0'
@@ -107,51 +107,56 @@ dependencies {
     compileOnlyApi 'jakarta.servlet:jakarta.servlet-api:6.1.0'
     testImplementation 'jakarta.servlet:jakarta.servlet-api:6.1.0'
 
+    // JSR-305 @Nonnull/@Nullable on public APIs; Log4j 2.26 dropped the transitive
+    // spotbugs-annotations/jsr305 that previously provided these at compile time
+    compileOnlyApi 'com.google.code.findbugs:jsr305:3.0.2'
+    testImplementation 'com.google.code.findbugs:jsr305:3.0.2'
+
     // Java TOTP
     api 'dev.samstevens.totp:totp:1.7.1' // MIT
     // dev.samstevens.totp:totp depends on com.google.zxing:javase which depends on com.beust:jcommander, but an older version with a CVE, so specify latest to fix
     api 'com.beust:jcommander:1.82'
 
     // Jackson Databind (JSON, etc)
-    api 'com.fasterxml.jackson.core:jackson-databind:2.20.1'
+    api 'com.fasterxml.jackson.core:jackson-databind:2.22.2'
 
     // Jetty HTTP Client and Proxy Servlet
-    api 'org.eclipse.jetty:jetty-client:12.1.5' // Apache 2.0
-    api 'org.eclipse.jetty.ee11:jetty-ee11-proxy:12.1.5' // Apache 2.0
-    api 'org.eclipse.jetty:jetty-jndi:12.1.5' // Apache 2.0
+    api 'org.eclipse.jetty:jetty-client:12.1.12' // Apache 2.0
+    api 'org.eclipse.jetty.ee11:jetty-ee11-proxy:12.1.12' // Apache 2.0
+    api 'org.eclipse.jetty:jetty-jndi:12.1.12' // Apache 2.0
 
     // jakarta.mail
     api 'jakarta.mail:jakarta.mail-api:2.1.5' // mail api
     api 'org.eclipse.angus:angus-mail:2.0.5' // mail implementation
 
     // JSoup (HTML parser, cleaner)
-    api 'org.jsoup:jsoup:1.21.2' // MIT
+    api 'org.jsoup:jsoup:1.23.2' // MIT
 
     // Apache Shiro
-    api('org.apache.shiro:shiro-core:2.0.6') { transitive = false } // Apache 2.0
-    api('org.apache.shiro:shiro-web:2.0.6:jakarta') { transitive = false } // Apache 2.0
-    api('org.apache.shiro:shiro-lang:2.0.6') { transitive = false } // Apache 2.0
-    api('org.apache.shiro:shiro-cache:2.0.6') { transitive = false } // Apache 2.0
-    api('org.apache.shiro:shiro-event:2.0.6') { transitive = false } // Apache 2.0
-    api('org.apache.shiro:shiro-config-core:2.0.6') { transitive = false } // Apache 2.0
-    api('org.apache.shiro:shiro-config-ogdl:2.0.6') { transitive = false } // Apache 2.0
-    api('org.apache.shiro:shiro-crypto-core:2.0.6') { transitive = false } // Apache 2.0
-    api('org.apache.shiro:shiro-crypto-hash:2.0.6') { transitive = false } // Apache 2.0
-    api('org.apache.shiro:shiro-crypto-cipher:2.0.6') { transitive = false } // Apache 2.0
+    api('org.apache.shiro:shiro-core:2.2.1') { transitive = false } // Apache 2.0
+    api('org.apache.shiro:shiro-web:2.2.1:jakarta') { transitive = false } // Apache 2.0
+    api('org.apache.shiro:shiro-lang:2.2.1') { transitive = false } // Apache 2.0
+    api('org.apache.shiro:shiro-cache:2.2.1') { transitive = false } // Apache 2.0
+    api('org.apache.shiro:shiro-event:2.2.1') { transitive = false } // Apache 2.0
+    api('org.apache.shiro:shiro-config-core:2.2.1') { transitive = false } // Apache 2.0
+    api('org.apache.shiro:shiro-config-ogdl:2.2.1') { transitive = false } // Apache 2.0
+    api('org.apache.shiro:shiro-crypto-core:2.2.1') { transitive = false } // Apache 2.0
+    api('org.apache.shiro:shiro-crypto-hash:2.2.1') { transitive = false } // Apache 2.0
+    api('org.apache.shiro:shiro-crypto-cipher:2.2.1') { transitive = false } // Apache 2.0
     api('org.owasp.encoder:encoder:1.4.0') // BSD - transitive dependency of shiro-web
 
     // SLF4J, Log4j 2 (note Log4j 2 is used by various libraries, best not to replace it even if mostly possible with SLF4J)
-    api 'org.slf4j:slf4j-api:2.0.17'
-    implementation 'org.apache.logging.log4j:log4j-core:2.25.2'
-    implementation 'org.apache.logging.log4j:log4j-api:2.25.2'
-    runtimeOnly 'org.apache.logging.log4j:log4j-jcl:2.25.2'
-    runtimeOnly 'org.apache.logging.log4j:log4j-slf4j2-impl:2.25.2'
+    api 'org.slf4j:slf4j-api:2.0.18'
+    implementation 'org.apache.logging.log4j:log4j-core:2.26.1'
+    implementation 'org.apache.logging.log4j:log4j-api:2.26.1'
+    runtimeOnly 'org.apache.logging.log4j:log4j-jcl:2.26.1'
+    runtimeOnly 'org.apache.logging.log4j:log4j-slf4j2-impl:2.26.1'
 
     // SubEtha SMTP, depends on jakarta.mail-api which is provided
-    api("com.github.davidmoten:subethasmtp:7.2.0") { transitive = false }
+    api("com.github.davidmoten:subethasmtp:7.2.2") { transitive = false }
 
     // Snake YAML
-    api 'org.yaml:snakeyaml:2.5' // Apache 2.0
+    api 'org.yaml:snakeyaml:2.7' // Apache 2.0
 
     // Apache Jackrabbit - uncomment here or include elsewhere when Jackrabbit repository configurations are used
     // api 'org.apache.jackrabbit:jackrabbit-jcr-rmi:2.12.1' // Apache 2.0
@@ -166,11 +171,11 @@ dependencies {
     // ========== test dependencies ==========
 
     // junit-platform-launcher is a dependency from spock-core, included explicitly to get more recent version as needed
-    testImplementation 'org.junit.platform:junit-platform-launcher:6.0.1'
+    testImplementation 'org.junit.platform:junit-platform-launcher:6.1.3'
     // junit-platform-suite required for test suites to specify test class order, etc
-    testImplementation 'org.junit.platform:junit-platform-suite:6.0.1'
+    testImplementation 'org.junit.platform:junit-platform-suite:6.1.3'
     // junit-jupiter-api for using JUnit directly, not generally needed for Spock based tests
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:6.0.1'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:6.1.3'
     // Spock Framework
     testImplementation platform('org.spockframework:spock-bom:2.4-groovy-5.0') // Apache 2.0
     testImplementation 'org.spockframework:spock-core:2.4-groovy-5.0' // Apache 2.0
@@ -181,9 +186,9 @@ dependencies {
 
     // ========== executable war dependencies ==========
     // Jetty
-    execWarRuntimeOnly 'org.eclipse.jetty:jetty-server:12.1.5' // Apache 2.0
-    execWarRuntimeOnly 'org.eclipse.jetty.ee11:jetty-ee11-webapp:12.1.5' // Apache 2.0
-    execWarRuntimeOnly 'org.eclipse.jetty.ee11.websocket:jetty-ee11-websocket-jakarta-server:12.1.5' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty:jetty-server:12.1.12' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty.ee11:jetty-ee11-webapp:12.1.12' // Apache 2.0
+    execWarRuntimeOnly 'org.eclipse.jetty.ee11.websocket:jetty-ee11-websocket-jakarta-server:12.1.12' // Apache 2.0
 }
 
 // setup task dependencies to make sure the start sourceSets always get run
