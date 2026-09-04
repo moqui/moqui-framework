@@ -12,6 +12,23 @@ Board Member for more information to ensure full coverage.
 To help with review of deployments, the SECURITY_SURFACE.md doc consolidates
 and clarifies security details that have been more scattered and less formal.
 
+### New Features
+
+- Library updates in `framework/build.gradle` (that file is the full list). Notable:
+  - Groovy 5.0.3 to 5.1.1
+  - Apache Shiro 2.0.6 to 2.2.1 (still 2.x, not 3). Fixes session
+    fixation (CVE-2026-43827) and missing Secure cookie flag (CVE-2026-43828)
+  - jackson-databind 2.20.1 to 2.22.2, including CVE-2026-54514,
+    CVE-2026-54515, CVE-2026-77310, CVE-2026-19032, and CVE-2026-83557
+  - Jetty 12.1.5 to 12.1.12 (EE11 artifacts in lockstep), including gzip
+    inflater leak (CVE-2026-1605), HTTP/1.1 request smuggling (CVE-2026-2332),
+    and Digest auth encoding (CVE-2026-10050)
+  - jsoup 1.21.2 to 1.23.2, including custom-Safelist XSS (CVE-2026-71497)
+    and XML parser resource exhaustion (CVE-2026-75140)
+  - Log4j 2.25.2 to 2.26.1, Freemarker 2.3.35, SnakeYAML 2.7, Commons
+    Codec/IO/Logging/Validator/Collections4, commons-fileupload2 M5, and
+    JUnit 6.1.3
+
 ### XML Screen transition authorization
 
 - Added `transition.@authz-action` (`view`, `create`, `update`, `delete`, `all`).
