@@ -1,0 +1,7 @@
+{ "name": "moqui-ngrok", "variables": [
+  { "key": "baseUrl", "value": "https://YOUR-TUNNEL-HOST", "secret": false },
+  { "key": "user", "value": "", "secret": false },
+  { "key": "password", "value": "", "secret": true },
+  { "key": "rpcUrl", "value": "", "secret": false },
+  { "key": "taskId", "value": "", "secret": false },
+  { "key": "mid", "value": "", "secret": false } ] }

@@ -20,6 +20,9 @@ along with this software (see the LICENSE.md file). If not, see
 
     <entity entity-name="LlmConversation" package="moqui.llm" use="transactional" cache="never">
         <field name="conversationId" type="id" is-pk="true"/>
+        <field name="contextId" type="id">
+            <description>Optional owning A2A context. A single A2A context may span multiple internal Moqui LLM
+                conversations; a single conversation belongs to at most one A2A context.</description></field>
         <field name="profileName" type="text-medium"/>
         <field name="userId" type="id"/>
         <field name="visitId" type="id"/>
@@ -36,8 +39,10 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="messageCount" type="number-integer"/>
         <relationship type="one-nofk" related="moqui.security.UserAccount"/>
         <relationship type="one-nofk" related="moqui.server.Visit"/>
+        <relationship type="one-nofk" related="moqui.a2a.A2AContext"/>
         <relationship type="one" title="Status" related="moqui.basic.Enumeration">
             <key-map field-name="statusId"/></relationship>
+        <index name="LLMCONV_CONTEXT"><index-field name="contextId"/></index>
         <index name="LLMCONV_USER"><index-field name="userId"/></index>
         <index name="LLMCONV_STATUS"><index-field name="statusId"/></index>
         <seed-data>

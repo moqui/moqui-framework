@@ -1,0 +1,7 @@
+{ "name": "moqui-local", "variables": [
+  { "key": "baseUrl", "value": "http://localhost:8080", "secret": false },
+  { "key": "user", "value": "john.doe", "secret": false },
+  { "key": "password", "value": "moqui", "secret": false },
+  { "key": "rpcUrl", "value": "", "secret": false },
+  { "key": "taskId", "value": "", "secret": false },
+  { "key": "mid", "value": "", "secret": false } ] }

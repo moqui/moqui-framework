@@ -5,7 +5,66 @@
 - **Status:** Draft
 - **Normative protocol:** [A2A 1.0.0](https://a2a-protocol.org/latest/specification/) (`supportedInterfaces[].protocolVersion: "1.0"`)
 
-This is an implementation plan only. Do not treat any class below as already present.
+## Current Implementation Status
+
+### Implemented
+
+```mermaid
+flowchart TD
+    Servlet["A2AServlet"] --> JsonRpc["A2AJsonRpc"]
+    CardServlet["A2ACardServlet"] --> Card["A2ACardBuilderImpl"]
+    JsonRpc --> Gateway["A2AGateway"]
+    Services["A2AServices.xml"] --> Facade["A2AFacade / A2AFacadeImpl"]
+    Components["Moqui components (ec.getA2A())"] --> Facade
+    Facade --> Gateway
+    Gateway --> Types["A2ATypes"]
+    Gateway --> Store["A2ATaskStore"]
+    Gateway --> Executor["A2AExecutor / A2AExecutorImpl"]
+    Executor --> LLM["LlmFacade"]
+    Store --> DB["Entity Engine"]
+```
+
+| Layer | Responsibility |
+| --- | --- |
+| `A2AServlet`, `A2ACardServlet` | HTTP and SSE framing only; no entities, no LLM |
+| `A2AJsonRpc` | JSON-RPC 1.0 envelope, method dispatch, params, error mapping |
+| `A2AFacade` (`org.moqui.llm.a2a`), `A2AFacadeImpl` | public API for services and components, reached as `ec.getA2A()`; one instance per ExecutionContextFactory; no logic |
+| `A2AGateway` | binding-neutral operations: context/task resolution, idempotent replay, in-flight rules, blocking or streaming execution |
+| `A2ATypes` | protocol semantics: Part shapes, message and configuration validation, task states and allowed transitions, JSON helpers |
+| `A2ATaskStore` | owner-scoped persistence and wire mapping, each operation in its own short transaction |
+| `A2AExecutor`, `A2AExecutorImpl` | one LLM turn per task: conversation lifecycle, `write_ui` yield to `INPUT_REQUIRED`, resume, cancel request, artifact chunks |
+| `moqui.a2a` entities | contexts, tasks, status history, messages and parts, artifacts (keyed by `taskId` + `artifactId`), StreamResponse event log, push configurations |
+
+Transports: JSON-RPC 1.0 at `POST /llm/a2a/jsonrpc` (PascalCase methods, `id` params, raw `Task` results, A2A error codes
+at HTTP 200, strict `A2A-Version: 1.0`, auth through the existing `LlmAuthFilter`); SSE on the same endpoint for
+`SendStreamingMessage` and `SubscribeToTask`; public Agent Card at `GET /.well-known/agent-card.json` and
+`GetExtendedAgentCard` for the authenticated one.
+
+### Behavior of the implemented server
+
+- **Off by default.** `a2a_enabled` is false: the Agent Card and the JSON-RPC endpoint both answer 404 until an operator turns A2A on, so an upgrade never publishes an agent surface by itself.
+- **Ownership.** Every operation resolves the task through the authenticated user; a task of another user is reported as `TaskNotFoundError` rather than a forbidden error, so task ids cannot be enumerated. `message.referenceTaskIds` is checked the same way.
+- **Lifecycle.** One set of transitions is enforced in `A2ATypes.requireTransition`: SUBMITTED → WORKING/CANCELED/REJECTED/FAILED, WORKING → COMPLETED/FAILED/CANCELED/INPUT_REQUIRED/AUTH_REQUIRED, INPUT_REQUIRED/AUTH_REQUIRED → WORKING/CANCELED/FAILED. Terminal states are final: further messages get `UnsupportedOperationError`, a second cancel gets `TaskNotCancelableError`, and no further events are written.
+- **Idempotency and ordering.** `(userId, messageId)` is unique, so a repeated message returns the stored response instead of running the model again, including under concurrent calls. Per-task `sequenceNum` allocation happens while the task row is held for update, and `(taskId, sequenceNum)` is unique on statuses, events and messages.
+- **Streaming.** A disconnected SSE client stops the writes but never corrupts the task, which still reaches a terminal state with `inFlight` cleared. A failure after partial output emits exactly one `TASK_STATE_FAILED` status.
+- **Discovery and proxies.** The advertised URL comes from `a2a_public_url`, or from `X-Forwarded-Proto`/`X-Forwarded-Host` only when `a2a_trust_forwarded_headers` is true, otherwise from the request as the container parsed it.
+- **Retention.** `clean#A2AData` deletes only terminal tasks older than the retention window, with their children, and removes a context only when it has no tasks and no LLM conversation left.
+- **Errors.** A2A and validation errors carry their own message; anything else is reported as a generic internal error and logged with its stack trace, so no SQL, class names or file paths reach the client.
+
+### Deferred
+
+- **`A2ATaskBus`.** Not implemented and not stubbed. `SendStreamingMessage` emits live events on the request thread, every event is persisted in `A2ATaskEvent`, and `SubscribeToTask` replays that log by polling. Live subscription across nodes is therefore not supported. The bus arrives together with `returnImmediately`, the asynchronous worker, leases, recovery and cluster distribution.
+- **HTTP+JSON/REST binding and gRPC.** JSON-RPC is the only binding.
+- **Asynchronous workers and `returnImmediately`** (`-32004`).
+- **Webhook delivery.** Push configurations are stored (credentials encrypted, never returned) but the JSON-RPC methods answer `-32003`; delivery needs loopback and private-address blocking, DNS rebinding protection, a redirect policy, an allowlist, timeouts and payload limits first.
+- **Bearer/OIDC.** Authentication stays on the existing `LlmAuthFilter` (session, Basic, `login_key`) with permission `LlmGateway`.
+- **Remote A2A client.** The name `A2AClient` is reserved for calling other agents; nothing implements it yet.
+- **`DbResource` storage for `raw` Parts**, kept inline as base64, and request body limits beyond the servlet container's.
+
+### Superseded
+
+- `A2AClientImpl` as the single implementation class: replaced by the layers above.
+- `/a2a` as the binding path and a dedicated `A2AServer` permission: the binding lives under `/llm/a2a/` and reuses `LlmAuthFilter` and `LlmGateway`.
 
 ## Overview
 
@@ -80,13 +139,13 @@ Verified: `Authorization` handling in `UserFacadeImpl.groovy` (lines 148–176) 
 
 1. **Native implementation, not `a2a-java`.** `LlmServlet` already has EC, Shiro, artifact authz, request-thread SSE. A Quarkus/CDI SDK would fight `MoquiAuthFilter`’s `finally { ec.destroy() }`.
 
-2. **Dedicated `A2AServlet` + `A2aCardServlet`, not Service REST and not `/rpc/json`.** Colon-verb paths, SSE, JSON-RPC method namespace, and well-known do not fit `RestApi.groovy` or `ServiceJsonRpcDispatcher`.
+2. **Dedicated `A2AServlet` + `A2ACardServlet`, not Service REST and not `/rpc/json`.** Colon-verb paths, SSE, JSON-RPC method namespace, and well-known do not fit `RestApi.groovy` or `ServiceJsonRpcDispatcher`.
 
 3. **REST + JSON-RPC share `A2AGateway`.** `supportedInterfaces[0].protocolBinding = "HTTP+JSON"`. JSON-RPC is the common client binding.
 
-4. **Separate `moqui.a2a` store.** A2A Task states are not `Llmcs*`. `A2aContext` has optional `conversationId` FK.
+4. **Separate `moqui.a2a` store.** A2A Task states are not `Llmcs*`. `A2AContext` has optional `conversationId` FK.
 
-5. **Cardinality (A).** One `LlmConversation` per `A2aContext`. **At most one non-terminal `A2aTask` per context.** Refinements after a terminal task reuse the same conversation (new A2A task, `beginTurnStreaming` on Complete is allowed). A new SendMessage with `contextId` and no `taskId` while a task is WORKING/INPUT_REQUIRED is `-32602` / 400 (“context has an in-flight task; send message.taskId to continue or wait until terminal”). Parallel follow-ups are out of v1.
+5. **Cardinality (A).** One `LlmConversation` per `A2AContext`. **At most one non-terminal `A2ATask` per context.** Refinements after a terminal task reuse the same conversation (new A2A task, `beginTurnStreaming` on Complete is allowed). A new SendMessage with `contextId` and no `taskId` while a task is WORKING/INPUT_REQUIRED is `-32602` / 400 (“context has an in-flight task; send message.taskId to continue or wait until terminal”). Parallel follow-ups are out of v1.
 
 6. **Hybrid Message/Task.** Tiny Q&A and capability negotiation return a `Message` (still allocate `contextId`). Tools, `write_ui`, artifacts, or an existing `taskId` → `Task`. Terminal tasks are immutable; refinements are new tasks with the same `contextId` + `referenceTaskIds`.
 
@@ -110,19 +169,19 @@ Verified: `Authorization` handling in `UserFacadeImpl.groovy` (lines 148–176) 
 
 16. **`messageId` idempotency is per owner.** Unique `(userId, messageId)`. Duplicate for this user returns the original result. Never look up globally; never return another user’s payload.
 
-17. **Inbound Part `url`: do not fetch in v1** unless it is already a Moqui `dbresource://` (or an existing, readable `content://`) location this user can read. Files we persist are **`dbresource://A2a/{contextId}/...`**, not `content://` (that is JCR). Otherwise `-32602` and ask for `raw` under `inline-part-max-bytes`.
+17. **Inbound Part `url`: do not fetch in v1** unless it is already a Moqui `dbresource://` (or an existing, readable `content://`) location this user can read. Files we persist are **`dbresource://A2A/{contextId}/...`**, not `content://` (that is JCR). Otherwise `-32602` and ask for `raw` under `inline-part-max-bytes`.
 
 18. **Never emit `TASK_STATE_AUTH_REQUIRED` in v1.** MFA/login exceptions → `FAILED` with a status message. No AUTH_REQUIRED resume protocol.
 
 19. **Strict `A2A-Version`.** Header or query param `A2A-Version` (spec 3.6.1). Missing, empty, or `0.3` → `VersionNotSupportedError` `-32009`. Only `1.0` / `1.0.0` accepted. This **rejects 0.3 clients that omit the header** (intentional for a 1.0-only server).
 
-20. **Single-node for SSE / subscribe / in-process bus / PR5 async.** `A2aTaskBus` is per-JVM. Cluster operators use GetTask polling until a later topic. PR5 must not claim cross-node subscribe.
+20. **Single-node for SSE / subscribe / in-process bus / PR5 async.** `A2ATaskBus` is per-JVM. Cluster operators use GetTask polling until a later topic. PR5 must not claim cross-node subscribe.
 
 21. **Well-known ships with `/a2a`, not before.** Capability flags on the card match implemented happy paths. Stream/push/extended **routes** exist as capability-gated errors as soon as the servlet exists.
 
 22. **Cursor ListTasks** as spec 3.1.4: opaque `pageToken`, sort `statusDate` desc then `taskId` desc, owner-scoped query reapplied on every page. `pageSize` default 50, min 1, max 100. **`historyLength` clamp is shared:** unset → default **20**, cap **50**, `0` omits `history`. Applies to GetTask, ListTasks, **SendMessage / Cancel Task payloads**, and the **first SSE `Task` event** (`SendMessageConfiguration.historyLength`, spec 3.2.2).
 
-23. **A2A source lives under the existing LLM packages.** Public API in `org.moqui.llm.a2a` (`framework/src/main/java/org/moqui/llm/a2a/`). Implementation — gateway, store, executor, JSON-RPC, **and** the HTTP servlet/filter — in `org.moqui.impl.llm.a2a` (`framework/src/main/groovy/org/moqui/impl/llm/a2a/`). `ExecutionContext.getA2a()` returns `org.moqui.llm.a2a.A2aFacade` (unlike `LlmFacade`, which stays in `org.moqui.context`). `BearerTokenAuthenticator` stays in `org.moqui.context` because it is a global `UserFacade` SPI, not A2A-only. Subpackage `org.moqui.impl.llm.a2a` still cannot see package-private members of `org.moqui.impl.llm` (`LlmJson`, `getProfileState`); keep using public `LlmGateway` / `LlmFacade` APIs.
+23. **A2A source lives under the existing LLM packages.** Public API in `org.moqui.llm.a2a` (`framework/src/main/java/org/moqui/llm/a2a/`). Implementation — gateway, store, executor, JSON-RPC, **and** the HTTP servlet/filter — in `org.moqui.impl.llm.a2a` (`framework/src/main/groovy/org/moqui/impl/llm/a2a/`). `ExecutionContext.getA2A()` returns `org.moqui.llm.a2a.A2AFacade` (unlike `LlmFacade`, which stays in `org.moqui.context`). `BearerTokenAuthenticator` stays in `org.moqui.context` because it is a global `UserFacade` SPI, not A2A-only. Subpackage `org.moqui.impl.llm.a2a` still cannot see package-private members of `org.moqui.impl.llm` (`LlmJson`, `getProfileState`); keep using public `LlmGateway` / `LlmFacade` APIs.
 
 ## Proposed Design
 
@@ -131,13 +190,13 @@ Verified: `Authorization` handling in `UserFacadeImpl.groovy` (lines 148–176) 
 ```mermaid
 flowchart TB
   subgraph discovery [Public discovery]
-    WK["GET /.well-known/agent-card.json<br/>A2aCardServlet — no auth"]
+    WK["GET /.well-known/agent-card.json<br/>A2ACardServlet — no auth"]
   end
 
   subgraph bindings [Bindings — /a2a]
     REST["A2AServlet REST"]
     RPC["A2AServlet JSON-RPC POST /a2a"]
-    AUTH["A2aAuthFilter<br/>permission A2AServer<br/>OPTIONS/CORS first<br/>no async-supported"]
+    AUTH["A2AAuthFilter<br/>permission A2AServer<br/>OPTIONS/CORS first<br/>no async-supported"]
     AUTH --> REST
     AUTH --> RPC
   end
@@ -145,13 +204,13 @@ flowchart TB
   GW["A2AGateway"]
   REST --> GW
   RPC --> GW
-  WK --> CARD["A2aCardBuilder"]
+  WK --> CARD["A2ACardBuilder"]
   GW --> CARD
 
-  STORE["A2aTaskStore"]
-  BUS["A2aTaskBus — in-process, single-node"]
-  EX["A2aExecutor"]
-  FACADE["A2aFacade / A2aFacadeImpl"]
+  STORE["A2AGateway"]
+  BUS["A2ATaskBus — in-process, single-node"]
+  EX["A2AExecutor"]
+  FACADE["A2AFacade / A2AFacadeImpl"]
   GW --> STORE
   GW --> BUS
   GW --> EX
@@ -159,7 +218,7 @@ flowchart TB
   FACADE --> GW
 
   EX --> LLM["LlmGateway / LlmClient<br/>profile assist"]
-  LLM --> CONV["one LlmConversation per A2aContext"]
+  LLM --> CONV["one LlmConversation per A2AContext"]
   EX --> STORE
   EX --> BUS
 ```
@@ -168,33 +227,32 @@ Package layout (A2A nests under the existing LLM trees; do **not** add `org.moqu
 
 | Class | Path |
 | --- | --- |
-| `A2aFacade` | `framework/src/main/java/org/moqui/llm/a2a/A2aFacade.java` |
-| `A2aFacadeImpl` | `framework/src/main/groovy/org/moqui/impl/llm/a2a/A2aFacadeImpl.java` |
+| `A2AFacade` | `framework/src/main/java/org/moqui/llm/a2a/A2AFacade.java` |
+| `A2AFacadeImpl` | `framework/src/main/groovy/org/moqui/impl/llm/a2a/A2AFacadeImpl.java` |
 | `A2AServlet` | `framework/src/main/groovy/org/moqui/impl/llm/a2a/A2AServlet.groovy` |
-| `A2aCardServlet` | `framework/src/main/groovy/org/moqui/impl/llm/a2a/A2aCardServlet.groovy` |
-| `A2aAuthFilter` | `framework/src/main/groovy/org/moqui/impl/llm/a2a/A2aAuthFilter.groovy` |
+| `A2ACardServlet` | `framework/src/main/groovy/org/moqui/impl/llm/a2a/A2ACardServlet.groovy` |
+| `A2AAuthFilter` | `framework/src/main/groovy/org/moqui/impl/llm/a2a/A2AAuthFilter.groovy` |
 | `A2AGateway` | `framework/src/main/groovy/org/moqui/impl/llm/a2a/A2AGateway.java` |
-| `A2aJsonRpc` | `framework/src/main/groovy/org/moqui/impl/llm/a2a/A2aJsonRpc.java` |
-| `A2aTaskStore` | `framework/src/main/groovy/org/moqui/impl/llm/a2a/A2aTaskStore.java` (`toWireTask` historyLength clamp) |
-| `A2aExecutor` | `framework/src/main/groovy/org/moqui/impl/llm/a2a/A2aExecutor.java` |
-| `A2aCardBuilder` | `framework/src/main/groovy/org/moqui/impl/llm/a2a/A2aCardBuilder.java` |
-| `A2aTaskBus` | `framework/src/main/groovy/org/moqui/impl/llm/a2a/A2aTaskBus.java` |
-| `A2aTypes` | `framework/src/main/groovy/org/moqui/impl/llm/a2a/A2aTypes.java` |
-| `A2aJson` | `framework/src/main/groovy/org/moqui/impl/llm/a2a/A2aJson.java` — thin wrapper around the same Jackson setup as `LlmJson` (do not widen `LlmJson` package-private; subpackage cannot see it) |
+| `A2AJsonRpc` | `framework/src/main/groovy/org/moqui/impl/llm/a2a/A2AJsonRpc.java` |
+| `A2AGateway` | `framework/src/main/groovy/org/moqui/impl/llm/a2a/A2AGateway.groovy` (task store, protocol binding, DB-backed state mapping, JSON validation) |
+| `A2AExecutor` | `framework/src/main/groovy/org/moqui/impl/llm/a2a/A2AExecutor.java` |
+| `A2ACardBuilder` | `framework/src/main/groovy/org/moqui/impl/llm/a2a/A2ACardBuilder.java` |
+| `A2ATaskBus` | `framework/src/main/groovy/org/moqui/impl/llm/a2a/A2ATaskBus.java` |
+| `A2AJson` | `framework/src/main/groovy/org/moqui/impl/llm/a2a/A2AJson.java` — thin wrapper around the same Jackson setup as `LlmJson` (do not widen `LlmJson` package-private; subpackage cannot see it) |
 | `BearerTokenAuthenticator` | `framework/src/main/java/org/moqui/context/BearerTokenAuthenticator.java` |
 | SSO JWT | `runtime/component/moqui-sso/.../OidcBearerAuthenticator.groovy` + ToolFactory that **is** a tool named `a2a-oidc-bearer` |
-| Entities | `framework/entity/A2aEntities.xml` |
-| Seed | `framework/data/A2aTypeData.xml` |
-| Services | `framework/service/org/moqui/impl/A2aServices.xml` (`clean#A2aData`) |
+| Entities | `framework/entity/A2AEntities.xml` |
+| Seed | embedded in `framework/entity/A2AEntities.xml` as `<seed-data>` |
+| Services | `framework/service/org/moqui/impl/A2AServices.xml` (`clean#A2AData`) |
 
 Do **not** add A2A methods to `LlmServices.xml` or `moqui.rest.xml`.
 
 ### Facade / SPI wiring
 
-`A2aFacade` in `org.moqui.llm.a2a` (same role as `LlmFacade`, different package):
+`A2AFacade` in `org.moqui.llm.a2a` (same role as `LlmFacade`, different package):
 
 ```java
-public interface A2aFacade {
+public interface A2AFacade {
     boolean isEnabled();
     String getDefaultProfileName();
     int getWorkerLimit();
@@ -206,17 +264,17 @@ public interface A2aFacade {
 }
 ```
 
-`ExecutionContext.getA2a()` and `ExecutionContextFactory.getA2a()` like `getLlm()`.
+`ExecutionContext.getA2A()` and `ExecutionContextFactory.getA2A()` like `getLlm()`.
 
 `ExecutionContextFactoryImpl`:
 
-- Field `public final A2aFacadeImpl a2aFacade` constructed next to `llmFacade` (~246 / ~308).
+- Field `public final A2AFacadeImpl a2aFacade` constructed next to `llmFacade` (~246 / ~308).
 - Field `BearerTokenAuthenticator bearerTokenAuthenticator` (nullable). After tool factories init: if `getToolFactory("a2a-oidc-bearer") != null`, set the field from that tool instance. `UserFacadeImpl` reads `ecfi.bearerTokenAuthenticator`.
 - Conf merge next to llm-facade (~1712): `mergeChildWithChildKey(..., "a2a-facade", ...)` for `provider` and later `extension` children.
 - XSD: `<xs:element minOccurs="0" ref="a2a-facade"/>` in `moqui-conf` sequence **immediately after** `llm-facade` (`framework/xsd/moqui-conf-3.xsd` ~34).
 - Destroy `a2aFacade` in `destroy()` next to `llmFacade`.
 
-`A2aFacadeImpl.init`: if `default-profile` is set and **`!ecfi.getLlm().getProfileNames().contains(name)`** (public `LlmFacade.getProfileNames()`; do **not** call package-private `LlmFacadeImpl.getProfileState` from `org.moqui.impl.llm.a2a`), log error “A2A default-profile X missing (need tools component assist profile or a runtime snippet)”. SendMessage then returns JSON-RPC `-32603` / REST 500 with that message — **not** a silent fallback to `default`.
+`A2AFacadeImpl.init`: if `default-profile` is set and **`!ecfi.getLlm().getProfileNames().contains(name)`** (public `LlmFacade.getProfileNames()`; do **not** call package-private `LlmFacadeImpl.getProfileState` from `org.moqui.impl.llm.a2a`), log error “A2A default-profile X missing (need tools component assist profile or a runtime snippet)”. SendMessage then returns JSON-RPC `-32603` / REST 500 with that message — **not** a silent fallback to `default`.
 
 Worker sketch (PR5 only; ECFI constructor, **never** the ECI constructor which copies `authzDisabled`):
 
@@ -227,7 +285,7 @@ ecfi.workerPool.execute(new ExecutionContextImpl.ThreadPoolRunnable(ecfi, {
     ExecutionContextImpl threadEci = ecfi.getEci()
     threadEci.userFacade.internalLoginUser(username, false)
     // authz remains ON (do not disableAuthz)
-    org.moqui.impl.llm.a2a.A2aExecutor.runExisting(threadEci, taskId)
+    org.moqui.impl.llm.a2a.A2AExecutor.runExisting(threadEci, taskId)
     // ThreadPoolRunnable.finally calls destroyActiveExecutionContext()
 }))
 ```
@@ -240,13 +298,13 @@ Do not pass the request ECI. Do not use `ServiceCallAsync`.
 
 ```
 <!-- Public card. No auth filter. No async-supported. Same PR as /a2a (PR2). -->
-<servlet name="A2aCardServlet" class="org.moqui.impl.llm.a2a.A2aCardServlet" load-on-startup="1">
+<servlet name="A2ACardServlet" class="org.moqui.impl.llm.a2a.A2ACardServlet" load-on-startup="1">
     <url-pattern>/.well-known/agent-card.json</url-pattern>
 </servlet>
 
 <!-- New filter modeled on MoquiAuthFilter as used by /llm/* (conf name LlmAuthFilter,
      class org.moqui.impl.webapp.MoquiAuthFilter). Class lives in org.moqui.impl.llm.a2a, not webapp. -->
-<filter name="A2aAuthFilter" class="org.moqui.impl.llm.a2a.A2aAuthFilter">
+<filter name="A2AAuthFilter" class="org.moqui.impl.llm.a2a.A2AAuthFilter">
     <init-param name="permission" value="A2AServer"/>
     <url-pattern>/a2a/*</url-pattern>
     <url-pattern>/a2a</url-pattern>
@@ -259,11 +317,11 @@ Do not pass the request ECI. Do not use `ServiceCallAsync`.
 
 `/a2a/*` does **not** match `POST /a2a`. Register both.
 
-`A2aCardServlet`: `ecfi.getEci()`, serve card, `ec.destroy()` in `finally`. Call `MoquiServlet.handleCors` first.
+`A2ACardServlet`: `ecfi.getEci()`, serve card, `ec.destroy()` in `finally`. Call `MoquiServlet.handleCors` first.
 
 `A2AServlet`: reuse `ecfi.activeContext.get()` from the filter; **must not** destroy it.
 
-`A2aAuthFilter` differences from `MoquiAuthFilter`:
+`A2AAuthFilter` differences from `MoquiAuthFilter`:
 
 1. **OPTIONS first:** `MoquiServlet.handleCors`; if preflight, 204 and return **before** auth. Preflight has no `Authorization`.
 2. Then create ECI, `initFromHttpRequest`, permission check (same as `MoquiAuthFilter`).
@@ -343,20 +401,22 @@ Reject with REST 400 / JSON-RPC `-32602` (unless noted):
 
 **Skill invocation:** `AgentSkill` is descriptive. There is **no** RPC to “run skill X”. v1 is natural language + `find_skill` / existing `forceSkillUse` conversation attribute. Honor `message.metadata.forceSkillUse` and `message.metadata.activeSkillName` the same way `LlmGateway.applyForceSkillUse` reads the chat body. Do not invent `message.metadata.skillId` as a dispatcher.
 
-### Protocol types (`A2aTypes`)
+### Protocol bindings (`A2AGateway`)
 
-Hand-written constants + Map builders. No protobuf dependency.
+Protocol state and message validation live in `A2AGateway.groovy`. Wire states are mapped through
+`moqui.basic.Enumeration` records of type `A2ATaskStatus`, using `enumCode` for the A2A wire value and
+`enumId` as the persisted Moqui status id. No protobuf dependency and no separate type registry class.
 
 | Wire | Entity `statusId` | Kind | v1 emit? |
 | --- | --- | --- | --- |
-| `TASK_STATE_SUBMITTED` | `A2atsSubmitted` | in-progress | yes |
-| `TASK_STATE_WORKING` | `A2atsWorking` | in-progress | yes |
-| `TASK_STATE_COMPLETED` | `A2atsCompleted` | terminal | yes |
-| `TASK_STATE_FAILED` | `A2atsFailed` | terminal | yes |
-| `TASK_STATE_CANCELED` | `A2atsCanceled` | terminal | yes |
-| `TASK_STATE_REJECTED` | `A2atsRejected` | terminal | yes |
-| `TASK_STATE_INPUT_REQUIRED` | `A2atsInputRequired` | interrupted | yes |
-| `TASK_STATE_AUTH_REQUIRED` | `A2atsAuthRequired` | interrupted | **never in v1** (seed enum only) |
+| `TASK_STATE_SUBMITTED` | `A2AtsSubmitted` | in-progress | yes |
+| `TASK_STATE_WORKING` | `A2AtsWorking` | in-progress | yes |
+| `TASK_STATE_COMPLETED` | `A2AtsCompleted` | terminal | yes |
+| `TASK_STATE_FAILED` | `A2AtsFailed` | terminal | yes |
+| `TASK_STATE_CANCELED` | `A2AtsCanceled` | terminal | yes |
+| `TASK_STATE_REJECTED` | `A2AtsRejected` | terminal | yes |
+| `TASK_STATE_INPUT_REQUIRED` | `A2AtsInputRequired` | interrupted | yes |
+| `TASK_STATE_AUTH_REQUIRED` | `A2AtsAuthRequired` | interrupted | **never in v1** (seed enum only) |
 
 Terminal ⇒ immutable. `message.taskId` pointing at a terminal task → `UnsupportedOperationError` `-32004`. Refinement: new task, same `contextId`, `referenceTaskIds`.
 
@@ -485,7 +545,7 @@ Response 200 (Task after work):
 }
 ```
 
-`history` uses the shared clamp (`A2aTaskStore.toWireTask(task, historyLength)`): `configuration.historyLength` unset → **20** (not unbounded), `0` omits `history`, values `> 50` clamped. Same helper for GetTask, ListTasks (per task), Cancel, and the first SSE `Task` event. SendMessage includes `artifacts` when the task produced them; ListTasks omits `artifacts` entirely when `includeArtifacts` is false.
+`history` uses the shared clamp (`A2AGateway.toWireTask(task, historyLength)`): `configuration.historyLength` unset → **20** (not unbounded), `0` omits `history`, values `> 50` clamped. Same helper for GetTask, ListTasks (per task), Cancel, and the first SSE `Task` event. SendMessage includes `artifacts` when the task produced them; ListTasks omits `artifacts` entirely when `includeArtifacts` is false.
 
 **SendMessage JSON-RPC** `POST /a2a`
 
@@ -548,19 +608,19 @@ flowchart TD
 
 Heuristic for **Message** (all must hold): no `taskId`; not streaming that already created a Task; fast-path capability question **or** one LLM round STOP with no tools, no yield, no artifacts, content ≤ 2 KiB. Prefer Task if unsure.
 
-Idempotency: lookup `A2aTaskMessage` by `(userId, message.messageId)`. Hit → return the stored `resultJson` (original SendMessageResponse). No global `messageId` lookup.
+Idempotency: lookup `A2AMessage` by `(userId, message.messageId)`. Hit → return the stored `resultJson` (original SendMessageResponse). No global `messageId` lookup.
 
 ### Send-message sequence (blocking REST)
 
 ```mermaid
 sequenceDiagram
   participant C as A2A Client
-  participant F as A2aAuthFilter
+  participant F as A2AAuthFilter
   participant S as A2AServlet
   participant G as A2AGateway
-  participant X as A2aExecutor
+  participant X as A2AExecutor
   participant L as LlmClient / AgentLoop
-  participant DB as A2aTaskStore
+  participant DB as A2AGateway
 
   C->>F: OPTIONS /a2a/message:send
   F-->>C: 204 CORS (no auth)
@@ -588,12 +648,12 @@ sequenceDiagram
 
 ### Executor mapping (A2A ↔ LLM)
 
-`A2aExecutor` is the only place that talks to `LlmGateway` / `LlmClient`.
+`A2AExecutor` is the only place that talks to `LlmGateway` / `LlmClient`.
 
-**Profile / `prepareClient` body (required).** `LlmGateway.prepareClient` (`LlmGateway.java` 225–226) does `profileName = body.profile` else **`"default"`** — the chat-only profile (`allow-write-ui` false). `A2aExecutor` is in `org.moqui.impl.llm.a2a` and must not call package-private `getProfileState` / `applyForceSkillUse`. **Every** `prepareClient` / `chat` call MUST put the A2A profile on the body. Do **not** call `ec.getLlm().getClient()` / `getDefault()` without a name.
+**Profile / `prepareClient` body (required).** `LlmGateway.prepareClient` (`LlmGateway.java` 225–226) does `profileName = body.profile` else **`"default"`** — the chat-only profile (`allow-write-ui` false). `A2AExecutor` is in `org.moqui.impl.llm.a2a` and must not call package-private `getProfileState` / `applyForceSkillUse`. **Every** `prepareClient` / `chat` call MUST put the A2A profile on the body. Do **not** call `ec.getLlm().getClient()` / `getDefault()` without a name.
 
 ```java
-String profile = ec.getA2a().getDefaultProfileName(); // "assist"
+String profile = ec.getA2A().getDefaultProfileName(); // "assist"
 Object override = messageMetadata.get("https://moqui.org/ext/a2a/profile");
 if (override instanceof String && !((String) override).isBlank()) {
     String cand = ((String) override).trim();
@@ -614,13 +674,13 @@ LlmClientImpl client = LlmGateway.prepareClient(ec, body, resume);
 
 `prepareClient` already calls `attachServletTools` from `body.tools`. The `assist` profile in `runtime/base-component/tools/MoquiConf.xml` actually allows write_ui / browse / run_service / unprefixed request. If the named profile has `allowWriteUi=false`, log warn and still run (chat-only). Operators who put `"default"` in `body.profile` get chat-only on purpose.
 
-**Cardinality:** resolve/create `A2aContext`. If `conversationId` is null, `LlmFacade.createConversation(profile, attrs)` and store the id. Reuse that conversation for every task in the context. Before creating a **new** task, if any row for this `contextId` is non-terminal → `-32602`. After terminal, next SendMessage without `taskId` creates a new `A2aTask` and calls `prepareClient` with the **same required `profile` key** plus existing `conversationId` (Complete conversations accept a new turn).
+**Cardinality:** resolve/create `A2AContext`. If `conversationId` is null, `LlmFacade.createConversation(profile, attrs)` and store the id. Reuse that conversation for every task in the context. Before creating a **new** task, if any row for this `contextId` is non-terminal → `-32602`. After terminal, next SendMessage without `taskId` creates a new `A2ATask` and calls `prepareClient` with the **same required `profile` key** plus existing `conversationId` (Complete conversations accept a new turn).
 
 **Inbound Parts:**
 
 - Concatenate `text` Parts (newline).
 - `data` Parts: JSON-stringify into user text with a marker; stash on the task for resume.
-- `raw`: accept ≤ `inline-part-max-bytes`; persist as `DbResource` at **`dbresource://A2a/{contextId}/{messageId}/{filename}`** (`DbResourceReference.locationPrefix`). Cite **that** location in Llm user text — not `content://` (that is `ContentResourceReference` / JCR) and not unbounded base64 in `LlmMessage`.
+- `raw`: accept ≤ `inline-part-max-bytes`; persist as `DbResource` at **`dbresource://A2A/{contextId}/{messageId}/{filename}`** (`DbResourceReference.locationPrefix`). Cite **that** location in Llm user text — not `content://` (that is `ContentResourceReference` / JCR) and not unbounded base64 in `LlmMessage`.
 - `url`: if scheme is `dbresource://` **or** `content://`, resolve with `ResourceFacade.getLocationReference`, require `exists` **and** this user can read it, then use as stored raw. **`content://` is accepted only when that JCR location actually exists and is readable** — we never write A2A files there. Any other URL (http(s), file, 169.254, …): **do not fetch** (`-32602`).
 
 **Outbound:**
@@ -630,7 +690,7 @@ LlmClientImpl client = LlmGateway.prepareClient(ec, body, resume);
   1. `data` Part: enriched write_ui map (`WriteUiTool.SCHEMA_VERSION` 3), `mediaType: application/json`. **Always** set `metadata.toolCallId` to the pending CLIENT call id (needed for unaware-client resume; not only when `form/v1` is on).
   2. `text` Part: required field labels.
   3. If `https://moqui.org/ext/a2a/form/v1` activated, also `metadata["https://moqui.org/ext/a2a/form/v1"] = {schemaVersion: 3, toolCallId}`.
-- Persist `pendingToolCallId` / `pendingToolName` on `A2aTask` (or in `metadataJson`) from `conversation.getPendingClientToolCalls()`.
+- Persist `pendingToolCallId` / `pendingToolName` on `A2ATask` (or in `metadataJson`) from `conversation.getPendingClientToolCalls()`.
 
 **Resume (`message.taskId` on INPUT_REQUIRED):**
 
@@ -662,14 +722,14 @@ AT_LLM push still happens inside `LlmClientImpl`. Tarpit 30/60s per profile rema
 Copy `LlmServlet.pumpSse` / `SseSink` / daemon ping (`sse-ping-seconds` default 15). Prefer a small shared helper over coupling A2A to `LlmServlet` internals; duplicating `SseSink` in the a2a package is fine.
 
 - First event: `Task` or `Message`. Then `statusUpdate` / `artifactUpdate`. Close on terminal **or** `INPUT_REQUIRED` (11.7).
-- Subscribe: terminal → `-32004`. First event current Task, then `A2aTaskBus`.
+- Subscribe: terminal → `-32004`. First event current Task, then `A2ATaskBus`.
 - **Single-node:** bus is `ConcurrentHashMap`. Subscribe on another JVM sees no live events; client should GetTask. Document in SECURITY_SURFACE / ReleaseNotes.
 
 ### `returnImmediately` (PR5)
 
 Until PR5: `true` → `-32004`.
 
-When implemented: persist WORKING, return Task, worker sketch above, semaphore `worker-limit` (default 8). Worker publishes to `A2aTaskBus`. **Cluster: work and subscribe must be on the same node, or operators poll GetTask.** Do not ship PR5 as multi-node-safe without `NotificationMessage`/topic (out of v1).
+When implemented: persist WORKING, return Task, worker sketch above, semaphore `worker-limit` (default 8). Worker publishes to `A2ATaskBus`. **Cluster: work and subscribe must be on the same node, or operators poll GetTask.** Do not ship PR5 as multi-node-safe without `NotificationMessage`/topic (out of v1).
 
 ### Push notifications (PR5; entities from PR1)
 
@@ -743,46 +803,51 @@ Add `a2a` to the disallow list in the **same PR that maps `/a2a` (PR2)**. Do not
 
 ## Data Model Changes
 
-`framework/entity/A2aEntities.xml`, load next to Llm. Seed `A2aTypeData.xml`.
+`framework/entity/A2AEntities.xml`, load next to Llm. Task status seed data lives in the owning entity definition.
 
-### `moqui.a2a.A2aContext`
+### `moqui.a2a.A2AContext`
 
-`contextId` PK, `conversationId` (optional FK, **one conversation per context**), `userId`, `visitId`, `createdDate`, `lastTaskDate`, `metadataJson`. Indexes: `userId`, `conversationId`.
+`contextId` PK, `userId`, `visitId`, `createdDate`, `lastTaskDate`, `metadataJson`. An A2A context is not one-to-one with `moqui.llm.LlmConversation`: a context may span multiple internal Moqui LLM conversations. `LlmConversation.contextId` links conversations back to the A2A context. Indexes: `userId`.
 
-### `moqui.a2a.A2aTask`
+### `moqui.a2a.A2ATask`
 
-`taskId` PK (wire `Task.id`), `contextId`, `conversationId`, `userId`, `visitId`, `profileName`, `statusId`, `statusMessageJson`, `statusDate`, `metadataJson`, `referenceTaskIdsJson`, `cancelRequested`, `inFlight`, `pendingToolCallId`, `pendingToolName`, `resultJson` (last SendMessageResponse snapshot for idempotency replay), `workerUsername`. Indexes: `(userId, statusDate desc, taskId desc)`, `contextId`, `statusId`.
+`taskId` PK (wire `Task.id`), `contextId`, optional internal `conversationId`, `userId`, `visitId`, `profileName`, `createdDate`, `currentTaskStatusId`, `metadataJson`, `referenceTaskIdsJson`, `cancelRequested`, `inFlight`, ordinal counters, `pendingToolCallId`, `pendingToolName`, `resultJson` (last SendMessageResponse snapshot for idempotency replay), `workerUsername`. The current status is a pointer to `A2ATaskStatus`, keeping the protocol `Task` and `TaskStatus` concepts separate. Indexes: `(userId, createdDate, taskId)`, `contextId`, `conversationId`.
 
-Application rule: at most one non-terminal task per `contextId` (enforce in `A2aTaskStore.createTask`, not a DB constraint that races).
+Application rule: at most one non-terminal task per `contextId` (enforce in `A2AGateway.createTask`, not a DB constraint that races).
 
-### `moqui.a2a.A2aTaskMessage`
+### `moqui.a2a.A2ATaskStatus`
+
+`taskStatusId` PK, `taskId`, `contextId`, `statusId`, optional `a2aMessageId`, `statusDate`, `metadataJson`, `ordinal`. This entity represents the A2A protocol `TaskStatus` object. Status changes are additionally recorded as `A2ATaskStatusEvent` rows for replay and future transport binding.
+
+### `moqui.a2a.A2AMessage`
 
 | Field | Type | Notes |
 | --- | --- | --- |
-| `a2aMessageSeqId` | id PK | sequenced; **not** the client messageId |
+| `a2aMessageId` | id PK | sequenced; **not** the client messageId |
 | `messageId` | text-medium | client or server id |
 | `userId` | id | owner; part of unique key |
-| `taskId` | id | nullable for Message-only hybrid |
-| `contextId` | id | |
+| `taskId` | id | nullable; direct protocol `Message.task_id` |
+| `contextId` | id | nullable; direct protocol `Message.context_id` |
 | `role` | text-medium | |
 | `partsJson` | text-very-long | |
 | `referenceTaskIdsJson` | text-long | |
 | `metadataJson` | text-long | |
+| `extensionsJson` | text-long | |
 | `resultJson` | text-very-long | original SendMessageResponse for idempotent replay |
 | `sentDate` | date-time | |
 | `ordinal` | number-integer | |
 
 Unique `(userId, messageId)`. Unique `(taskId, ordinal)` where taskId not null. Idempotent SendMessage: find `(userId, messageId)`; on hit return `resultJson`. **Never** find by `messageId` alone.
 
-### `moqui.a2a.A2aArtifact`
+### `moqui.a2a.A2AArtifact`
 
 `artifactId` PK, `taskId`, `name`, `description`, `partsJson`, `contentLocation`, `metadataJson`.
 
-### `moqui.a2a.A2aPushConfig`
+### `moqui.a2a.A2APushConfig`
 
 `configId` PK, `taskId`, `url`, `token`, `authenticationJson` (`encrypt="true"`), `failCount`, `lastError`, `createdDate`.
 
-### Seed (`A2aTypeData.xml`)
+### Security Seed
 
 Copy the `LlmTypeData.xml` `ArtifactAuthz` element shape. **AuthzType is only `AUTHZT_ALLOW` / `AUTHZT_DENY` / `AUTHZT_ALWAYS`** (`SecurityEntities.xml` 110–112; `ArtifactExecutionInfo.AuthzType`). There is **no** `AUTHZT_VIEW` — VIEW is `AUTHZA_VIEW` (action).
 
@@ -790,26 +855,26 @@ Copy the `LlmTypeData.xml` `ArtifactAuthz` element shape. **AuthzType is only `A
 <moqui.security.UserPermission userPermissionId="A2AServer" description="A2A Server Servlet Access"/>
 <moqui.security.UserGroupPermission userGroupId="ADMIN" userPermissionId="A2AServer" fromDate="0"/>
 
-<moqui.security.ArtifactGroup artifactGroupId="A2aServer" description="A2A REST paths"/>
-<moqui.security.ArtifactGroupMember artifactGroupId="A2aServer" artifactName="a2a/.*"
+<moqui.security.ArtifactGroup artifactGroupId="A2AServer" description="A2A REST paths"/>
+<moqui.security.ArtifactGroupMember artifactGroupId="A2AServer" artifactName="a2a/.*"
         nameIsPattern="Y" artifactTypeEnumId="AT_REST_PATH" inheritAuthz="N"/>
-<moqui.security.ArtifactAuthz artifactAuthzId="A2aServerALL_USERS"
-        userGroupId="ALL_USERS" artifactGroupId="A2aServer"
+<moqui.security.ArtifactAuthz artifactAuthzId="A2AServerALL_USERS"
+        userGroupId="ALL_USERS" artifactGroupId="A2AServer"
         authzTypeEnumId="AUTHZT_ALLOW" authzActionEnumId="AUTHZA_VIEW"/>
 ```
 
-- Enums `A2aTaskStatus` including unused `A2atsAuthRequired`.
+- Enums `A2ATaskStatus` including unused `A2AtsAuthRequired`.
 - `A2AServer` **not** added to `user_sealed_permissions` (assignable like `LlmGateway`).
 - Gateway `artifactExecution.push(..., AT_REST_PATH, AUTHZA_VIEW, ...)` even on POST so this VIEW allow is enough; CREATE/UPDATE is not required.
-- **No** ArtifactTarpit on `A2aServer` (avoid double 30/60 with AT_LLM).
+- **No** ArtifactTarpit on `A2AServer` (avoid double 30/60 with AT_LLM).
 - **No** new `artifact-stats` for AT_REST_PATH; AT_LLM bins already persist.
-- Entity authz ADMIN + `disableAuthz` inside `A2aTaskStore`. Owner checks are application logic.
+- Entity authz ADMIN + `disableAuthz` inside `A2AGateway`. Owner checks are application logic.
 
 A literal `AUTHZT_VIEW` row would match no AuthzType, so the path push would 403 everyone (including ADMIN) after the filter already passed `A2AServer`.
 
 ### Large files / cleanup
 
-Inline cap 64 KiB. Store under **`dbresource://A2a/{contextId}/...`**. `clean#A2aData` like `clean#LlmData`: `authenticate=false`, `daysToKeep` default 90, children first (push, artifacts + DbResource files, messages, tasks, leftover contexts). **Operator-run only** in v1 (no seeded ServiceJob); document next to `clean#LlmData`.
+Inline cap 64 KiB. Store under **`dbresource://A2A/{contextId}/...`**. `clean#A2AData` like `clean#LlmData`: `authenticate=false`, `daysToKeep` default 90, children first (push, artifacts + DbResource files, messages, tasks, leftover contexts). **Operator-run only** in v1 (no seeded ServiceJob); document next to `clean#LlmData`.
 
 ## Authc / Authz (detail)
 
@@ -945,7 +1010,7 @@ All `required: false`. Activate via `A2A-Extensions`; echo activated URIs.
 - MDC as above; keep `moqui_llm_conversationId` in the executor.
 - Bins: existing **AT_LLM** `persist-bin=true`. No AT_REST_PATH bins in v1.
 - Tarpit: AT_LLM 30/60/300 only.
-- `clean#A2aData`: operator-run (no seed job).
+- `clean#A2AData`: operator-run (no seed job).
 - Cluster: subscribe/async not cross-node.
 
 Latency: well-known < 20 ms; Get/List < 50 ms; SendMessage bound by LLM 120s × iterations. `worker-limit=8` for PR5.
@@ -959,11 +1024,11 @@ Latency: well-known < 20 ms; Get/List < 50 ms; SendMessage bound by LLM 120s × 
 
 ## Tests
 
-Include in `framework/build.gradle` `test { include '**/A2a*.class' }` in the PR that adds the class (not deferred to PR6). Spock tests stay default-package next to `LlmClientTests.groovy` (or under `org.moqui.impl.llm.a2a` if a package is needed); they import `org.moqui.impl.llm.a2a.*` and `org.moqui.llm.a2a.*`.
+Include in `framework/build.gradle` `test { include '**/A2A*.class' }` in the PR that adds the class (not deferred to PR6). Spock tests stay default-package next to `LlmClientTests.groovy` (or under `org.moqui.impl.llm.a2a` if a package is needed); they import `org.moqui.impl.llm.a2a.*` and `org.moqui.llm.a2a.*`.
 
 **PR1:** silent UserLoginKey; dummy `Authorization: Bearer` does **not** set `moqui.request.authenticated` (`UserFacadeTests` / `LlmServletTests` CSRF). Entity unique `(userId, messageId)`. No public card yet.
 
-**PR2:** `A2aRouteTests`, `A2aCardTests` (oneof keys, generic skill, no root `protocolVersion`, ETag, honest flags), `A2aAuthzTests` (404 not 403; SendMessage other-user taskId `-32001`; context mismatch), `A2aStateMachineTests`, `A2aErrorCodeTests` REST envelopes, `A2aExecutorTests` (FakeLlmProtocol write_ui → INPUT_REQUIRED → resume DataPart → COMPLETED), `returnImmediately=true` → `-32004`, `taskPushNotificationConfig` → `-32003`, stream/extended routes → `-32004`, push CRUD → `-32003`, missing `A2A-Version` → `-32009`, query param alias. OPTIONS 204 without auth.
+**PR2:** `A2ARouteTests`, `A2ACardTests` (oneof keys, generic skill, no root `protocolVersion`, ETag, honest flags), `A2AAuthzTests` (404 not 403; SendMessage other-user taskId `-32001`; context mismatch), `A2AStateMachineTests`, `A2AErrorCodeTests` REST envelopes, `A2AExecutorTests` (FakeLlmProtocol write_ui → INPUT_REQUIRED → resume DataPart → COMPLETED), `returnImmediately=true` → `-32004`, `taskPushNotificationConfig` → `-32003`, stream/extended routes → `-32004`, push CRUD → `-32003`, missing `A2A-Version` → `-32009`, query param alias. OPTIONS 204 without auth.
 
 **PR3:** JSON-RPC HTTP 200 + `-32001` data ErrorInfo; batch `-32600`; stream frames; subscribe terminal `-32004`; ping comments.
 
@@ -1026,7 +1091,7 @@ Defaults below are **Key Decisions**; listed so operators can override in conf, 
 2. Distinct `A2AServer`: **yes**.
 3. JWT auto-provision: **false**.
 4. Push first ship: **no** (PR5).
-5. Separate `A2aContext` + cardinality (A): **yes**.
+5. Separate `A2AContext` + cardinality (A): **yes**.
 6. Missing `A2A-Version`: **strict `-32009`** (not lenient 1.0).
 7. ADMIN List/Get others: **yes**; non-ADMIN Get is 404.
 8. OIDC `aud`: **must include `OidcFlow.clientId`**.
@@ -1046,7 +1111,7 @@ Independently reviewable. Tests travel with the code. SSO JWT is **PR1b** by def
 ### PR 1 — Bearer authc + entities (no public card)
 
 - **PR title:** A2A: Bearer authc, `moqui.a2a` entities, facade stub
-- **Files:** `UserFacadeImpl.groovy` (silent login-key + Bearer); `BearerTokenAuthenticator.java`; `ExecutionContextFactoryImpl` field + `getBearerTokenAuthenticator`; `A2aEntities.xml`, `A2aTypeData.xml`, load-entity/load-data; `A2aServices.xml` `clean#A2aData`; `org.moqui.llm.a2a.A2aFacade` / `org.moqui.impl.llm.a2a.A2aFacadeImpl` stub (`isEnabled`, conf read, missing-profile via `LlmFacade.getProfileNames()`); `A2aTypes.java`; XSD `a2a-facade` after `llm-facade`; conf merge; CORS headers (harmless early); seed `A2AServer` + ALL_USERS `AUTHZT_ALLOW`/`AUTHZA_VIEW` path group (LlmTypeData shape); `UserFacadeTests` / `LlmServletTests` dummy Bearer CSRF; entity unique `(userId, messageId)` test. `framework/build.gradle` include those tests.
+- **Files:** `UserFacadeImpl.groovy` (silent login-key + Bearer); `BearerTokenAuthenticator.java`; `ExecutionContextFactoryImpl` field + `getBearerTokenAuthenticator`; `A2AEntities.xml` with embedded task status seed data; `A2AServices.xml` `clean#A2AData`; `org.moqui.llm.a2a.A2AFacade` / `org.moqui.impl.llm.a2a.A2AFacadeImpl` stub (`isEnabled`, conf read, missing-profile via `LlmFacade.getProfileNames()`); protocol binding helpers in `A2AGateway.groovy`; XSD `a2a-facade` after `llm-facade`; conf merge; CORS headers (harmless early); seed `A2AServer` + ALL_USERS `AUTHZT_ALLOW`/`AUTHZA_VIEW` path group (LlmTypeData shape); `UserFacadeTests` / `LlmServletTests` dummy Bearer CSRF; entity unique `(userId, messageId)` test. `framework/build.gradle` include those tests.
 - **Depends on:** nothing
 - **What:** Global Bearer works for `/rest` and `/llm` too. **No** well-known, **no** `/a2a` mapping. Production `a2a_enabled` can wait for PR2.
 
@@ -1060,21 +1125,21 @@ Independently reviewable. Tests travel with the code. SSO JWT is **PR1b** by def
 ### PR 2 — REST + well-known + robots + honest flags + executor
 
 - **PR title:** A2A: REST Send/Get/List/Cancel, well-known card, Assist executor
-- **Files:** `org.moqui.impl.llm.a2a` (`A2AServlet.groovy`, `A2aAuthFilter.groovy` OPTIONS/JSON errors, `A2aCardServlet.groovy`, `A2AGateway.java`, `A2aTaskStore.java`, `A2aExecutor.java`, `A2aCardBuilder.java`, `A2aJson.java`); servlet/filter mappings `/a2a` + `/a2a/*` + well-known; `webroot.xml` robots `a2a`; `SECURITY_SURFACE.md` rows for well-known (public), `/a2a` + filter permission, Bearer bullet, `/llm` if still missing; `MoquiProductionConf.xml` `a2a_enabled=false`; capability-gated stream/push/extended routes; Spock listed under Tests PR2; `build.gradle` includes.
+- **Files:** `org.moqui.impl.llm.a2a` (`A2AServlet.groovy`, `A2AAuthFilter.groovy` OPTIONS/JSON errors, `A2ACardServlet.groovy`, `A2AGateway.java`, `A2AGateway.java`, `A2AExecutor.java`, `A2ACardBuilder.java`, `A2AJson.java`); servlet/filter mappings `/a2a` + `/a2a/*` + well-known; `webroot.xml` robots `a2a`; `SECURITY_SURFACE.md` rows for well-known (public), `/a2a` + filter permission, Bearer bullet, `/llm` if still missing; `MoquiProductionConf.xml` `a2a_enabled=false`; capability-gated stream/push/extended routes; Spock listed under Tests PR2; `build.gradle` includes.
 - **Depends on:** PR 1
 - **What:** Blocking REST. Card flags all false except identity. Generic skill. ProtoJSON security oneofs. `write_ui` resume. `returnImmediately`/`taskPushNotificationConfig` errors. Owner 404. Strict `A2A-Version`.
 
 ### PR 3 — JSON-RPC + request-thread SSE + subscribe
 
 - **PR title:** A2A: JSON-RPC binding and SSE
-- **Files:** `A2aJsonRpc.java`; servlet RPC + stream + subscribe; `A2aTaskBus.java`; SseSink copy/share; flip conf/card `streaming=true`; tests: HTTP 200 + `-32001`, batch `-32600`, 5.3 method names (not 9.3), ping comments. Document single-node bus.
+- **Files:** `A2AJsonRpc.java`; servlet RPC + stream + subscribe; `A2ATaskBus.java`; SseSink copy/share; flip conf/card `streaming=true`; tests: HTTP 200 + `-32001`, batch `-32600`, 5.3 method names (not 9.3), ping comments. Document single-node bus.
 - **Depends on:** PR 2
 - **What:** `POST /a2a` JSON-RPC; `POST /message:stream`; `POST /tasks/{id}:subscribe`.
 
 ### PR 4 — Extended card, skill filtering, extensions
 
 - **PR title:** A2A: extended Agent Card and Moqui extensions
-- **Files:** `A2aCardBuilder` extended path; REST + **JSON-RPC** `GetExtendedAgentCard` in this slice (depends on PR3 so RPC exists); flip `extended-agent-card=true`; skill-meta; form/v1; tests tags/examples.
+- **Files:** `A2ACardBuilder` extended path; REST + **JSON-RPC** `GetExtendedAgentCard` in this slice (depends on PR3 so RPC exists); flip `extended-agent-card=true`; skill-meta; form/v1; tests tags/examples.
 - **Depends on:** PR 3
 - **What:** Authenticated skill list. No `/a2a/agents`.
 

@@ -45,6 +45,8 @@ import org.moqui.impl.context.ContextJavaUtil.CustomScheduledExecutor
 import org.moqui.impl.context.ContextJavaUtil.ScheduledRunnableInfo
 import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.impl.llm.LlmFacadeImpl
+import org.moqui.impl.llm.a2a.A2AFacadeImpl
+import org.moqui.llm.a2a.A2AFacade
 import org.moqui.impl.screen.ScreenFacadeImpl
 import org.moqui.impl.service.ServiceFacadeImpl
 import org.moqui.impl.webapp.NotificationWebSocketListener
@@ -146,6 +148,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     @SuppressWarnings("GrFinalVariableAccess") public final EntityFacadeImpl entityFacade
     @SuppressWarnings("GrFinalVariableAccess") public final ElasticFacadeImpl elasticFacade
     @SuppressWarnings("GrFinalVariableAccess") public final LlmFacadeImpl llmFacade
+    @SuppressWarnings("GrFinalVariableAccess") public final A2AFacadeImpl a2aFacade
     @SuppressWarnings("GrFinalVariableAccess") public final ServiceFacadeImpl serviceFacade
     @SuppressWarnings("GrFinalVariableAccess") public final ScreenFacadeImpl screenFacade
 
@@ -244,6 +247,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         elasticFacade = new ElasticFacadeImpl(this)
         logger.info("Elastic Facade initialized")
         llmFacade = new LlmFacadeImpl(this)
+        a2aFacade = new A2AFacadeImpl(this)
         logger.info("Llm Facade initialized")
 
         logger.info("Execution Context Factory initialized in ${(System.currentTimeMillis() - initStartTime)/1000} seconds")
@@ -306,6 +310,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         elasticFacade = new ElasticFacadeImpl(this)
         logger.info("Elastic Facade initialized")
         llmFacade = new LlmFacadeImpl(this)
+        a2aFacade = new A2AFacadeImpl(this)
         logger.info("Llm Facade initialized")
 
         logger.info("Execution Context Factory initialized in ${(System.currentTimeMillis() - initStartTime)/1000} seconds")
@@ -1066,6 +1071,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     @Override @Nonnull EntityFacade getEntity() { entityFacade }
     @Override @Nonnull ElasticFacade getElastic() { elasticFacade }
     @Override @Nonnull LlmFacade getLlm() { llmFacade }
+    @Override @Nonnull A2AFacade getA2A() { a2aFacade }
     @Override @Nonnull ServiceFacade getService() { serviceFacade }
     @Override @Nonnull ScreenFacade getScreen() { screenFacade }
 

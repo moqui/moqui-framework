@@ -219,6 +219,7 @@ test {
     include '**/LlmSkillAgentTests.class'
     include '**/LlmBrowseTests.class'
     include '**/LlmTraceTests.class'
+    include '**/A2A*Tests.class'
 
     systemProperty 'moqui.runtime', '../runtime'
     systemProperty 'moqui.conf', 'conf/MoquiDevConf.xml'

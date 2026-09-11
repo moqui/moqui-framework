@@ -1,0 +1,11 @@
+# Expose only the A2A surface of the local Moqui through the tunnel; everything else (login, apps, /rest) is 404.
+on_http_request:
+  - expressions:
+      - "!(req.url.path.startsWith('/llm/a2a/') || req.url.path == '/.well-known/agent-card.json')"
+    actions:
+      - type: custom-response
+        config:
+          status_code: 404
+          headers:
+            content-type: text/plain
+          body: "Not found"

@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-3.xsd">
+
+    <!-- A2A Context is the protocol's contextual collection of interactions. It is not one-to-one with
+         moqui.llm.LlmConversation: an A2A context may contain multiple internal conversations. -->
+    <entity entity-name="A2AContext" package="moqui.a2a" use="transactional" cache="never">
+        <field name="contextId" type="id" is-pk="true"/>
+        <field name="userId" type="id" not-null="true"/>
+        <field name="visitId" type="id"/>
+        <field name="lastTaskDate" type="date-time"/>
+        <field name="lastTaskId" type="id"/>
+        <field name="lastA2aMessageId" type="id"/>
+        <field name="metadataJson" type="text-long"/>
+        <relationship type="one-nofk" related="moqui.security.UserAccount"/>
+        <relationship type="one-nofk" related="moqui.server.Visit"/>
+        <relationship type="one-nofk" title="Last" related="moqui.a2a.A2ATask">
+            <key-map field-name="lastTaskId" related="taskId"/></relationship>
+        <relationship type="one-nofk" title="Last" related="moqui.a2a.A2AMessage">
+            <key-map field-name="lastA2aMessageId" related="a2aMessageId"/></relationship>
+        <relationship type="many" related="moqui.llm.LlmConversation" short-alias="conversations"/>
+        <relationship type="many" related="moqui.a2a.A2ATask" short-alias="tasks"/>
+        <relationship type="many" related="moqui.a2a.A2AMessage" short-alias="messages"/>
+        <index name="A2ACTX_USER"><index-field name="userId"/></index>
+    </entity>
+
+    <entity entity-name="A2ATask" package="moqui.a2a" use="transactional" cache="never">
+        <description>A protocol boundary task. It represents the A2A Task exchanged with another agent, not the full
+            internal Moqui LLM conversation, harness plan, or business workflow used to satisfy it.
+            No createdDate/lastUpdatedDate columns: the creation time is the TASK_STATE_SUBMITTED row in
+            A2ATaskStatus, the last change is the current status (A2ATaskAndStatus.statusTimestamp, indexed and used
+            by ListTasks and cleanup), and Moqui maintains lastUpdatedStamp on the row itself.</description>
+        <field name="taskId" type="id" is-pk="true"/>
+        <field name="contextId" type="id" not-null="true"/>
+        <field name="userId" type="id" not-null="true"/>
+        <field name="visitId" type="id"/>
+        <field name="workerProfileName" type="text-medium">
+            <description>Optional internal Moqui LLM profile used when this instance executes the task locally.
+                This is not an A2A protocol field.</description></field>
+        <field name="taskStatusId" type="id">
+            <description>Current A2ATaskStatus of the task (A2A Task.status); the status history is the set of
+                A2ATaskStatus rows for this task. Set after the first status row exists, hence one-nofk below.</description></field>
+        <field name="metadataJson" type="text-long"><description>A2A Task.metadata as received.</description></field>
+        <field name="cancelRequested" type="text-indicator" not-null="true">
+            <description>Internal Moqui flag: a CancelTask was accepted for this task. Not an A2A protocol field;
+                the protocol state is TASK_STATE_CANCELED in the current status.</description></field>
+        <field name="inFlight" type="text-indicator" not-null="true">
+            <description>Internal Moqui worker indicator: an LLM turn for this task is running on a request thread.
+                Not an A2A protocol task state. A process killed mid-turn can leave this Y until the next turn.</description></field>
+        <field name="pendingToolCallId" type="text-medium">
+            <description>Internal agent-loop checkpoint: id of the client tool call the task is waiting on while in
+                TASK_STATE_INPUT_REQUIRED; the next message resumes that call. Not an A2A protocol field.</description></field>
+        <field name="pendingToolName" type="text-medium">
+            <description>Internal agent-loop checkpoint: name of the pending client tool call. Not an A2A protocol field.</description></field>
+        <field name="resultJson" type="text-very-long">
+            <description>Internal replay cache: the JSON of the response returned for the message that produced this
+                task state ({task: Task}), so a duplicate messageId returns the original response instead of running
+                the model again. Not an A2A protocol field and not the source of truth: the Task is rebuilt from
+                A2ATaskStatus, A2AMessage and A2AArtifact.</description></field>
+        <field name="workerUsername" type="id">
+            <description>Internal Moqui field reserved for the worker identity of a future asynchronous executor;
+                unused while tasks run on the caller request thread. Not an A2A protocol field.</description></field>
+        <relationship type="one" related="moqui.a2a.A2AContext"/>
+        <relationship type="one-nofk" related="moqui.security.UserAccount"/>
+        <relationship type="one-nofk" title="Current" related="moqui.a2a.A2ATaskStatus">
+            <key-map field-name="taskStatusId" related="taskStatusId"/></relationship>
+        <relationship type="many" related="moqui.a2a.A2ATaskStatus" short-alias="statuses"/>
+        <relationship type="many" related="moqui.a2a.A2AMessage" short-alias="messages"/>
+        <relationship type="many" related="moqui.a2a.A2AArtifact" short-alias="artifacts"/>
+        <relationship type="many" related="moqui.a2a.A2ATaskEvent" short-alias="events"/>
+        <index name="A2ATASK_USER"><index-field name="userId"/><index-field name="taskId"/></index>
+        <index name="A2ATASK_CONTEXT"><index-field name="contextId"/></index>
+    </entity>
+
+    <!-- A2A TaskStatus is a first-class protocol object. A2ATask points to the current status; the
+         status history is represented by rows here. A2ATaskEvent is only the transport/replay event log. -->
+    <entity entity-name="A2ATaskStatus" package="moqui.a2a" use="transactional" cache="never" sequence-bank-size="100">
+        <field name="taskStatusId" type="id" is-pk="true"/>
+        <field name="taskId" type="id" not-null="true"/>
+        <field name="contextId" type="id" not-null="true"/>
+        <field name="statusId" type="id" not-null="true"/>
+        <field name="a2aMessageId" type="id"/>
+        <field name="statusTimestamp" type="date-time" not-null="true"/>
+        <field name="metadataJson" type="text-long"/>
+        <field name="sequenceNum" type="number-integer" not-null="true"/>
+        <relationship type="one" related="moqui.a2a.A2ATask"/>
+        <relationship type="one" related="moqui.a2a.A2AContext"/>
+        <relationship type="one" related="moqui.a2a.A2AMessage"/>
+        <relationship type="one" title="Status" related="moqui.basic.Enumeration">
+            <key-map field-name="statusId"/></relationship>
+        <index name="A2ASTAT_TASK_SEQ" unique="true"><index-field name="taskId"/><index-field name="sequenceNum"/></index>
+        <index name="A2ASTAT_TASK_TS"><index-field name="taskId"/><index-field name="statusTimestamp"/></index>
+        <seed-data>
+            <moqui.basic.EnumerationType enumTypeId="A2ATaskStatus" description="A2A Task Status"/>
+            <moqui.basic.Enumeration enumId="A2AtsUnspecified" enumTypeId="A2ATaskStatus" enumCode="TASK_STATE_UNSPECIFIED" description="Unspecified"/>
+            <moqui.basic.Enumeration enumId="A2AtsSubmitted" enumTypeId="A2ATaskStatus" enumCode="TASK_STATE_SUBMITTED" description="Submitted"/>
+            <moqui.basic.Enumeration enumId="A2AtsWorking" enumTypeId="A2ATaskStatus" enumCode="TASK_STATE_WORKING" description="Working"/>
+            <moqui.basic.Enumeration enumId="A2AtsCompleted" enumTypeId="A2ATaskStatus" enumCode="TASK_STATE_COMPLETED" description="Completed"/>
+            <moqui.basic.Enumeration enumId="A2AtsFailed" enumTypeId="A2ATaskStatus" enumCode="TASK_STATE_FAILED" description="Failed"/>
+            <moqui.basic.Enumeration enumId="A2AtsCanceled" enumTypeId="A2ATaskStatus" enumCode="TASK_STATE_CANCELED" description="Canceled"/>
+            <moqui.basic.Enumeration enumId="A2AtsInputRequired" enumTypeId="A2ATaskStatus" enumCode="TASK_STATE_INPUT_REQUIRED" description="Input Required"/>
+            <moqui.basic.Enumeration enumId="A2AtsRejected" enumTypeId="A2ATaskStatus" enumCode="TASK_STATE_REJECTED" description="Rejected"/>
+            <moqui.basic.Enumeration enumId="A2AtsAuthRequired" enumTypeId="A2ATaskStatus" enumCode="TASK_STATE_AUTH_REQUIRED" description="Authentication Required"/>
+        </seed-data>
+    </entity>
+
+    <!-- Task joined to its current status: ListTasks and data cleanup filter, sort, and page in the database. -->
+    <view-entity entity-name="A2ATaskAndStatus" package="moqui.a2a">
+        <member-entity entity-alias="TSK" entity-name="moqui.a2a.A2ATask"/>
+        <member-entity entity-alias="STS" entity-name="moqui.a2a.A2ATaskStatus" join-from-alias="TSK">
+            <key-map field-name="taskStatusId"/></member-entity>
+        <alias-all entity-alias="TSK"/>
+        <alias name="statusId" entity-alias="STS"/>
+        <alias name="statusTimestamp" entity-alias="STS"/>
+    </view-entity>
+
+    <!-- Protocol Message. It carries taskId/contextId directly per the A2A protobuf; task history is a
+         query over messages for a task, not a separate protocol object. -->
+    <entity entity-name="A2AMessage" package="moqui.a2a" use="transactional" cache="never" sequence-bank-size="100">
+        <field name="a2aMessageId" type="id" is-pk="true"/>
+        <field name="messageId" type="text-medium" not-null="true"/>
+        <field name="userId" type="id" not-null="true"/>
+        <field name="taskId" type="id"/>
+        <field name="contextId" type="id"/>
+        <field name="role" type="text-short" not-null="true"/>
+        <field name="referenceTaskIdsJson" type="text-long"/>
+        <field name="metadataJson" type="text-long"/>
+        <field name="extensionsJson" type="text-long"/>
+        <field name="resultJson" type="text-very-long"/>
+        <field name="sentDate" type="date-time" not-null="true"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <relationship type="one" related="moqui.a2a.A2AContext"/>
+        <relationship type="one" related="moqui.a2a.A2ATask"/>
+        <relationship type="one-nofk" related="moqui.security.UserAccount"/>
+        <relationship type="many" related="moqui.a2a.A2AMessagePart" short-alias="parts"/>
+        <index name="A2AMSG_USER_MSG" unique="true"><index-field name="userId"/><index-field name="messageId"/></index>
+        <index name="A2AMSG_TASK_SEQ" unique="true"><index-field name="taskId"/><index-field name="sequenceNum"/></index>
+        <index name="A2AMSG_CONTEXT"><index-field name="contextId"/></index>
+    </entity>
+
+    <!-- A2A 1.0 Part: exactly one of text, raw (base64 bytes), url, or data, plus optional filename and mediaType. -->
+    <entity entity-name="A2AMessagePart" package="moqui.a2a" use="transactional" cache="never">
+        <description>Ordered A2A Message Part.</description>
+        <field name="a2aMessageId" type="id" is-pk="true"/>
+        <field name="messagePartSeqId" type="id" is-pk="true"/>
+        <field name="sequenceNum" type="number-integer" not-null="true"/>
+        <field name="partTypeEnumId" type="id" not-null="true"/>
+        <field name="textContent" type="text-very-long"/>
+        <field name="dataJson" type="text-very-long"/>
+        <field name="rawContent" type="text-very-long"><description>Base64 bytes as received on the wire.</description></field>
+        <field name="url" type="text-very-long"/>
+        <field name="filename" type="text-medium"/>
+        <field name="mediaType" type="text-medium"/>
+        <field name="metadataJson" type="text-long"/>
+        <relationship type="one" related="moqui.a2a.A2AMessage"/>
+        <relationship type="one" title="A2APartType" related="moqui.basic.Enumeration">
+            <key-map field-name="partTypeEnumId"/></relationship>
+        <index name="A2AMSGPART_SEQ" unique="true"><index-field name="a2aMessageId"/><index-field name="sequenceNum"/></index>
+        <seed-data>
+            <moqui.basic.EnumerationType enumTypeId="A2APartType" description="A2A Part Type"/>
+            <moqui.basic.Enumeration enumId="A2APrtText" enumTypeId="A2APartType" enumCode="text" description="Text Part"/>
+            <moqui.basic.Enumeration enumId="A2APrtRaw" enumTypeId="A2APartType" enumCode="raw" description="Raw Bytes Part"/>
+            <moqui.basic.Enumeration enumId="A2APrtUrl" enumTypeId="A2APartType" enumCode="url" description="URL Part"/>
+            <moqui.basic.Enumeration enumId="A2APrtData" enumTypeId="A2APartType" enumCode="data" description="Data Part"/>
+        </seed-data>
+    </entity>
+
+    <!-- A2A Artifact.artifact_id is unique only within its task, so the key is taskId + artifactId. -->
+    <entity entity-name="A2AArtifact" package="moqui.a2a" use="transactional" cache="never">
+        <description>Deliverable produced by another agent or by the local Moqui agent on behalf of an A2A task.
+            Internal Moqui execution artifacts may be richer; this entity stores the protocol artifact boundary.</description>
+        <field name="taskId" type="id" is-pk="true"/>
+        <field name="artifactId" type="text-medium" is-pk="true"/>
+        <field name="name" type="text-medium"/>
+        <field name="description" type="text-long"/>
+        <field name="extensionsJson" type="text-long"/>
+        <field name="metadataJson" type="text-long"/>
+        <field name="contentLocation" type="text-very-long"/>
+        <relationship type="one" related="moqui.a2a.A2ATask"/>
+        <relationship type="many" related="moqui.a2a.A2AArtifactPart" short-alias="parts"/>
+    </entity>
+
+    <entity entity-name="A2AArtifactPart" package="moqui.a2a" use="transactional" cache="never">
+        <description>Ordered A2A Artifact Part, modeled separately from the artifact header.</description>
+        <field name="taskId" type="id" is-pk="true"/>
+        <field name="artifactId" type="text-medium" is-pk="true"/>
+        <field name="artifactPartSeqId" type="id" is-pk="true"/>
+        <field name="sequenceNum" type="number-integer" not-null="true"/>
+        <field name="partTypeEnumId" type="id" not-null="true"/>
+        <field name="textContent" type="text-very-long"/>
+        <field name="dataJson" type="text-very-long"/>
+        <field name="rawContent" type="text-very-long"><description>Base64 bytes as received on the wire.</description></field>
+        <field name="url" type="text-very-long"/>
+        <field name="filename" type="text-medium"/>
+        <field name="mediaType" type="text-medium"/>
+        <field name="metadataJson" type="text-long"/>
+        <relationship type="one" related="moqui.a2a.A2AArtifact"/>
+        <relationship type="one" title="A2APartType" related="moqui.basic.Enumeration">
+            <key-map field-name="partTypeEnumId"/></relationship>
+        <index name="A2AARTPART_SEQ" unique="true"><index-field name="taskId"/><index-field name="artifactId"/>
+            <index-field name="sequenceNum"/></index>
+    </entity>
+
+    <entity entity-name="A2ATaskEvent" package="moqui.a2a" use="transactional" cache="never" sequence-bank-size="100">
+        <description>Durable A2A transport/replay event; payloadJson is the StreamResponse ({statusUpdate} or
+            {artifactUpdate}). The source of truth remains A2ATaskStatus, A2AMessage, and A2AArtifact; this log
+            preserves protocol event ordering for SubscribeToTask.</description>
+        <field name="taskEventId" type="id" is-pk="true"/>
+        <field name="taskId" type="id" not-null="true"/>
+        <field name="contextId" type="id" not-null="true"/>
+        <field name="eventTypeEnumId" type="id" not-null="true"/>
+        <field name="taskStatusId" type="id"/>
+        <field name="artifactId" type="text-medium"/>
+        <field name="a2aMessageId" type="id"/>
+        <field name="append" type="text-indicator"/>
+        <field name="lastChunk" type="text-indicator"/>
+        <field name="payloadJson" type="text-very-long" not-null="true"/>
+        <field name="eventDate" type="date-time" not-null="true"/>
+        <field name="sequenceNum" type="number-integer" not-null="true"/>
+        <relationship type="one" related="moqui.a2a.A2ATask"/>
+        <relationship type="one" related="moqui.a2a.A2AContext"/>
+        <relationship type="one" title="A2ATaskEventType" related="moqui.basic.Enumeration">
+            <key-map field-name="eventTypeEnumId"/></relationship>
+        <relationship type="one" related="moqui.a2a.A2ATaskStatus"/>
+        <relationship type="one-nofk" related="moqui.a2a.A2AArtifact"/>
+        <relationship type="one" related="moqui.a2a.A2AMessage"/>
+        <index name="A2AEVT_TASK_SEQ" unique="true"><index-field name="taskId"/><index-field name="sequenceNum"/></index>
+        <seed-data>
+            <moqui.basic.EnumerationType enumTypeId="A2ATaskEventType" description="A2A Task Event Type"/>
+            <moqui.basic.Enumeration enumId="A2AEvtStatus" enumTypeId="A2ATaskEventType" enumCode="status-update" description="Task Status Update"/>
+            <moqui.basic.Enumeration enumId="A2AEvtArtifact" enumTypeId="A2ATaskEventType" enumCode="artifact-update" description="Task Artifact Update"/>
+        </seed-data>
+    </entity>
+
+    <!-- Push notification configuration. token and authenticationJson are encrypted at rest and never returned
+         by the API. Webhook delivery is not implemented, so the JSON-RPC binding answers push methods with -32003. -->
+    <entity entity-name="A2APushConfig" package="moqui.a2a" use="transactional" cache="never">
+        <field name="configId" type="id" is-pk="true"/>
+        <field name="taskId" type="id" not-null="true"/>
+        <field name="url" type="text-very-long" not-null="true"/>
+        <field name="token" type="text-medium" encrypt="true"/>
+        <field name="authenticationJson" type="text-long" encrypt="true"/>
+        <field name="failCount" type="number-integer" not-null="true"/>
+        <field name="lastError" type="text-long"/>
+        <relationship type="one" related="moqui.a2a.A2ATask"/>
+        <index name="A2APUSH_TASK"><index-field name="taskId"/></index>
+    </entity>
+</entities>
