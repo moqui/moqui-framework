@@ -16,10 +16,12 @@ package org.moqui.jcache;
 import javax.cache.Cache;
 import javax.cache.expiry.Duration;
 import javax.cache.expiry.ExpiryPolicy;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class MEntry<K, V> implements Cache.Entry<K, V> {
     private static final Class<MEntry> thisClass = MEntry.class;
     private final K key;
+    private final ReentrantLock valueLock = new ReentrantLock();
     V value;
     private long createdTime = 0;
     long lastUpdatedTime = 0;
@@ -71,16 +73,18 @@ public class MEntry<K, V> implements Cache.Entry<K, V> {
     }
 
     void setValue(V val, long updateTime) {
-        synchronized (key) {
+        valueLock.lock();
+        try {
             if (updateTime > lastUpdatedTime) {
                 value = val;
                 lastUpdatedTime = updateTime;
             }
-        }
+        } finally { valueLock.unlock(); }
     }
 
     boolean setValueIfEquals(V oldVal, V val, long updateTime) {
-        synchronized (key) {
+        valueLock.lock();
+        try {
             if (updateTime > lastUpdatedTime && valueEquals(oldVal)) {
                 value = val;
                 lastUpdatedTime = updateTime;
@@ -88,7 +92,7 @@ public class MEntry<K, V> implements Cache.Entry<K, V> {
             } else {
                 return false;
             }
-        }
+        } finally { valueLock.unlock(); }
     }
 
     public long getCreatedTime() {

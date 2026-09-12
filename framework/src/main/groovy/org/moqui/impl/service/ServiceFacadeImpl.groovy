@@ -102,8 +102,8 @@ class ServiceFacadeImpl implements ServiceFacade {
         logger.info("Initializing Service Job ThreadPoolExecutor: queue limit ${jobQueueMax}, pool-core ${coreSize}, pool-max ${maxSize}, pool-alive ${aliveTime}s")
         // make the actual queue at least maxSize to allow for stuffing the queue to get it to add threads to the pool
         BlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<>(jobQueueMax < maxSize ? maxSize : jobQueueMax)
-        return new ContextJavaUtil.WorkerThreadPoolExecutor(ecfi, coreSize, maxSize, aliveTime, TimeUnit.SECONDS,
-                workQueue, new ContextJavaUtil.JobThreadFactory())
+        return new ContextJavaUtil.VirtualThreadExecutorService(ecfi, "MoquiJob", coreSize, maxSize, aliveTime, TimeUnit.SECONDS,
+                workQueue)
     }
 
     void postFacadeInit() {

@@ -25,6 +25,7 @@ import java.net.URISyntaxException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.locks.ReentrantLock;
 
 /** This class does not completely support the javax.cache.CacheManager spec, it is just enough to use as a factory for MCache instances. */
 public class MCacheManager implements CacheManager {
@@ -38,6 +39,7 @@ public class MCacheManager implements CacheManager {
     private Properties props = new Properties();
     private Map<String, MCache> cacheMap = new LinkedHashMap<>();
     private boolean isClosed = false;
+    private final ReentrantLock createCacheLock = new ReentrantLock();
 
     private MCacheManager() {
         try { cmUri = new URI("MCacheManager"); }
@@ -56,16 +58,19 @@ public class MCacheManager implements CacheManager {
 
     @Override
     @SuppressWarnings("unchecked")
-    public synchronized <K, V, C extends Configuration<K, V>> Cache<K, V> createCache(String cacheName, C configuration) throws IllegalArgumentException {
-        if (isClosed) throw new IllegalStateException("MCacheManager is closed");
-        if (cacheMap.containsKey(cacheName)) {
-            // not per spec, but be more friendly and just return the existing cache: throw new CacheException("Cache with name " + cacheName + " already exists");
-            return cacheMap.get(cacheName);
-        }
+    public <K, V, C extends Configuration<K, V>> Cache<K, V> createCache(String cacheName, C configuration) throws IllegalArgumentException {
+        createCacheLock.lock();
+        try {
+            if (isClosed) throw new IllegalStateException("MCacheManager is closed");
+            if (cacheMap.containsKey(cacheName)) {
+                // not per spec, but be more friendly and just return the existing cache: throw new CacheException("Cache with name " + cacheName + " already exists");
+                return cacheMap.get(cacheName);
+            }
 
-        MCache<K, V> newCache = new MCache(cacheName, this, configuration);
-        cacheMap.put(cacheName, newCache);
-        return newCache;
+            MCache<K, V> newCache = new MCache(cacheName, this, configuration);
+            cacheMap.put(cacheName, newCache);
+            return newCache;
+        } finally { createCacheLock.unlock(); }
     }
 
     @Override
