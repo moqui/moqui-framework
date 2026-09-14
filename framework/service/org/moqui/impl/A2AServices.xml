@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-3.xsd">
+    <!-- Binding-neutral internal operations. A future HTTP/JSON, JSON-RPC, or gRPC adapter delegates here. -->
+    <service verb="send" noun="A2AMessage" authenticate="true" allow-remote="false" validate="false" transaction="ignore">
+        <description>Execute an A2A SendMessage operation through the configured Moqui LLM profile.</description>
+        <in-parameters>
+            <parameter name="profile"/>
+            <parameter name="message" type="Map" required="true">
+                <parameter name="messageId" required="true"/><parameter name="contextId"/><parameter name="taskId"/>
+                <parameter name="role" required="true"/><parameter name="parts" type="List" required="true"><parameter name="part" type="Map"/></parameter>
+                <parameter name="referenceTaskIds" type="List"/><parameter name="extensions" type="List"/><parameter name="metadata" type="Map"/>
+            </parameter>
+            <parameter name="configuration" type="Map"><parameter name="acceptedOutputModes" type="List"/>
+                <parameter name="historyLength" type="Integer"/><parameter name="returnImmediately" type="Boolean"/>
+                <parameter name="taskPushNotificationConfig" type="Map"/></parameter>
+            <parameter name="metadata" type="Map"/>
+        </in-parameters>
+        <out-parameters><parameter name="task" type="Map"/><parameter name="message" type="Map"/></out-parameters>
+        <actions><script><![CDATA[
+            Map<String, Object> result = ec.getA2A().sendMessage(context)
+            context.putAll(result)
+        ]]></script></actions>
+    </service>
+
+    <service verb="send" noun="A2AStreamingMessage" authenticate="true" allow-remote="false" validate="false" transaction="ignore">
+        <description>Execute SendStreamingMessage and return the ordered binding-neutral event replay.</description>
+        <in-parameters><parameter name="profile"/><parameter name="message" type="Map" required="true"/>
+            <parameter name="configuration" type="Map"/><parameter name="metadata" type="Map"/></in-parameters>
+        <out-parameters><parameter name="task" type="Map"/>
+            <parameter name="streamResponseList" type="List"><parameter name="streamResponse" type="Map"/></parameter></out-parameters>
+        <actions><script><![CDATA[
+            import org.moqui.impl.llm.a2a.A2AGateway
+
+            Map<String, Object> result = A2AGateway.sendStreamingMessage(ec, context)
+            context.putAll(result)
+        ]]></script></actions>
+    </service>
+
+    <service verb="get" noun="A2ATask" authenticate="true" allow-remote="false">
+        <description>Return an owned A2A Task snapshot with bounded message history.</description>
+        <in-parameters><parameter name="taskId" required="true"/><parameter name="historyLength" type="Integer"/></in-parameters>
+        <out-parameters><parameter name="task" type="Map"/></out-parameters>
+        <actions><script><![CDATA[
+            Map<String, Object> result = ec.getA2A().getTask(taskId, historyLength as Integer)
+            context.putAll(result)
+        ]]></script></actions>
+    </service>
+
+    <service verb="find" noun="A2ATasks" authenticate="true" allow-remote="false">
+        <description>List owned A2A Tasks using status/date filters and an opaque cursor.</description>
+        <in-parameters><parameter name="contextId"/><parameter name="status"/><parameter name="pageSize" type="Integer"/>
+            <parameter name="pageToken"/><parameter name="historyLength" type="Integer"/>
+            <parameter name="statusTimestampAfter" type="Timestamp"/><parameter name="includeArtifacts" type="Boolean"/></in-parameters>
+        <out-parameters><parameter name="tasks" type="List"><parameter name="task" type="Map"/></parameter>
+            <parameter name="nextPageToken"/><parameter name="pageSize" type="Integer"/><parameter name="totalSize" type="Long"/></out-parameters>
+        <actions><script><![CDATA[
+            Map<String, Object> result = ec.getA2A().listTasks(context)
+            context.putAll(result)
+        ]]></script></actions>
+    </service>
+
+    <service verb="cancel" noun="A2ATask" authenticate="true" allow-remote="false">
+        <description>Cancel an owned non-terminal A2A Task.</description>
+        <in-parameters><parameter name="taskId" required="true"/><parameter name="historyLength" type="Integer"/></in-parameters>
+        <out-parameters><parameter name="task" type="Map"/></out-parameters>
+        <actions><script><![CDATA[
+            Map<String, Object> result = ec.getA2A().cancelTask(taskId, historyLength as Integer)
+            context.putAll(result)
+        ]]></script></actions>
+    </service>
+
+    <service verb="subscribe" noun="A2ATask" authenticate="true" allow-remote="false">
+        <description>Return a replay of persisted events after a sequence number; a transport adapter may stream later events.</description>
+        <in-parameters><parameter name="taskId" required="true"/><parameter name="afterOrdinal" type="Long"/>
+            <parameter name="historyLength" type="Integer"/></in-parameters>
+        <out-parameters><parameter name="task" type="Map"/>
+            <parameter name="events" type="List"><parameter name="event" type="Map"/></parameter><parameter name="lastOrdinal" type="Long"/></out-parameters>
+        <actions><script><![CDATA[
+            Map<String, Object> result = ec.getA2A().subscribeTask(taskId, afterOrdinal as Long, historyLength as Integer)
+            context.putAll(result)
+        ]]></script></actions>
+    </service>
+
+    <service verb="update" noun="A2ATaskStatus" authenticate="true" allow-remote="false" validate="false">
+        <description>Internal executor operation that updates task status and appends a status event.</description>
+        <in-parameters><parameter name="taskId" required="true"/><parameter name="state" required="true"/>
+            <parameter name="statusMessage" type="Map"/><parameter name="fields" type="Map"/></in-parameters>
+        <out-parameters><parameter name="task" type="Map"/></out-parameters>
+        <actions><script><![CDATA[
+            import org.moqui.impl.llm.a2a.A2AGateway
+
+            Map<String, Object> extraFields = fields ?: [:]
+            Map<String, Object> result = A2AGateway.updateStatus(ec, taskId, state, statusMessage, extraFields)
+            context.putAll(result)
+        ]]></script></actions>
+    </service>
+
+    <service verb="add" noun="A2ATaskArtifact" authenticate="true" allow-remote="false" validate="false">
+        <description>Internal executor operation that creates or appends an A2A Artifact and records its event.</description>
+        <in-parameters><parameter name="taskId" required="true"/><parameter name="artifact" type="Map" required="true"/>
+            <parameter name="append" type="Boolean"/><parameter name="lastChunk" type="Boolean"/><parameter name="metadata" type="Map"/></in-parameters>
+        <out-parameters><parameter name="artifact" type="Map"/></out-parameters>
+        <actions><script><![CDATA[
+            import org.moqui.impl.llm.a2a.A2AGateway
+
+            Map<String, Object> result = A2AGateway.addArtifact(ec, context)
+            context.putAll(result)
+        ]]></script></actions>
+    </service>
+
+    <service verb="create" noun="A2ATaskPushNotificationConfig" authenticate="true" allow-remote="false" validate="false">
+        <description>Persist a push configuration for future transport use; this service does not send webhooks.</description>
+        <in-parameters><parameter name="taskId" required="true"/><parameter name="configId"/>
+            <parameter name="url" required="true"/><parameter name="token"/><parameter name="authentication" type="Map"/></in-parameters>
+        <out-parameters><parameter name="config" type="Map"/></out-parameters>
+        <actions><script><![CDATA[
+            import org.moqui.impl.llm.a2a.A2AGateway
+
+            Map<String, Object> result = A2AGateway.createPushConfig(ec, context)
+            context.putAll(result)
+        ]]></script></actions>
+    </service>
+
+    <service verb="get" noun="A2ATaskPushNotificationConfig" authenticate="true" allow-remote="false">
+        <description>Return one push notification configuration owned through its A2A Task.</description>
+        <in-parameters><parameter name="taskId" required="true"/><parameter name="configId" required="true"/></in-parameters>
+        <out-parameters><parameter name="config" type="Map"/></out-parameters>
+        <actions><script><![CDATA[
+            import org.moqui.impl.llm.a2a.A2AGateway
+
+            Map<String, Object> result = A2AGateway.getPushConfig(ec, context)
+            context.putAll(result)
+        ]]></script></actions>
+    </service>
+
+    <service verb="find" noun="A2ATaskPushNotificationConfigs" authenticate="true" allow-remote="false">
+        <description>List push notification configurations owned through an A2A Task.</description>
+        <in-parameters><parameter name="taskId" required="true"/><parameter name="pageSize" type="Integer"/><parameter name="pageToken"/></in-parameters>
+        <out-parameters><parameter name="configs" type="List"><parameter name="config" type="Map"/></parameter><parameter name="nextPageToken"/></out-parameters>
+        <actions><script><![CDATA[
+            import org.moqui.impl.llm.a2a.A2AGateway
+
+            Map<String, Object> result = A2AGateway.listPushConfigs(ec, context)
+            context.putAll(result)
+        ]]></script></actions>
+    </service>
+
+    <service verb="delete" noun="A2ATaskPushNotificationConfig" authenticate="true" allow-remote="false">
+        <description>Delete one push notification configuration owned through its A2A Task.</description>
+        <in-parameters><parameter name="taskId" required="true"/><parameter name="configId" required="true"/></in-parameters>
+        <out-parameters><parameter name="deleted" type="Boolean"/></out-parameters>
+        <actions><script><![CDATA[
+            import org.moqui.impl.llm.a2a.A2AGateway
+
+            Map<String, Object> result = A2AGateway.deletePushConfig(ec, context)
+            context.putAll(result)
+        ]]></script></actions>
+    </service>
+
+    <service verb="get" noun="A2AExtendedAgentCard" authenticate="true" allow-remote="false" validate="false">
+        <description>Build an authenticated Agent Card view from currently discoverable Moqui LLM skills.</description>
+        <in-parameters><parameter name="name"/><parameter name="description"/><parameter name="version"/>
+            <parameter name="supportedInterfaces" type="List" required="true"/><parameter name="streaming" type="Boolean"/>
+            <parameter name="pushNotifications" type="Boolean"/><parameter name="skillLimit" type="Integer"/></in-parameters>
+        <out-parameters><parameter name="agentCard" type="Map"/></out-parameters>
+        <actions><script><![CDATA[
+            Map<String, Object> result = ec.getA2A().getExtendedAgentCard(context)
+            context.putAll(result)
+        ]]></script></actions>
+    </service>
+
+    <service verb="clean" noun="A2AData" authenticate="true" allow-remote="false" transaction-timeout="600">
+        <description>Operator-run purge of old A2A task data, deleting children before contexts.</description>
+        <in-parameters><parameter name="daysToKeep" type="Integer" default="90"/></in-parameters>
+        <out-parameters><parameter name="tasksRemoved" type="Long"/><parameter name="contextsRemoved" type="Long"/></out-parameters>
+        <actions><script><![CDATA[
+            import org.moqui.impl.llm.a2a.A2AGateway
+
+            Map<String, Object> result = A2AGateway.cleanData(ec, context)
+            context.putAll(result)
+        ]]></script></actions>
+    </service>
+</services>

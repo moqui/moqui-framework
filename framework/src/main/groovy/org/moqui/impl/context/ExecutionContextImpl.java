@@ -40,6 +40,7 @@ import org.moqui.screen.ScreenFacade;
 import org.moqui.service.ServiceFacade;
 import org.moqui.util.ContextBinding;
 import org.moqui.util.ContextStack;
+import org.moqui.llm.a2a.A2AFacade;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -152,6 +153,7 @@ public class ExecutionContextImpl implements ExecutionContext {
 
     @Override public @Nonnull ElasticFacade getElastic() { return ecfi.elasticFacade; }
     @Override public @Nonnull LlmFacade getLlm() { return ecfi.llmFacade; }
+    @Override public @Nonnull A2AFacade getA2A() { return ecfi.a2aFacade; }
     @Override public @Nonnull ServiceFacade getService() { return serviceFacade; }
     @Override public @Nonnull ScreenFacade getScreen() { return screenFacade; }
 

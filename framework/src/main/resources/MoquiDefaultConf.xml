@@ -102,6 +102,20 @@
     <default-property name="llm_openai_api_key" value="" is-secret="true"/>
     <default-property name="llm_openai_model" value=""/>
     <default-property name="llm_log_content" value="false"/>
+    <!-- A2A server: JSON-RPC 1.0 binding at /llm/a2a/jsonrpc (auth via LlmAuthFilter) and public Agent Card at
+         /.well-known/agent-card.json. Off by default: both endpoints answer 404 until a2a_enabled is true, so an
+         upgrade never publishes an agent surface without an operator opting in.
+         a2a_public_url is the base URL advertised in the Agent Card; behind a reverse proxy or tunnel set it, or set
+         a2a_trust_forwarded_headers=true to derive it from X-Forwarded-Proto/Host. -->
+    <default-property name="a2a_enabled" value="false"/>
+    <default-property name="a2a_trust_forwarded_headers" value="false"/>
+    <default-property name="a2a_public_url" value=""/>
+    <default-property name="a2a_default_profile" value="assist"/>
+    <default-property name="a2a_agent_name" value="Moqui"/>
+    <default-property name="a2a_agent_description" value="Moqui enterprise application agent"/>
+    <default-property name="a2a_agent_version" value="1.0.0"/>
+    <default-property name="a2a_provider_organization" value=""/>
+    <default-property name="a2a_provider_url" value=""/>
 
     <!-- Kibana Proxy Servlet settings -->
     <default-property name="kibana_host" value="127.0.0.1"/>
@@ -251,6 +265,12 @@
             </servlet>
             <servlet name="MoquiFopServlet" class="org.moqui.impl.webapp.MoquiFopServlet" load-on-startup="1">
                 <url-pattern>/fop/*</url-pattern>
+            </servlet>
+            <servlet name="A2AServlet" class="org.moqui.impl.webapp.A2AServlet" load-on-startup="1">
+                <url-pattern>/llm/a2a/*</url-pattern>
+            </servlet>
+            <servlet name="A2ACardServlet" class="org.moqui.impl.webapp.A2ACardServlet" load-on-startup="1">
+                <url-pattern>/.well-known/agent-card.json</url-pattern>
             </servlet>
             <servlet name="LlmServlet" class="org.moqui.impl.webapp.LlmServlet" load-on-startup="1">
                 <url-pattern>/llm/*</url-pattern>
@@ -450,6 +470,7 @@
         <service-file location="classpath://service/org/moqui/impl/ScreenServices.xml"/>
         <service-file location="classpath://service/org/moqui/impl/ServerServices.xml"/>
         <service-file location="classpath://service/org/moqui/impl/LlmServices.xml"/>
+        <service-file location="classpath://service/org/moqui/impl/A2AServices.xml"/>
         <service-file location="classpath://service/org/moqui/impl/ServiceServices.xml"/>
         <service-file location="classpath://service/org/moqui/impl/SystemMessageServices.xml"/>
         <service-file location="classpath://service/org/moqui/impl/UserServices.xml"/>
@@ -576,6 +597,7 @@
         <load-entity location="classpath://entity/ServiceEntities.xml"/>
         <load-entity location="classpath://entity/TestEntities.xml"/>
         <load-entity location="classpath://entity/LlmEntities.xml"/>
+        <load-entity location="classpath://entity/A2AEntities.xml"/>
         <!-- in framework/data -->
         <load-data location="classpath://data/CommonL10nData.xml"/>
         <load-data location="classpath://data/CurrencyData.xml"/>
