@@ -229,6 +229,7 @@ public class RequestTool implements LlmTool {
             Object json = wfs.getResponseJsonObj();
             String text = wfs.getResponseText();
             Map<String, Object> headers = headersFromStub(wfs);
+            json = wrapFormListJson(segments, json, headers);
             if (isHtmlDump(json, text, wfs.getHttpServletResponseStub().getContentType(), status)) {
                 return result(400, null, HTML_ERROR, headers);
             }
@@ -282,6 +283,29 @@ public class RequestTool implements LlmTool {
             cur = cur.getCause();
         }
         return 500;
+    }
+
+    /** Form-list GET {screen}/actions/{formName} returns a JSON array; wrap as {rows,totalCount} for Query(data.rows). */
+    static boolean isFormListJsonPath(List<String> segments) {
+        if (segments == null || segments.size() < 3) return false;
+        return "actions".equals(segments.get(segments.size() - 2));
+    }
+
+    static Object wrapFormListJson(List<String> segments, Object json, Map<String, Object> headers) {
+        if (!isFormListJsonPath(segments) || !(json instanceof List)) return json;
+        Map<String, Object> wrap = new LinkedHashMap<>();
+        List<?> rows = (List<?>) json;
+        wrap.put("rows", rows);
+        Object tc = headers != null ? headers.get("X-Total-Count") : null;
+        if (tc == null && headers != null) tc = headers.get("x-total-count");
+        int total;
+        if (tc instanceof Number) total = ((Number) tc).intValue();
+        else if (tc != null) {
+            try { total = Integer.parseInt(tc.toString().trim()); }
+            catch (NumberFormatException e) { total = rows.size(); }
+        } else total = rows.size();
+        wrap.put("totalCount", total);
+        return wrap;
     }
 
     static Map<String, Object> result(int status, Object json, String text, Map<String, Object> headers) {

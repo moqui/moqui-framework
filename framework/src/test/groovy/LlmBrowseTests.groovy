@@ -204,6 +204,29 @@ class LlmBrowseTests extends Specification {
         actions == null
     }
 
+    def "ArtifactHitBins form-list exposes requireParameters and AT_SERVICE option"() {
+        when:
+        Map out = (Map) new BrowseTool().execute(
+                [path: "/qapps/system/ArtifactHitBins"], ec)
+        Map hit = ((List) out.children).find { it.name == "ArtifactHitBins" && it.kind == "form-list" }
+
+        then:
+        hit != null
+        hit.jsonPath.toString() == "/apps/system/ArtifactHitBins/actions/ArtifactHitBins"
+        hit.requireParameters == true
+        hit.defaultOrderBy.toString().contains("binStartDateTime")
+        hit.jsonShape.toString().contains("rows")
+        def types = hit.findFields.find { it.name == "artifactType" }
+        types != null
+        types.widget == "drop-down"
+        types.options.contains("AT_SERVICE")
+        types.options.contains("AT_XML_SCREEN")
+        def binStart = hit.findFields.find { it.name == "binStartDateTime" }
+        binStart != null
+        binStart.widget == "date-period"
+        binStart.params.contains("binStartDateTime_period")
+    }
+
     def "FindAsset detail forms include jsonPath and skip actions transition"() {
         when:
         Map out = (Map) new BrowseTool().execute(
@@ -244,6 +267,8 @@ class LlmBrowseTests extends Specification {
         text.contains("/rest/e1")
         text.contains("Find forms")
         text.contains("kind=openui")
+        text.contains("requireParameters")
+        text.contains("AT_SERVICE")
         text.indexOf("/qapps") < text.indexOf("/rest/s1")
     }
 

@@ -94,8 +94,28 @@ class LlmRequestToolTests extends Specification {
                  query: [productId: "10297"]], ec)
         then:
         result.status == 200
-        result.json instanceof List
+        result.json instanceof Map
+        result.json.rows instanceof List
         result.text == null || !result.text.toString().toLowerCase().contains("<html")
+    }
+
+    def "GET ArtifactHitBins without find params is empty; AT_SERVICE returns rows wrapper"() {
+        when:
+        def empty = LlmTool.request().execute(
+                [method: "GET", path: "/apps/system/ArtifactHitBins/actions/ArtifactHitBins"], ec)
+        def hit = LlmTool.request().execute(
+                [method: "GET", path: "/apps/system/ArtifactHitBins/actions/ArtifactHitBins",
+                 query: [artifactType: "AT_SERVICE", pageSize: "20", orderByField: "-binStartDateTime"]], ec)
+        then:
+        empty.status == 200
+        empty.json instanceof Map
+        empty.json.rows instanceof List
+        (empty.json.totalCount == 0 || empty.json.rows.isEmpty())
+        hit.status == 200
+        hit.json instanceof Map
+        hit.json.rows instanceof List
+        // DevConf persist-bin for AT_SERVICE; if this DB has bins, they must use AT_SERVICE not "service"
+        hit.json.rows.every { it.artifactType == null || it.artifactType.toString() == "AT_SERVICE" }
     }
 
     def "POST rest create as non-admin is 403 and does not write"() {

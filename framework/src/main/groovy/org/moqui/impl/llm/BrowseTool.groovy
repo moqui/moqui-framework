@@ -36,6 +36,7 @@ import org.moqui.util.MNode
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import java.util.Arrays
 import java.util.regex.Pattern
 
 /**
@@ -75,7 +76,8 @@ class BrowseTool implements LlmTool {
                 "Directory listing, 1 level deep by default. Roots: /qapps (prefer), /apps, /rest (s1/e1/m1), " +
                 "/services (package.verb#noun), /entities (package; slashes not dots). Screen listings include " +
                 "parameters and forms. form-list children with data prep include jsonPath " +
-                "({screen}/actions/{formName}) — request GET that path with find fields as query. Transitions " +
+                "({screen}/actions/{formName}) — request GET that path with findFields as query (option keys " +
+                "exactly; requireParameters means empty query returns 0 rows). JSON is {rows,totalCount}. Transitions " +
                 "include method, parameters, form fields, and serviceName when the transition is a single " +
                 "service-call — request POST that path. Search screens exhaustively before /rest/s1, then " +
                 "run_service, then /rest/e1 last. Entity rows include createService (create#EntityName). " +
@@ -261,7 +263,17 @@ class BrowseTool implements LlmTool {
         if (list != null) row.put("list", list)
         Object fields = form.get("fields")
         if (fields instanceof List && !((List) fields).isEmpty()) row.put("fields", fields)
+        copyIfPresent(form, row, "requireParameters")
+        copyIfPresent(form, row, "defaultOrderBy")
+        copyIfPresent(form, row, "pageSizeDefault")
+        copyIfPresent(form, row, "findFields")
+        copyIfPresent(form, row, "jsonShape")
         return row
+    }
+
+    static void copyIfPresent(Map<String, Object> from, Map<String, Object> to, String key) {
+        Object v = from.get(key)
+        if (v != null) to.put(key, v)
     }
 
     static List<String> formListSearchTexts(Map<String, Object> form) {
@@ -278,6 +290,18 @@ class BrowseTool implements LlmTool {
         Object fields = form.get("fields")
         if (fields instanceof List) {
             for (Object fn : (List) fields) if (fn != null) texts.add(fn.toString())
+        }
+        if (Boolean.TRUE.equals(form.get("requireParameters"))) texts.add("requireParameters")
+        Object findFields = form.get("findFields")
+        if (findFields instanceof List) {
+            for (Object ff : (List) findFields) {
+                if (!(ff instanceof Map)) continue
+                Map fm = (Map) ff
+                Object opts = fm.get("options")
+                if (opts instanceof List) {
+                    for (Object o : (List) opts) if (o != null) texts.add(o.toString())
+                }
+            }
         }
         return texts
     }
@@ -438,10 +462,72 @@ class BrowseTool implements LlmTool {
                     if (fieldNames.size() >= MAX_FORM_FIELDS) break
                 }
                 if (!fieldNames.isEmpty()) row.put("fields", fieldNames)
+                if (isList) addFormListFindMeta(row, node)
                 forms.add(row)
             }
         } catch (Throwable ignored) { }
         return forms
+    }
+
+    /** Find-header widgets, require-parameters, and JSON shape so GET jsonPath is not an empty guess. */
+    static void addFormListFindMeta(Map<String, Object> row, MNode formNode) {
+        if (row == null || formNode == null) return
+        row.put("jsonShape", "{rows,totalCount}")
+        MNode entityFind = formNode.first("entity-find")
+        if (entityFind != null) {
+            String limit = entityFind.attribute("limit")
+            if (limit != null && !limit.isEmpty() && !limit.contains("\$")) {
+                try { row.put("pageSizeDefault", Integer.valueOf(limit.trim())) } catch (NumberFormatException ignored) { }
+            }
+            MNode sfi = entityFind.first("search-form-inputs")
+            if (sfi != null) {
+                if ("true".equals(sfi.attribute("require-parameters"))) row.put("requireParameters", Boolean.TRUE)
+                String orderBy = sfi.attribute("default-order-by")
+                if (orderBy != null && !orderBy.isEmpty()) row.put("defaultOrderBy", orderBy)
+            }
+        }
+        List<Map<String, Object>> findFields = new ArrayList<>()
+        for (MNode field : formNode.children("field")) {
+            Map<String, Object> ff = findFieldMeta(field)
+            if (ff != null) findFields.add(ff)
+        }
+        if (!findFields.isEmpty()) row.put("findFields", findFields)
+    }
+
+    static final Set<String> FIND_WIDGETS = new HashSet<>(
+            Arrays.asList("drop-down", "text-find", "text-line", "date-period", "date-time", "range-find",
+                    "check", "radio", "display-entity"))
+
+    static Map<String, Object> findFieldMeta(MNode field) {
+        if (field == null) return null
+        String name = field.attribute("name")
+        if (name == null || name.isEmpty() || "find".equals(name)) return null
+        MNode header = field.first("header-field")
+        if (header == null) return null
+        MNode widget = null
+        for (MNode ch : header.getChildren()) {
+            if (ch == null) continue
+            String wn = ch.getName()
+            if ("submit".equals(wn)) return null
+            if (FIND_WIDGETS.contains(wn)) { widget = ch; break }
+        }
+        if (widget == null) return null
+        Map<String, Object> m = new LinkedHashMap<>()
+        m.put("name", name)
+        String widgetName = widget.getName()
+        m.put("widget", widgetName)
+        if ("drop-down".equals(widgetName) || "radio".equals(widgetName) || "check".equals(widgetName)) {
+            List<String> options = new ArrayList<>()
+            for (MNode opt : widget.children("option")) {
+                String key = opt.attribute("key")
+                if (key != null && !key.isEmpty()) options.add(key)
+            }
+            if (!options.isEmpty()) m.put("options", options)
+        } else if ("date-period".equals(widgetName)) {
+            m.put("params", Arrays.asList(name + "_period", name + "_poffset", name + "_pdate",
+                    name + "_from", name + "_thru"))
+        }
+        return m
     }
 
     static Map<String, Object> formForTransition(List<Map<String, Object>> forms, String transitionName) {
