@@ -20,7 +20,6 @@ import org.moqui.entity.EntityFind
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.moqui.impl.llm.LlmConversationImpl
-import org.moqui.llm.LlmConversation
 
 import java.nio.charset.StandardCharsets
 import java.sql.Timestamp
@@ -44,7 +43,7 @@ final class A2ATaskStore {
             EntityFind find = ec.entity.find('moqui.a2a.A2ATaskAndStatus').condition('userId', userId).useCache(false)
             if (request.contextId != null) find.condition('contextId', request.contextId)
             if (requestedStatusId != null) find.condition('statusId', requestedStatusId)
-            if (afterTimestamp != null) find.condition('statusTimestamp', EntityCondition.GREATER_THAN, afterTimestamp)
+            if (afterTimestamp != null) find.condition('statusTimestamp', EntityCondition.GREATER_THAN_EQUAL_TO, afterTimestamp)
             find
         }
         long totalSize = disabled(ec) { filteredFind.call().count() }
@@ -334,10 +333,45 @@ final class A2ATaskStore {
         Map<String, Object> savedResult = A2ATypes.parseJson(duplicate.resultJson as String) as Map<String, Object>
         [
             replayed: true,
+            pending: savedResult == null,
             result: savedResult,
+            userId: duplicate.userId,
+            messageId: duplicate.messageId,
+            taskId: duplicate.taskId,
             task: taskMap(ec, ownedTask(ec, duplicate.taskId as String),
                 A2ATypes.historyLength((request.configuration as Map)?.historyLength), true)
         ] as Map<String, Object>
+    }
+
+    /** Poll for the original SendMessage result. Does not hold a transaction or connection between reads. */
+    static Map<String, Object> awaitReplay(ExecutionContext ec, Map<String, Object> accepted, Map<String, Object> request) {
+        String userId = accepted.userId as String
+        String messageId = accepted.messageId as String
+        String taskId = accepted.taskId as String
+        int historyLength = A2ATypes.historyLength((request.configuration as Map)?.historyLength)
+        long deadline = System.currentTimeMillis() + A2ATypes.replayWaitMs()
+        while (true) {
+            Map<String, Object> snapshot = isolated(ec) {
+                replaySnapshot(ec, userId, messageId, taskId, historyLength)
+            }
+            if (snapshot.result instanceof Map) return (Map<String, Object>) snapshot.result
+            if (snapshot.done == true || System.currentTimeMillis() >= deadline)
+                return [task: snapshot.task] as Map<String, Object>
+            Thread.sleep(50L)
+        }
+    }
+
+    private static Map<String, Object> replaySnapshot(ExecutionContext ec, String userId, String messageId,
+            String taskId, int historyLength) {
+        EntityValue duplicate = findMessage(ec, userId, messageId)
+        Object parsed = A2ATypes.parseJson(duplicate?.resultJson as String)
+        if (parsed instanceof Map) {
+            Map<String, Object> saved = (Map<String, Object>) parsed
+            return [result: saved.task != null ? saved : [task: saved] as Map<String, Object>] as Map<String, Object>
+        }
+        EntityValue task = ownedTask(ec, taskId)
+        [done: terminal(ec, task) && task.inFlight != 'Y',
+         task: taskMap(ec, task, historyLength, true)] as Map<String, Object>
     }
 
     private static EntityValue ownedTask(ExecutionContext ec, String taskId, boolean forUpdate = false) {
@@ -610,6 +644,7 @@ final class A2ATaskStore {
 
     // ===== Transaction and authorization boundaries =====
 
+    /** Same-thread require-new transaction via persistIsolated; not an LLM call. */
     static <T> T isolated(ExecutionContext ec, Closure<T> work) {
         Object[] result = new Object[1]
         LlmConversationImpl.persistIsolated(ec, { result[0] = work.call() } as Runnable)

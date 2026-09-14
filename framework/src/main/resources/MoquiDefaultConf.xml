@@ -116,6 +116,9 @@
     <default-property name="a2a_agent_version" value="1.0.0"/>
     <default-property name="a2a_provider_organization" value=""/>
     <default-property name="a2a_provider_url" value=""/>
+    <default-property name="a2a_max_part_bytes" value="65536"/>
+    <default-property name="a2a_max_parts" value="32"/>
+    <default-property name="a2a_replay_wait_ms" value="600000"/>
 
     <!-- Kibana Proxy Servlet settings -->
     <default-property name="kibana_host" value="127.0.0.1"/>
@@ -332,7 +335,7 @@
             <response-header type="cors-preflight" name="Access-Control-Allow-Credentials" value="true"/>
             <!-- doesn't seem these are needed, allowed by default: ,Authorization,Referrer,User-Agent -->
             <response-header type="cors-preflight" name="Access-Control-Allow-Headers" add="true"
-                    value="Accept,Accept-Encoding,Content-Type,Content-Encoding,Origin,X-Requested-With,Access-Control-Request-Method,Access-Control-Request-Headers,api_key,login_key,X-HTTP-Method-Override,moquiSessionToken,SessionToken,X-CSRF-Token,Authorization"/>
+                    value="Accept,Accept-Encoding,Content-Type,Content-Encoding,Origin,X-Requested-With,Access-Control-Request-Method,Access-Control-Request-Headers,api_key,login_key,X-HTTP-Method-Override,moquiSessionToken,SessionToken,X-CSRF-Token,Authorization,A2A-Version"/>
             <!-- TODO: would be nice to handle this differently, ie dynamically based on preflight request path -->
             <response-header type="cors-preflight" name="Access-Control-Allow-Methods" add="true" value="GET,PUT,POST,PATCH,DELETE,OPTIONS"/>
             <response-header type="cors-preflight" name="Access-Control-Max-Age" value="3600"/>

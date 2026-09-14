@@ -45,11 +45,12 @@ at HTTP 200, strict `A2A-Version: 1.0`, auth through the existing `LlmAuthFilter
 - **Off by default.** `a2a_enabled` is false: the Agent Card and the JSON-RPC endpoint both answer 404 until an operator turns A2A on, so an upgrade never publishes an agent surface by itself.
 - **Ownership.** Every operation resolves the task through the authenticated user; a task of another user is reported as `TaskNotFoundError` rather than a forbidden error, so task ids cannot be enumerated. `message.referenceTaskIds` is checked the same way.
 - **Lifecycle.** One set of transitions is enforced in `A2ATypes.requireTransition`: SUBMITTED → WORKING/CANCELED/REJECTED/FAILED, WORKING → COMPLETED/FAILED/CANCELED/INPUT_REQUIRED/AUTH_REQUIRED, INPUT_REQUIRED/AUTH_REQUIRED → WORKING/CANCELED/FAILED. Terminal states are final: further messages get `UnsupportedOperationError`, a second cancel gets `TaskNotCancelableError`, and no further events are written.
-- **Idempotency and ordering.** `(userId, messageId)` is unique, so a repeated message returns the stored response instead of running the model again, including under concurrent calls. Per-task `sequenceNum` allocation happens while the task row is held for update, and `(taskId, sequenceNum)` is unique on statuses, events and messages.
+- **Idempotency and ordering.** `(userId, messageId)` is unique, so a repeated message returns the stored response instead of running the model again. A blocking `SendMessage` that arrives while the original turn is still running waits for `resultJson` rather than returning a `SUBMITTED`/`WORKING` snapshot. Per-task `sequenceNum` allocation happens while the task row is held for update, and `(taskId, sequenceNum)` is unique on statuses, events and messages.
 - **Streaming.** A disconnected SSE client stops the writes but never corrupts the task, which still reaches a terminal state with `inFlight` cleared. A failure after partial output emits exactly one `TASK_STATE_FAILED` status.
-- **Discovery and proxies.** The advertised URL comes from `a2a_public_url`, or from `X-Forwarded-Proto`/`X-Forwarded-Host` only when `a2a_trust_forwarded_headers` is true, otherwise from the request as the container parsed it.
+- **Discovery and proxies.** The advertised URL comes from `a2a_public_url`, or from `X-Forwarded-Proto`/`X-Forwarded-Host` only when `a2a_trust_forwarded_headers` is true, otherwise from the request as the container parsed it. `LlmAuthFilter` answers CORS preflight (`OPTIONS`) before authentication so browsers can send the required `A2A-Version` header.
+- **Payload caps.** `a2a_max_part_bytes` (default 65536, decoded `raw` and UTF-8 `text`) and `a2a_max_parts` (default 32) reject oversize input with `-32602` before insert.
 - **Retention.** `clean#A2AData` deletes only terminal tasks older than the retention window, with their children, and removes a context only when it has no tasks and no LLM conversation left.
-- **Errors.** A2A and validation errors carry their own message; anything else is reported as a generic internal error and logged with its stack trace, so no SQL, class names or file paths reach the client.
+- **Errors.** A2A and validation errors carry their own message; anything else is `"Internal error"` on the JSON-RPC envelope **and** on the persisted `TASK_STATE_FAILED` status message, with the original throwable logged, so no SQL, class names or file paths reach the client via `GetTask` / streams either.
 
 ### Deferred
 
@@ -59,7 +60,7 @@ at HTTP 200, strict `A2A-Version: 1.0`, auth through the existing `LlmAuthFilter
 - **Webhook delivery.** Push configurations are stored (credentials encrypted, never returned) but the JSON-RPC methods answer `-32003`; delivery needs loopback and private-address blocking, DNS rebinding protection, a redirect policy, an allowlist, timeouts and payload limits first.
 - **Bearer/OIDC.** Authentication stays on the existing `LlmAuthFilter` (session, Basic, `login_key`) with permission `LlmGateway`.
 - **Remote A2A client.** The name `A2AClient` is reserved for calling other agents; nothing implements it yet.
-- **`DbResource` storage for `raw` Parts**, kept inline as base64, and request body limits beyond the servlet container's.
+- **`DbResource` storage for `raw` Parts**, still stored inline as base64 under the part-size cap. Request body limits beyond the servlet container's are not configured here.
 
 ### Superseded
 
@@ -811,7 +812,7 @@ Add `a2a` to the disallow list in the **same PR that maps `/a2a` (PR2)**. Do not
 
 ### `moqui.a2a.A2ATask`
 
-`taskId` PK (wire `Task.id`), `contextId`, optional internal `conversationId`, `userId`, `visitId`, `profileName`, `createdDate`, `currentTaskStatusId`, `metadataJson`, `referenceTaskIdsJson`, `cancelRequested`, `inFlight`, ordinal counters, `pendingToolCallId`, `pendingToolName`, `resultJson` (last SendMessageResponse snapshot for idempotency replay), `workerUsername`. The current status is a pointer to `A2ATaskStatus`, keeping the protocol `Task` and `TaskStatus` concepts separate. Indexes: `(userId, createdDate, taskId)`, `contextId`, `conversationId`.
+`taskId` PK (wire `Task.id`), `contextId`, optional internal `conversationId`, `userId`, `visitId`, `profileName`, `createdDate`, `currentTaskStatusId`, `metadataJson`, `referenceTaskIdsJson`, `cancelRequested`, `inFlight`, ordinal counters, `pendingToolCallId`, `pendingToolName`, `resultJson` (last SendMessageResponse snapshot for idempotency replay). The current status is a pointer to `A2ATaskStatus`, keeping the protocol `Task` and `TaskStatus` concepts separate. Indexes: `(userId, createdDate, taskId)`, `contextId`, `conversationId`.
 
 Application rule: at most one non-terminal task per `contextId` (enforce in `A2AGateway.createTask`, not a DB constraint that races).
 

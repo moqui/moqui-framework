@@ -23,16 +23,23 @@ import org.moqui.impl.llm.a2a.A2AException
 import org.moqui.impl.llm.a2a.A2AStreamSink
 import org.moqui.impl.llm.a2a.A2ATypes
 import org.moqui.impl.llm.a2a.A2AExecutorImpl
+import org.moqui.impl.webapp.MoquiAuthFilter
 import org.moqui.llm.LlmStreamListener
 import org.xml.sax.SAXException
 import spock.lang.IgnoreIf
 import spock.lang.Shared
 import spock.lang.Specification
 
+import jakarta.servlet.FilterChain
+import jakarta.servlet.FilterConfig
+import jakarta.servlet.ServletContext
+import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpServletResponse
 import java.sql.Timestamp
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import javax.xml.XMLConstants
@@ -160,19 +167,36 @@ class A2ACoreTests extends Specification {
 
     def 'in-flight message replay never invokes the provider twice'() {
         given:
-        Map first = A2AGateway.acceptMessage(ec, request('m-in-flight'))
-        int calls = 0
+        AtomicInteger calls = new AtomicInteger()
+        CountDownLatch started = new CountDownLatch(1)
+        Closure<Map> invokeLlm = { Map body, boolean resume ->
+            calls.incrementAndGet()
+            started.countDown()
+            Thread.sleep(200)
+            [content: 'once', yielded: false, model: 'fake', profile: 'default', pendingToolCalls: []]
+        }
+        CompletableFuture<Map> firstFuture = CompletableFuture.supplyAsync {
+            ExecutionContext other = Moqui.getExecutionContext()
+            try {
+                other.artifactExecution.disableAuthz()
+                assert other.user.loginUser('john.doe', 'moqui')
+                return A2AExecutorImpl.sendMessage(other, request('m-in-flight'), invokeLlm)
+            } finally {
+                other.destroy()
+            }
+        }
+        assert started.await(10, TimeUnit.SECONDS)
 
         when:
-        Map replay = A2AExecutorImpl.sendMessage(ec, request('m-in-flight')) { Map ignored, boolean resume ->
-            calls++
-            [:]
-        }
+        Map replay = A2AExecutorImpl.sendMessage(ec, request('m-in-flight'), invokeLlm)
+        Map first = firstFuture.get(90, TimeUnit.SECONDS)
 
         then:
-        calls == 0
+        calls.get() == 1
+        first.task.status.state == 'TASK_STATE_COMPLETED'
+        replay.task.status.state == 'TASK_STATE_COMPLETED'
         replay.task.id == first.task.id
-        replay.task.status.state == 'TASK_STATE_SUBMITTED'
+        replay.task.artifacts[0].parts[0].text == 'once'
     }
 
     def 'accepted task is committed independently of the callers transaction'() {
@@ -405,6 +429,22 @@ class A2ACoreTests extends Specification {
         first.tasks.every { !it.containsKey('history') && !it.containsKey('artifacts') }
     }
 
+    def 'task list statusTimestampAfter is inclusive'() {
+        given:
+        Map older = A2AGateway.acceptMessage(ec, request('m-after-old'))
+        A2AGateway.cancelTask(ec, [taskId: older.task.id])
+        Timestamp after = Timestamp.from(Instant.parse(older.task.status.timestamp as String))
+        Map newer = A2AGateway.acceptMessage(ec, request('m-after-new'))
+        A2AGateway.cancelTask(ec, [taskId: newer.task.id])
+
+        when:
+        Map listed = A2AGateway.listTasks(ec, [statusTimestampAfter: after, historyLength: 0])
+
+        then:
+        listed.tasks*.id.contains(older.task.id)
+        listed.tasks*.id.contains(newer.task.id)
+    }
+
     def 'artifact updates and event replay preserve order'() {
         given:
         Map accepted = A2AGateway.acceptMessage(ec, request('m-artifact'))
@@ -631,6 +671,50 @@ class A2ACoreTests extends Specification {
         else System.clearProperty('a2a_enabled')
     }
 
+    def 'OPTIONS preflight on LlmAuthFilter does not require authentication'() {
+        given:
+        Map<String, String> headers = [:]
+        int[] status = [0]
+        boolean[] sentError = [false]
+        boolean[] chained = [false]
+        ServletContext ctx = Stub(ServletContext) {
+            getAttribute('executionContextFactory') >> Moqui.getExecutionContextFactory()
+            getInitParameter('moqui-name') >> 'webroot'
+        }
+        HttpServletRequest request = Stub(HttpServletRequest) {
+            getMethod() >> 'OPTIONS'
+            getServletContext() >> ctx
+            getServerName() >> 'localhost'
+            getRequestURL() >> new StringBuffer('http://localhost:8080/llm/a2a/jsonrpc')
+            getHeader(_) >> { String name ->
+                if (name.equalsIgnoreCase('Origin')) return 'http://localhost'
+                if (name.equalsIgnoreCase('Access-Control-Request-Method')) return 'POST'
+                if (name.equalsIgnoreCase('Access-Control-Request-Headers')) return 'content-type, a2a-version'
+                null
+            }
+        }
+        HttpServletResponse response = Stub(HttpServletResponse) {
+            addHeader(_, _) >> { String name, String value -> headers[name] = headers.containsKey(name) ? headers[name] + ',' + value : value }
+            setHeader(_, _) >> { String name, String value -> headers[name] = value }
+            setStatus(_) >> { int code -> status[0] = code }
+            sendError(_) >> { sentError[0] = true }
+            sendError(_, _) >> { sentError[0] = true }
+        }
+        FilterConfig config = Stub(FilterConfig) { getInitParameter('permission') >> 'LlmGateway' }
+        MoquiAuthFilter filter = new MoquiAuthFilter()
+        filter.init(config)
+
+        when:
+        filter.doFilter(request, response, { req, resp -> chained[0] = true } as FilterChain)
+
+        then:
+        !sentError[0]
+        !chained[0]
+        status[0] == 200
+        (headers['Access-Control-Allow-Headers'] ?: '').contains('A2A-Version')
+        headers['Access-Control-Allow-Origin'] == 'http://localhost'
+    }
+
     def 'invalid Parts are rejected on every persistence path and write nothing'() {
         given:
         Map accepted = A2AGateway.acceptMessage(ec, request('m-bad-parts'))
@@ -648,6 +732,12 @@ class A2ACoreTests extends Specification {
         invalid { A2AGateway.acceptMessage(ec, [message: [messageId: 'm-p6', role: 'ROLE_USER', parts: [[text: 'x', filename: 7]]]]) }
         invalid { A2AGateway.acceptMessage(ec, [message: [messageId: 'm-p7', role: 'ROLE_USER', parts: [[text: 'x', mediaType: 7]]]]) }
         invalid { A2AGateway.acceptMessage(ec, [message: [messageId: 'm-p8', role: 'ROLE_USER', parts: [[text: 'x', metadata: 'no']]]]) }
+        invalid { A2AGateway.acceptMessage(ec, [message: [messageId: 'm-p9', role: 'ROLE_USER',
+                parts: [[raw: Base64.encoder.encodeToString(new byte[A2ATypes.maxPartBytes() + 1])]]]]) }
+        invalid { A2AGateway.acceptMessage(ec, [message: [messageId: 'm-p10', role: 'ROLE_USER',
+                parts: [[text: 'x' * (A2ATypes.maxPartBytes() + 1)]]]]) }
+        invalid { A2AGateway.acceptMessage(ec, [message: [messageId: 'm-p11', role: 'ROLE_USER',
+                parts: (1..(A2ATypes.maxParts() + 1)).collect { [text: 'x'] }]]) }
         // artifact Parts
         invalid { A2AGateway.addArtifact(ec, [taskId: taskId, artifact: [artifactId: 'bad', parts: [[text: 'x', data: [a: 1]]]]]) }
         invalid { A2AGateway.addArtifact(ec, [taskId: taskId, artifact: [artifactId: 'bad', parts: []]]) }
@@ -761,7 +851,9 @@ class A2ACoreTests extends Specification {
         calls.get() == 1
         ec.entity.find('moqui.a2a.A2AMessage').condition('messageId', 'm-race').count() == 1
         ec.entity.find('moqui.a2a.A2ATask').count() == 1
-        results.count { it.task != null } >= 1
+        results.every { it.task?.status?.state == 'TASK_STATE_COMPLETED' }
+        results[0].task.id == results[1].task.id
+        results.every { it.task.artifacts[0].parts[0].text == 'once' }
     }
 
     def 'cancel racing with completion leaves exactly one terminal state'() {
@@ -836,16 +928,17 @@ class A2ACoreTests extends Specification {
         }
 
         when:
-        A2AExecutorImpl.run(ec, request('m-stream-fail'), invoker, sink)
+        Map result = A2AExecutorImpl.run(ec, request('m-stream-fail'), invoker, sink)
 
         then:
-        thrown(IllegalStateException)
-
-        and:
-        String taskId = events.first().task.id
+        String taskId = result.task.id
+        result.task.status.state == 'TASK_STATE_FAILED'
+        result.task.status.message.parts[0].text == 'Internal error'
+        !groovy.json.JsonOutput.toJson(result).contains('provider failed')
         events*.statusUpdate.findAll { it }*.status*.state.count('TASK_STATE_FAILED') == 1
         events.last().statusUpdate.status.state == 'TASK_STATE_FAILED'
         A2AGateway.getTask(ec, [taskId: taskId]).task.status.state == 'TASK_STATE_FAILED'
+        A2AGateway.getTask(ec, [taskId: taskId]).task.status.message.parts[0].text == 'Internal error'
         ec.entity.find('moqui.a2a.A2ATask').condition('taskId', taskId).one().inFlight == 'N'
         A2AGateway.subscribeTask(ec, [taskId: taskId, afterOrdinal: -1L])
                 .events*.statusUpdate.findAll { it }*.status*.state.count('TASK_STATE_FAILED') == 1
@@ -872,7 +965,8 @@ class A2ACoreTests extends Specification {
         File frameworkDir = new File(new File(runtimeDir).absoluteFile.parentFile, 'framework/src/main/groovy/org/moqui/impl')
         Map<String, List<String>> forbidden = [
             'llm/a2a/A2ATypes.groovy'      : ['jakarta.servlet', 'LlmClient', 'A2ATaskStore', 'A2AGateway', 'A2AExecutor'],
-            'llm/a2a/A2ATaskStore.groovy'  : ['jakarta.servlet', 'LlmClient', 'LlmFacade', 'A2AJsonRpc', 'A2AGateway', 'A2AExecutor'],
+            'llm/a2a/A2ATaskStore.groovy'  : ['jakarta.servlet', 'LlmClient', 'LlmFacade',
+                    'import org.moqui.llm.LlmConversation', 'A2AJsonRpc', 'A2AGateway', 'A2AExecutor'],
             'llm/a2a/A2AExecutorImpl.groovy': ['jakarta.servlet', 'A2AJsonRpc', 'A2AServlet'],
             'llm/a2a/A2AJsonRpc.groovy'    : ['jakarta.servlet', 'EntityValue', 'ec.entity', 'LlmClient', 'A2ATaskStore', 'A2AExecutor'],
             'llm/a2a/A2AFacadeImpl.groovy' : ['jakarta.servlet', 'EntityValue', 'ec.entity', 'A2ATaskStore', 'A2AExecutor'],

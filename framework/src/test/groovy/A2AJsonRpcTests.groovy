@@ -21,6 +21,7 @@ import org.moqui.impl.llm.a2a.A2AJsonRpc
 import org.moqui.impl.llm.a2a.A2AStreamSink
 import org.moqui.impl.webapp.A2ACardServlet
 import org.moqui.impl.webapp.A2ASseSink
+import org.moqui.llm.LlmException
 import org.moqui.llm.test.FakeLlmProtocol
 import spock.lang.IgnoreIf
 import spock.lang.Shared
@@ -234,7 +235,9 @@ class A2AJsonRpcTests extends Specification {
         A2AJsonRpc.toA2A(new SQLException('ORA-00942: table SECRET_TABLE does not exist')).code == A2AException.INTERNAL_ERROR
         A2AJsonRpc.toA2A(new SQLException('ORA-00942: table SECRET_TABLE does not exist')).message == 'Internal error'
         A2AJsonRpc.toA2A(new NullPointerException('org.moqui.impl.Secret.field')).message == 'Internal error'
+        A2AJsonRpc.toA2A(new LlmException('secret provider url')).message == 'Internal error'
         !A2AJsonRpc.failure(1, A2AJsonRpc.toA2A(new SQLException('secret'))).toString().contains('secret')
+        !A2AJsonRpc.failure(1, A2AJsonRpc.toA2A(new LlmException('secret provider url'))).toString().contains('secret')
     }
 
     def 'JSON-RPC envelopes keep the id shape and tolerate missing params'() {

@@ -15,7 +15,6 @@ package org.moqui.impl.llm.a2a
 
 import org.moqui.context.ExecutionContext
 import org.moqui.impl.context.ContextJavaUtil
-import org.moqui.llm.LlmException
 
 import java.sql.Timestamp
 import java.time.Instant
@@ -145,9 +144,8 @@ final class A2AJsonRpc {
             return new A2AException(A2AException.INVALID_PARAMS, t.message ?: 'Invalid params', t)
         if (t instanceof UnsupportedOperationException)
             return new A2AException(A2AException.UNSUPPORTED_OPERATION, t.message ?: 'Unsupported operation', t)
-        if (t instanceof LlmException) return new A2AException(A2AException.INTERNAL_ERROR, t.message ?: 'LLM error', t)
-        // anything else may carry internals (SQL, file paths, class names): the caller gets a generic message,
-        // the servlet logs the original with its stack trace
+        // anything else (including LlmException) may carry internals (SQL, file paths, class names, provider URLs):
+        // the caller gets a generic message, the servlet logs the original with its stack trace
         new A2AException(A2AException.INTERNAL_ERROR, 'Internal error', t)
     }
 

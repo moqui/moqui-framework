@@ -69,9 +69,6 @@ along with this software (see the LICENSE.md file). If not, see
                 task state ({task: Task}), so a duplicate messageId returns the original response instead of running
                 the model again. Not an A2A protocol field and not the source of truth: the Task is rebuilt from
                 A2ATaskStatus, A2AMessage and A2AArtifact.</description></field>
-        <field name="workerUsername" type="id">
-            <description>Internal Moqui field reserved for the worker identity of a future asynchronous executor;
-                unused while tasks run on the caller request thread. Not an A2A protocol field.</description></field>
         <relationship type="one" related="moqui.a2a.A2AContext"/>
         <relationship type="one-nofk" related="moqui.security.UserAccount"/>
         <relationship type="one-nofk" title="Current" related="moqui.a2a.A2ATaskStatus">

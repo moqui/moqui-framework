@@ -20,10 +20,13 @@ import org.moqui.impl.llm.LlmFacadeImpl
 import org.moqui.impl.llm.LlmGateway
 import org.moqui.llm.LlmConversation
 import org.moqui.llm.LlmStreamListener
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
 import java.util.function.Supplier
 
 final class A2AExecutorImpl implements A2AExecutor {
+    private static final Logger logger = LoggerFactory.getLogger(A2AExecutorImpl.class)
     /** Artifact that carries the agent's textual answer; streamed as chunks, stored whole. */
     static final String RESPONSE_ARTIFACT_ID = 'response'
     private static final List<String> ASSIST_TOOLS =
@@ -92,8 +95,10 @@ final class A2AExecutorImpl implements A2AExecutor {
         Object historyLength = (request.configuration as Map)?.historyLength
         Map<String, Object> accepted = A2AGateway.acceptMessage(ec, request)
         if (accepted.replayed == true) {
-            Map<String, Object> replay = accepted.result instanceof Map ?
-                    (Map<String, Object>) accepted.result : [task: accepted.task] as Map<String, Object>
+            Map<String, Object> replay = accepted.pending == true ?
+                    A2ATaskStore.awaitReplay(ec, accepted, request) :
+                    (accepted.result instanceof Map ? (Map<String, Object>) accepted.result :
+                            [task: accepted.task] as Map<String, Object>)
             emit(sink, [task: replay.task] as Map<String, Object>)
             return replay
         }
@@ -158,13 +163,20 @@ final class A2AExecutorImpl implements A2AExecutor {
                 emitStatus(sink, canceled)
                 return canceled
             }
+            logger.error("A2A task ${task.taskId} failed", failure)
             try {
+                String statusText = failure instanceof A2AException ?
+                        (failure.message ?: 'Internal error') : 'Internal error'
                 Map<String, Object> errorMessage = [
                     messageId: UUID.randomUUID().toString(), role: 'ROLE_AGENT',
-                    parts: [[text: failure.message ?: failure.class.simpleName]]
+                    parts: [[text: statusText]]
                 ]
                 emitStatus(sink, A2AGateway.updateStatus(ec, task, 'TASK_STATE_FAILED', errorMessage,
                     [inFlight: 'N', pendingToolCallId: null, pendingToolName: null]))
+                Map<String, Object> result = [task: A2AGateway.getTask(ec, [taskId: task.taskId,
+                    historyLength: historyLength]).task] as Map<String, Object>
+                A2ATaskStore.saveResult(ec, inputMessage, task, result)
+                return result
             } catch (Throwable ignored) { }
             throw failure
         }

@@ -45,6 +45,14 @@ Servlet endpoints:
 - `GET /llm/v1/conversations/{id}` — owner and ADMIN only
 - `GET /llm/v1/profiles` — names, model, allow-* flags; no API keys
 
+#### A2A 1.0 Server
+
+Opt-in remote-agent surface in front of the existing LLM stack. Off by default (`a2a_enabled=false`); both endpoints answer 404 until an operator turns it on.
+
+- JSON-RPC 1.0 at `POST /llm/a2a/jsonrpc` (SSE on the same URL for `SendStreamingMessage` / `SubscribeToTask`). Auth is the existing `LlmAuthFilter` / permission `LlmGateway`. Strict `A2A-Version: 1.0`.
+- Public Agent Card at `GET /.well-known/agent-card.json`. Set `a2a_public_url` for the advertised URL, or `a2a_trust_forwarded_headers=true` to derive it from `X-Forwarded-Proto`/`X-Forwarded-Host` (any client can forge those headers).
+- Inbound Part caps: `a2a_max_part_bytes` (default 65536) and `a2a_max_parts` (default 32), rejected as JSON-RPC `-32602`.
+
 #### LLM Operator Notes
 
 Environment variables / Java properties (also `default-property` in Moqui Conf XML; underscores or dots):

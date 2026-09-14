@@ -21,6 +21,7 @@ import org.moqui.impl.context.ContextJavaUtil
 import org.moqui.util.SystemBinding
 
 import java.net.URI
+import java.nio.charset.StandardCharsets
 
 /**
  * A2A 1.0 protocol semantics: input validation, Part shapes, task states and allowed transitions, plus the JSON
@@ -67,6 +68,12 @@ final class A2ATypes {
         SystemBinding.getPropOrEnv('a2a_default_profile')?.trim() ?: 'assist'
     }
 
+    static int maxParts() { positiveInt('a2a_max_parts', 32) }
+
+    static int maxPartBytes() { positiveInt('a2a_max_part_bytes', 65536) }
+
+    static long replayWaitMs() { positiveLong('a2a_replay_wait_ms', 600000L) }
+
     private static String partTypeEnumId(Map<String, Object> part) {
         if (part.containsKey('text')) return PART_TEXT
         if (part.containsKey('raw')) return PART_RAW
@@ -101,6 +108,8 @@ final class A2ATypes {
     static List<Map<String, Object>> requireParts(Object value) {
         if (!(value instanceof List) || ((List) value).isEmpty())
             throw new IllegalArgumentException('message.parts must contain at least one Part')
+        if (((List) value).size() > maxParts())
+            throw new IllegalArgumentException("message.parts exceeds a2a_max_parts (${maxParts()})")
         List<Map<String, Object>> parts = new ArrayList<>()
         for (Object partValue in (List) value) {
             if (!(partValue instanceof Map)) throw new IllegalArgumentException('each Part must be an object')
@@ -109,8 +118,12 @@ final class A2ATypes {
             if (variants.size() != 1)
                 throw new IllegalArgumentException('each Part must contain exactly one of text, raw, url, or data')
             String variant = variants.first()
-            if (variant == 'text' && !(part.text instanceof String))
-                throw new IllegalArgumentException('Part.text must be a string')
+            if (variant == 'text') {
+                if (!(part.text instanceof String)) throw new IllegalArgumentException('Part.text must be a string')
+                int textBytes = ((String) part.text).getBytes(StandardCharsets.UTF_8).length
+                if (textBytes > maxPartBytes())
+                    throw new IllegalArgumentException("Part.text exceeds a2a_max_part_bytes (${maxPartBytes()})")
+            }
             if (variant == 'raw') requireBase64(part.raw)
             if (variant == 'url' && (!(part.url instanceof String) || text(part.url) == null))
                 throw new IllegalArgumentException('Part.url must be a non-blank string')
@@ -127,15 +140,23 @@ final class A2ATypes {
     private static int requireBase64(Object value) {
         if (!(value instanceof String) || ((String) value).isEmpty())
             throw new IllegalArgumentException('Part.raw must be base64 encoded bytes')
+        byte[] decoded
         try {
-            return Base64.decoder.decode((String) value).length
+            decoded = Base64.decoder.decode((String) value)
         } catch (IllegalArgumentException ignored) {
             try {
-                return Base64.urlDecoder.decode((String) value).length
+                decoded = Base64.urlDecoder.decode((String) value)
             } catch (IllegalArgumentException ignoredAgain) {
                 throw new IllegalArgumentException('Part.raw must be base64 encoded bytes')
             }
         }
+        return checkDecodedLength(decoded.length)
+    }
+
+    private static int checkDecodedLength(int bytes) {
+        if (bytes > maxPartBytes())
+            throw new IllegalArgumentException("Part.raw exceeds a2a_max_part_bytes (${maxPartBytes()})")
+        bytes
     }
 
     static Map<String, Object> requireConfiguration(Object value) {
@@ -258,6 +279,28 @@ final class A2ATypes {
             return ContextJavaUtil.jacksonMapper.readValue(value, Object.class)
         } catch (Throwable t) {
             throw new BaseException('Error parsing A2A JSON', t)
+        }
+    }
+
+    private static int positiveInt(String name, int fallback) {
+        String raw = SystemBinding.getPropOrEnv(name)?.trim()
+        if (!raw) return fallback
+        try {
+            int value = Integer.parseInt(raw)
+            return value > 0 ? value : fallback
+        } catch (NumberFormatException ignored) {
+            return fallback
+        }
+    }
+
+    private static long positiveLong(String name, long fallback) {
+        String raw = SystemBinding.getPropOrEnv(name)?.trim()
+        if (!raw) return fallback
+        try {
+            long value = Long.parseLong(raw)
+            return value > 0L ? value : fallback
+        } catch (NumberFormatException ignored) {
+            return fallback
         }
     }
 

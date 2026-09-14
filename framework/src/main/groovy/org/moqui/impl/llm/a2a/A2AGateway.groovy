@@ -183,8 +183,4 @@ final class A2AGateway {
     static Map<String, Object> deletePushConfig(ExecutionContext ec, Map<String, Object> request) {
         A2ATaskStore.isolated(ec) { A2ATaskStore.deletePushConfigTx(ec, request) }
     }
-
-    // ===== Persistence: task lifecycle, messages, artifacts and the event log =====
-
-
 }

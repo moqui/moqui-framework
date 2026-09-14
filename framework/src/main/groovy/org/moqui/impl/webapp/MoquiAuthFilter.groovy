@@ -61,6 +61,11 @@ class MoquiAuthFilter implements Filter {
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "System is initializing, try again soon.")
             return
         }
+        // Preflight has no Authorization; answer CORS before initFromHttpRequest so browsers can send A2A-Version.
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            String webappName = servletContext.getInitParameter("moqui-name")
+            if (MoquiServlet.handleCors(request, response, webappName, ecfi)) return
+        }
         ExecutionContextImpl activeEc = ecfi.activeContext.get()
         if (activeEc != null) {
             logger.warn("In MoquiAuthFilter.doFilter there is already an ExecutionContext for user ${activeEc.user.username} (from ${activeEc.forThreadId}:${activeEc.forThreadName}) in this thread (${Thread.currentThread().id}:${Thread.currentThread().name}), destroying")
