@@ -254,8 +254,31 @@ class LlmBrowseTests extends Specification {
         sys != null
         sys.contains("root = Stack")
         sys.contains("Lookup(")
+        sys.contains("Link(")
+        sys.contains("BarChart(")
+        sys.contains("MarkDownRenderer(")
+        sys.contains("Mermaid(")
+        sys.contains("DatePeriod(")
         sys.contains("kind=openui")
         !sys.contains("<#include")
+    }
+
+    def "OpenUI spec component names appear in OpenUiLang prompt"() {
+        when:
+        File specFile = new File("../runtime/base-component/webroot/screen/webroot/js/assist/AssistOpenUiLibrary.spec.json")
+        File promptFile = new File("../runtime/base-component/tools/prompt/OpenUiLang.prompt.txt")
+        def spec = new groovy.json.JsonSlurper().parse(specFile)
+        def names = spec['$defs'].keySet()
+        String prompt = promptFile.text
+        def missing = names.findAll { !prompt.contains(it + "(") }
+
+        then:
+        specFile.exists()
+        promptFile.exists()
+        names.contains("Link")
+        names.contains("BarChart")
+        names.contains("MarkDownRenderer")
+        missing.isEmpty()
     }
 
     def "SkillInject FTL miss and hit render through ResourceFacade"() {

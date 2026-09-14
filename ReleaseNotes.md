@@ -115,6 +115,8 @@ Other production notes:
   no `enter_sim`). `write_ui` schemaVersion 4 is
   `kind=openui` (OpenUI Lang in `lang`, Vue 2.7 renderer + Quasar/m-* library on Assist.qvue;
   Script-mode `Mutation("request")` POSTs on generated Button click; Query GET fills tables;
+  `Link` opens `/qapps` screens in a new tab with path/params/hash; charts via Chart.js
+  (`BarChart`/`LineChart`/`AreaChart`/`PieChart`); markdown/mermaid via `MarkDownRenderer`/`Mermaid`;
   `writeThrough` merges statements by name) or `kind=vue-sfc` (escape-hatch Vue 2 SFC parsed with
   `httpVueLoader.parse`). Legacy `kind=form` xml-form widgets still enrich. SSE `write_ui_delta`
   streams partial `lang` onto the canvas. Script mode runs canvas Mutations (and leftover
