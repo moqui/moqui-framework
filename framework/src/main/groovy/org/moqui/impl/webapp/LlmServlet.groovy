@@ -290,6 +290,9 @@ class ServletStreamListener implements LlmStreamListener {
     @Override void onDelta(String textDelta) {
         emit("delta", [content: textDelta] as Map<String, Object>)
     }
+    @Override void onToolCallDelta(String name, String argumentsSoFar) {
+        emit("write_ui_delta", [name: name, arguments: argumentsSoFar] as Map<String, Object>)
+    }
     @Override void onToolCall(LlmToolCall call, LlmTool.Execution execution) {
         Map<String, Object> m = LlmGateway.toolCallToMap(call)
         m.put("execution", execution == LlmTool.Execution.CLIENT ? "client" : "server")

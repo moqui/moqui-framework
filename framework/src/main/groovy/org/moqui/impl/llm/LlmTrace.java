@@ -286,7 +286,7 @@ public final class LlmTrace {
             if (args.get("max_iterations") != null) parts.add("maxIter=" + intVal(args.get("max_iterations"), 0));
         } else if ("write_ui".equals(name)) {
             String kind = str(args.get("kind"));
-            if (kind == null || kind.isBlank()) kind = "form";
+            if (kind == null || kind.isBlank()) kind = args.get("lang") != null ? "openui" : "form";
             parts.add("kind=" + kind.trim());
             String title = str(args.get("title"));
             if (title != null && !title.isBlank()) parts.add("title=" + quote(cap(collapseWs(title), VALUE_MAX)));
@@ -294,6 +294,12 @@ public final class LlmTrace {
             if (fields > 0) parts.add("fields=" + fields);
             int actions = listSize(args.get("actions"));
             if (actions > 0) parts.add("actions=" + actions);
+            String lang = str(args.get("lang"));
+            if (lang != null && !lang.isBlank()) {
+                int stmts = 1;
+                for (int i = 0; i < lang.length(); i++) if (lang.charAt(i) == '\n') stmts++;
+                parts.add("stmts=" + stmts);
+            }
         } else {
             appendKv(parts, args, MAX_GENERIC_KEYS);
         }

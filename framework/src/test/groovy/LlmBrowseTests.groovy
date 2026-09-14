@@ -243,7 +243,19 @@ class LlmBrowseTests extends Specification {
         text.contains("/rest/s1")
         text.contains("/rest/e1")
         text.contains("Find forms")
+        text.contains("kind=openui")
         text.indexOf("/qapps") < text.indexOf("/rest/s1")
+    }
+
+    def "AssistSystem template includes generated OpenUI Lang prompt"() {
+        when:
+        String sys = LlmGateway.renderPrompt(ec, "component://tools/prompt/AssistSystem.ftl", null)
+        then:
+        sys != null
+        sys.contains("root = Stack")
+        sys.contains("Lookup(")
+        sys.contains("kind=openui")
+        !sys.contains("<#include")
     }
 
     def "SkillInject FTL miss and hit render through ResourceFacade"() {

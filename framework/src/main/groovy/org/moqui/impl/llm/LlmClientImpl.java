@@ -294,6 +294,9 @@ public class LlmClientImpl implements LlmClient {
                     @Override public void onDelta(String textDelta) {
                         if (textDelta != null && !textDelta.isEmpty()) listener.onDelta(textDelta);
                     }
+                    @Override public void onToolCallDelta(String name, String argumentsSoFar) {
+                        listener.onToolCallDelta(name, argumentsSoFar);
+                    }
                     @Override public void onComplete(ProtocolResult result) { resultBox[0] = result; }
                     @Override public void onFailure(Throwable t) { failBox[0] = t; }
                 });

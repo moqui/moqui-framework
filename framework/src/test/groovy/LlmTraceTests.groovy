@@ -73,6 +73,17 @@ class LlmTraceTests extends Specification {
         !sum.contains("sfc=")
     }
 
+    def "write_ui openui summarizes stmts not lang source"() {
+        when:
+        String lang = 'root = Stack([header])\nheader = CardHeader("SecretTitleXYZ")'
+        String sum = LlmTrace.summarizeCall("write_ui", [kind: "openui", title: "Find", lang: lang])
+        then:
+        sum.contains("kind=openui")
+        sum.contains("stmts=")
+        !sum.contains("SecretTitleXYZ")
+        !sum.contains("lang=")
+    }
+
     def "find_skill and enter_sim summarize query and goal"() {
         expect:
         LlmTrace.summarizeCall("find_skill", [query: "create user", limit: 3]).contains("query=")

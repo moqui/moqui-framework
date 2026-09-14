@@ -30,7 +30,7 @@ def result = ec.llm.getDefault()
   with `inheritAuthz=N` so that does not skip later service/screen/entity checks. Servlet access is permission
   `LlmGateway` (ADMIN by default).
 - Agent loop: server tool `request` (method + path through ScreenRender on the same thread, authz and tarpit ON)
-  and client tool `write_ui` (schemaVersion 3 form or vue-sfc yield; the server never submits). Optional typed
+  and client tool `write_ui` (schemaVersion 4 openui Lang or vue-sfc yield; the server never submits). Optional typed
   `LlmTool.service()`. Servlet may also attach `browse` (authz-filtered catalog) and `run_service`
   (generic service call) when the profile allows them.
 - Managed servlet at `/llm/*`. Not a provider-key proxy (keys stay on the profile). Service REST wrappers at
@@ -112,11 +112,13 @@ Other production notes:
   single `service-call`. `match` searches those as well as name/title. Search screens exhaustively, then
   `/rest/s1`, then `run_service`, then `/rest/e1` last. Entity rows include `createService`
   (`create#EntityName`). Find forms: `write_ui` then GET `jsonPath` and `writeThrough` columns/rows (reads,
-  no `enter_sim`). `write_ui` schemaVersion 3 is
-  `kind=form` (xml-form widgets, list columns/rows) or `kind=vue-sfc` (Vue 2 SFC parsed with
-  `httpVueLoader.parse` and mounted as a sub-component of Assist.qvue). `actions[]` and `writeThrough`
-  apply to both kinds (SFC source is replaced as a unit; omitted source is kept). Script mode runs
-  `actions[]` in the browser as the user; Agent mode resumes and the model calls tools. `kind=screen-xml`
+  no `enter_sim`). `write_ui` schemaVersion 4 is
+  `kind=openui` (OpenUI Lang in `lang`, Vue 2.7 renderer + Quasar/m-* library on Assist.qvue;
+  Script-mode `Mutation("request")` POSTs on generated Button click; Query GET fills tables;
+  `writeThrough` merges statements by name) or `kind=vue-sfc` (escape-hatch Vue 2 SFC parsed with
+  `httpVueLoader.parse`). Legacy `kind=form` xml-form widgets still enrich. SSE `write_ui_delta`
+  streams partial `lang` onto the canvas. Script mode runs canvas Mutations (and leftover
+  `actions[]`) in the browser; Agent mode resumes and the model calls tools. `kind=screen-xml`
   is still not implemented.
 - `write_ui` on the servlet requires profile `allow-write-ui="true"`. Client `tools` may only subset
   `{request, write_ui, browse, run_service}`. POST `/llm/v1/chat` may pass `extraBody` (merged into the

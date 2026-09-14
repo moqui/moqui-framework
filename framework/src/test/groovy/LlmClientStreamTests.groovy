@@ -154,6 +154,21 @@ class LlmClientStreamTests extends Specification {
         listener.complete.usage?.totalTokens == 13
     }
 
+    def "write_ui argument chunks emit onToolCallDelta"() {
+        given:
+        handler.scenario = "write_ui"
+        def listener = new ProtoListener()
+        when:
+        new OpenAiCompatProtocol().chatStream(req(), listener)
+        then:
+        listener.failure == null
+        listener.complete.toolCalls[0].name == "write_ui"
+        listener.complete.toolCalls[0].arguments.contains("kind")
+        !listener.toolCallDeltas.isEmpty()
+        listener.toolCallDeltas[0].name == "write_ui"
+        listener.toolCallDeltas[0].arguments.contains("openui")
+    }
+
     def "usage may be null when gateway ignores include_usage"() {
         given:
         handler.scenario = "no_usage"
@@ -248,9 +263,13 @@ class LlmClientStreamTests extends Specification {
 
     static class ProtoListener implements ProtocolStreamListener {
         List<String> deltas = []
+        List<Map> toolCallDeltas = []
         ProtocolResult complete
         Throwable failure
         @Override void onDelta(String textDelta) { deltas.add(textDelta) }
+        @Override void onToolCallDelta(String name, String argumentsSoFar) {
+            toolCallDeltas.add([name: name, arguments: argumentsSoFar])
+        }
         @Override void onComplete(ProtocolResult result) { complete = result }
         @Override void onFailure(Throwable t) { failure = t }
     }
@@ -301,6 +320,12 @@ class LlmClientStreamTests extends Specification {
                     writeChunk(response, sse('{"choices":[{"index":0,"delta":{"reasoning_content":"Let me "}}]}'), false)
                     writeChunk(response, sse('{"choices":[{"index":0,"delta":{"reasoning_content":"think."}}]}'), false)
                     writeChunk(response, sse(contentChunk("Hello", "stop")), false)
+                    writeChunk(response, "data: [DONE]\n\n", true)
+                    callback.succeeded()
+                } else if ("write_ui".equals(sc)) {
+                    writeChunk(response, sse('{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_w","type":"function","function":{"name":"write_ui","arguments":""}}]}}]}'), false)
+                    writeChunk(response, sse('{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\\"kind\\":\\"openui\\",\\"title\\":\\"Find assets screen\\",\\"lang\\":\\"root = Stack([])\\"}"}}]}}]}'), false)
+                    writeChunk(response, sse('{"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}'), false)
                     writeChunk(response, "data: [DONE]\n\n", true)
                     callback.succeeded()
                 } else if ("tool_calls".equals(sc)) {

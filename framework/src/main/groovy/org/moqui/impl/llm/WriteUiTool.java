@@ -37,12 +37,14 @@ import java.util.regex.Pattern;
  */
 public class WriteUiTool implements LlmTool {
     static final String NAME = "write_ui";
-    /** 3: kind=form | vue-sfc. Form spec plus list/actions/writeThrough; vue-sfc is client http-vue-loader.parse. */
-    static final int SCHEMA_VERSION = 3;
+    /** 4: kind=openui | vue-sfc | form. openui is OpenUI Lang; vue-sfc is escape-hatch SFC; form is legacy widgets. */
+    static final int SCHEMA_VERSION = 4;
     static final String KIND_FORM = "form";
     static final String KIND_VUE_SFC = "vue-sfc";
+    static final String KIND_OPENUI = "openui";
     // FUTURE: KIND_SCREEN_XML = "screen-xml" (server round-trip compile/render of generated XML screen)
     static final int MAX_SFC_CHARS = 64 * 1024;
+    static final int MAX_LANG_CHARS = 64 * 1024;
     static final Pattern LINK_TAG = Pattern.compile("(?is)<link\\b[^>]*(?:/>|>)(?:\\s*</link>)?");
     static final Pattern SCRIPT_SRC = Pattern.compile(
             "(?is)(<script\\b[^>]*?)\\ssrc\\s*=\\s*(?:'[^']*'|\"[^\"]*\"|[^\\s>]+)");
@@ -63,7 +65,8 @@ public class WriteUiTool implements LlmTool {
     static final Set<String> TOP_KEYS = new LinkedHashSet<>(Arrays.asList(
             "title", "instruction", "submitLabel", "cancelLabel", "formId", "prefill", "fields",
             "schemaVersion", "prefillError", "kind", "writeThrough", "columns", "rows", "actions",
-            "removeFields", "removeActions", "sfc", "template", "script", "style", "sfcError"));
+            "removeFields", "removeActions", "sfc", "template", "script", "style", "sfcError",
+            "lang", "langError"));
     static final Set<String> SFC_KEYS = new LinkedHashSet<>(Arrays.asList("sfc", "template", "script", "style"));
     static final Set<String> COLUMN_KEYS = new LinkedHashSet<>(Arrays.asList("name", "label", "widget"));
     static final Set<String> ACTION_KEYS = new LinkedHashSet<>(Arrays.asList(
@@ -126,10 +129,13 @@ public class WriteUiTool implements LlmTool {
         props.put("fields", fields);
         Map<String, Object> kindSchema = new LinkedHashMap<>();
         kindSchema.put("type", "string");
-        kindSchema.put("enum", Arrays.asList(KIND_FORM, KIND_VUE_SFC));
-        kindSchema.put("description", "form: xml-form widgets. vue-sfc: Vue 2 SFC mounted on Assist "
-                + "(sfc, or template+script+style). Default form.");
+        kindSchema.put("enum", Arrays.asList(KIND_OPENUI, KIND_VUE_SFC, KIND_FORM));
+        kindSchema.put("description", "openui: OpenUI Lang in lang (default when lang is present). "
+                + "vue-sfc: Vue 2 SFC escape hatch. form: legacy xml-form widgets.");
         props.put("kind", kindSchema);
+        Map<String, Object> langProp = mapOf("type", "string");
+        langProp.put("description", "OpenUI Lang program (kind=openui). One statement per line; root = Stack([...]).");
+        props.put("lang", langProp);
         Map<String, Object> sfcProp = mapOf("type", "string");
         sfcProp.put("description", "Full Vue 2 SFC. Wins over template/script/style. module.exports, not export default.");
         props.put("sfc", sfcProp);
@@ -200,16 +206,13 @@ public class WriteUiTool implements LlmTool {
 
     @Override public String getName() { return NAME; }
     @Override public String getDescription() {
-        return "Present a UI on Assist. kind=form (default): xml-form widgets; do not emit HTML/Vue/JS. "
-                + "kind=vue-sfc: Vue 2 SFC (sfc, or template+script+style) mounted as a sub-component; "
-                + "use module.exports (not export default / script setup), Quasar v1, and Assist m-* widgets "
-                + "(see system prompt). Always declare actions[] (method+path) and keep fields[].name in sync "
-                + "with values. Find/list: actions[].path is GET {screen}/actions/{formName} from browse jsonPath; "
-                + "after submit writeThrough columns/rows. Scalar defaultValue only. "
-                + "Wait for the user to submit; values in the tool result are the only source of truth. "
-                + "The server never submits. Set writeThrough=true to edit the current canvas: omitted "
-                + "fields/actions/SFC source are kept; use removeFields/removeActions to drop them. "
-                + "The resume tool result includes canvas (current schema with user values).";
+        return "Present a UI on Assist. Prefer kind=openui with lang (OpenUI Lang; root = Stack([...]); "
+                + "Query/Mutation + Button Action). kind=vue-sfc is an escape hatch when the registered "
+                + "library cannot express the layout (Vue 2 SFC, module.exports, Quasar v1). "
+                + "kind=form is legacy xml-form widgets. Wait for the user to submit; values in the tool "
+                + "result are the only source of truth. The server never submits. Set writeThrough=true to "
+                + "edit the current canvas (openui merges statements by name). The resume tool result "
+                + "includes canvas (current schema with user values).";
     }
     @Override public Map<String, Object> getParametersSchema() { return SCHEMA; }
     @Override public Execution getExecution() { return Execution.CLIENT; }
@@ -282,16 +285,20 @@ public class WriteUiTool implements LlmTool {
             if (writeThroughFlag) {
                 out.remove("kind");
                 kind = null;
+            } else if (hasLang(out)) {
+                kind = KIND_OPENUI;
+                out.put("kind", kind);
             } else {
                 kind = KIND_FORM;
                 out.put("kind", kind);
             }
-        } else if (!KIND_FORM.equals(kind) && !KIND_VUE_SFC.equals(kind)) {
-            kind = KIND_FORM;
+        } else if (!KIND_FORM.equals(kind) && !KIND_VUE_SFC.equals(kind) && !KIND_OPENUI.equals(kind)) {
+            kind = hasLang(out) ? KIND_OPENUI : KIND_FORM;
             out.put("kind", kind);
         } else {
             out.put("kind", kind);
         }
+        applyOpenUiLang(out, kind);
         applyVueSfc(out, kind, kept);
         if (!(out.get("writeThrough") instanceof Boolean)) out.put("writeThrough", Boolean.FALSE);
 
@@ -351,10 +358,20 @@ public class WriteUiTool implements LlmTool {
         String nextKind = lastKind;
         if (incoming.containsKey("kind") && incoming.get("kind") != null) {
             String k = str(incoming.get("kind"));
-            if (KIND_FORM.equals(k) || KIND_VUE_SFC.equals(k)) nextKind = k;
+            if (KIND_FORM.equals(k) || KIND_VUE_SFC.equals(k) || KIND_OPENUI.equals(k)) nextKind = k;
         }
         out.put("kind", nextKind);
-        if (KIND_VUE_SFC.equals(nextKind)) {
+        if (KIND_OPENUI.equals(nextKind)) {
+            clearSfcKeys(out);
+            if (hasLang(incoming)) {
+                String lastLang = str(out.get("lang"));
+                String nextLang = str(incoming.get("lang"));
+                out.put("lang", mergeLang(lastLang, nextLang));
+                out.remove("langError");
+            }
+        } else if (KIND_VUE_SFC.equals(nextKind)) {
+            out.remove("lang");
+            out.remove("langError");
             if (hasSfcParts(incoming)) {
                 out.remove("template");
                 out.remove("script");
@@ -370,6 +387,8 @@ public class WriteUiTool implements LlmTool {
             }
         } else {
             clearSfcKeys(out);
+            out.remove("lang");
+            out.remove("langError");
         }
         List<Map<String, Object>> fields = mergeByName(asMapList(out.get("fields")), asMapList(incoming.get("fields")),
                 asStringList(incoming.get("removeFields")));
@@ -512,6 +531,140 @@ public class WriteUiTool implements LlmTool {
             out.remove("prefill");
             out.put("prefillError", "not found or not authorized");
         }
+    }
+
+    static boolean hasLang(Map<String, Object> map) {
+        String lang = str(map != null ? map.get("lang") : null);
+        return lang != null && !lang.isBlank();
+    }
+
+    /**
+     * Sanitize OpenUI Lang: strip markdown fences, size-cap. Do not Jsoup-clean (Lang is not HTML).
+     */
+    static void applyOpenUiLang(Map<String, Object> out, String kind) {
+        boolean writeThrough = Boolean.TRUE.equals(out.get("writeThrough"));
+        boolean asOpenUi = KIND_OPENUI.equals(kind) || (kind == null && hasLang(out));
+        if (KIND_FORM.equals(kind) || KIND_VUE_SFC.equals(kind) || (!asOpenUi && kind != null)) {
+            if (!KIND_OPENUI.equals(kind)) {
+                out.remove("lang");
+                out.remove("langError");
+            }
+            return;
+        }
+        if (!asOpenUi) {
+            out.remove("lang");
+            out.remove("langError");
+            return;
+        }
+        String lang = stripLangFences(str(out.get("lang")));
+        if (lang == null || lang.isBlank()) {
+            if (writeThrough) return;
+            out.put("kind", KIND_OPENUI);
+            out.put("langError", "openui requires lang");
+            out.remove("lang");
+            return;
+        }
+        if (lang.length() > MAX_LANG_CHARS) {
+            if (writeThrough) return;
+            out.put("kind", KIND_OPENUI);
+            out.put("langError", "openui lang exceeds 64KiB");
+            out.remove("lang");
+            return;
+        }
+        if (kind == null) out.put("kind", KIND_OPENUI);
+        out.put("lang", lang);
+        out.remove("langError");
+    }
+
+    /** Merge patch statements onto existing OpenUI Lang by statement id (left of first =). */
+    static String mergeLang(String existing, String patch) {
+        String ex = stripLangFences(existing);
+        String pa = stripLangFences(patch);
+        if (pa == null || pa.isBlank()) return ex;
+        if (ex == null || ex.isBlank()) return pa;
+        LinkedHashMap<String, String> byId = new LinkedHashMap<>();
+        for (String stmt : splitLangStatements(ex)) {
+            String id = langStatementId(stmt);
+            if (id != null) byId.put(id, stmt);
+        }
+        for (String stmt : splitLangStatements(pa)) {
+            String id = langStatementId(stmt);
+            if (id == null) continue;
+            if (isLangNullAssign(stmt)) byId.remove(id);
+            else byId.put(id, stmt);
+        }
+        return String.join("\n", byId.values());
+    }
+
+    static List<String> splitLangStatements(String input) {
+        List<String> stmts = new ArrayList<>();
+        if (input == null) return stmts;
+        int depth = 0;
+        boolean inStr = false;
+        char quote = 0;
+        boolean esc = false;
+        int start = 0;
+        for (int i = 0; i < input.length(); i++) {
+            char c = input.charAt(i);
+            if (esc) { esc = false; continue; }
+            if (c == '\\' && inStr) { esc = true; continue; }
+            if (inStr) {
+                if (c == quote) inStr = false;
+                continue;
+            }
+            if (c == '"' || c == '\'') { inStr = true; quote = c; continue; }
+            if (c == '(' || c == '[' || c == '{') depth++;
+            else if (c == ')' || c == ']' || c == '}') depth = Math.max(0, depth - 1);
+            else if (c == '\n' && depth <= 0) {
+                String stmt = input.substring(start, i).trim();
+                if (!stmt.isEmpty()) stmts.add(stmt);
+                start = i + 1;
+            }
+        }
+        String tail = input.substring(start).trim();
+        if (!tail.isEmpty()) stmts.add(tail);
+        return stmts;
+    }
+
+    static String langStatementId(String stmt) {
+        if (stmt == null) return null;
+        int depth = 0;
+        boolean inStr = false;
+        char quote = 0;
+        boolean esc = false;
+        for (int i = 0; i < stmt.length(); i++) {
+            char c = stmt.charAt(i);
+            if (esc) { esc = false; continue; }
+            if (c == '\\' && inStr) { esc = true; continue; }
+            if (inStr) {
+                if (c == quote) inStr = false;
+                continue;
+            }
+            if (c == '"' || c == '\'') { inStr = true; quote = c; continue; }
+            if (c == '(' || c == '[' || c == '{') depth++;
+            else if (c == ')' || c == ']' || c == '}') depth = Math.max(0, depth - 1);
+            else if (c == '=' && depth == 0) return stmt.substring(0, i).trim();
+        }
+        return null;
+    }
+
+    static boolean isLangNullAssign(String stmt) {
+        if (stmt == null) return false;
+        int eq = stmt.indexOf('=');
+        if (eq < 0) return false;
+        return "null".equals(stmt.substring(eq + 1).trim());
+    }
+
+    static String stripLangFences(String s) {
+        if (s == null) return null;
+        String t = s.trim();
+        if (t.startsWith("```")) {
+            int nl = t.indexOf('\n');
+            if (nl > 0) t = t.substring(nl + 1);
+            if (t.endsWith("```")) t = t.substring(0, t.length() - 3);
+            t = t.trim();
+        }
+        return t;
     }
 
     /**

@@ -475,7 +475,7 @@ public class OpenAiCompatProtocol implements LlmProtocol {
             Object tcs = delta.get("tool_calls");
             if (tcs instanceof List) {
                 for (Object item : (List<?>) tcs) {
-                    accumulateToolCall(LlmRetryClassifier.asMap(item));
+                    accumulateToolCall(LlmRetryClassifier.asMap(item), listener);
                 }
             }
         }
@@ -484,7 +484,7 @@ public class OpenAiCompatProtocol implements LlmProtocol {
             return finishReason == null && error == null && (content.length() > 0 || !toolCalls.isEmpty());
         }
 
-        private void accumulateToolCall(Map<?, ?> tc) {
+        private void accumulateToolCall(Map<?, ?> tc, ProtocolStreamListener listener) {
             if (tc == null) return;
             String id = LlmRetryClassifier.str(tc.get("id"));
             boolean hasId = id != null && !id.isBlank();
@@ -518,6 +518,10 @@ public class OpenAiCompatProtocol implements LlmProtocol {
                 acc.arguments.append(argsObj);
             } else if (argsObj != null && acc.arguments.length() == 0) {
                 acc.arguments.append(LlmJson.toJson(argsObj));
+            }
+            if (listener != null && "write_ui".equals(acc.name) && acc.arguments.length() - acc.lastDeltaLen >= 48) {
+                acc.lastDeltaLen = acc.arguments.length();
+                listener.onToolCallDelta(acc.name, acc.arguments.toString());
             }
         }
 
@@ -576,5 +580,6 @@ public class OpenAiCompatProtocol implements LlmProtocol {
         String id;
         String name;
         final StringBuilder arguments = new StringBuilder();
+        int lastDeltaLen = 0;
     }
 }

@@ -18,6 +18,8 @@ import java.util.List;
 public interface LlmStreamListener {
     default void onConversation(String conversationId) { }
     default void onDelta(String textDelta) { }
+    /** Partial write_ui (or other client tool) arguments while the model is still streaming. */
+    default void onToolCallDelta(String name, String argumentsSoFar) { }
     default void onToolCall(LlmToolCall call, LlmTool.Execution execution) { }
     default void onToolResult(LlmToolCall call, Object result, LlmTool.Execution execution) { }
     default void onYield(List<LlmToolCall> pendingClientCalls) { }

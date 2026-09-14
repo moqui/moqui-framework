@@ -993,7 +993,7 @@ class LlmClientTests extends Specification {
         enriched.fields[1].name == "when"
         enriched.fields[1].widget == "date-time"
         enriched.fields[1].widgetType == "date"
-        enriched.schemaVersion == 3
+        enriched.schemaVersion == 4
         enriched.kind == "form"
     }
 
@@ -1090,7 +1090,7 @@ class LlmClientTests extends Specification {
         def other = tool.enrichForClient([kind: "screen-xml", fields: [[name: "n", widget: "text-line"]]], null)
         then:
         vue.kind == "vue-sfc"
-        vue.schemaVersion == 3
+        vue.schemaVersion == 4
         vue.sfc.contains("<template>")
         vue.sfc.contains("module.exports")
         !vue.containsKey("template")
@@ -1189,6 +1189,54 @@ class LlmClientTests extends Specification {
         then:
         formed.kind == "form"
         !formed.containsKey("sfc")
+    }
+
+    def "write_ui kind openui keeps lang, strips fences, rejects empty and oversized"() {
+        given:
+        WriteUiTool tool = new WriteUiTool()
+        String lang = 'root = Stack([header])\nheader = CardHeader("Hi")'
+        String huge = "root = Stack([])\n" + ("x = TextContent(\"y\")\n" * 4000)
+        when:
+        def ok = tool.enrichForClient([kind: "openui", title: "T", lang: lang], null)
+        def fenced = tool.enrichForClient([kind: "openui", lang: "```openui\n" + lang + "\n```"], null)
+        def implied = tool.enrichForClient([lang: lang], null)
+        def empty = tool.enrichForClient([kind: "openui"], null)
+        def oversized = tool.enrichForClient([kind: "openui", lang: huge + huge], null)
+        then:
+        ok.kind == "openui"
+        ok.schemaVersion == 4
+        ok.lang.contains("CardHeader")
+        !ok.lang.contains("```")
+        fenced.lang.startsWith("root =")
+        implied.kind == "openui"
+        empty.langError == "openui requires lang"
+        !empty.containsKey("lang")
+        oversized.langError == "openui lang exceeds 64KiB"
+        !oversized.containsKey("lang")
+    }
+
+    def "write_ui writeThrough merges openui lang statements"() {
+        given:
+        def conv = LlmConversationImpl.create(null, "default", null)
+        WriteUiTool tool = new WriteUiTool()
+        def first = tool.enrichForClient([
+                kind: "openui",
+                lang: 'root = Stack([header, body])\nheader = CardHeader("One")\nbody = TextContent("A")'
+        ], null)
+        when:
+        WriteUiTool.applyWriteThrough(first, conv)
+        def patch = tool.enrichForClient([
+                writeThrough: true,
+                kind: "openui",
+                lang: 'header = CardHeader("Two")\nchart = TextContent("B")\nroot = Stack([header, chart, body])'
+        ], null)
+        def merged = WriteUiTool.applyWriteThrough(patch, conv)
+        then:
+        merged.kind == "openui"
+        merged.lang.contains('CardHeader("Two")')
+        merged.lang.contains('TextContent("A")')
+        merged.lang.contains('TextContent("B")')
+        merged.lang.contains("root = Stack([header, chart, body])")
     }
 
     def "getClient-style builders are distinct instances"() {

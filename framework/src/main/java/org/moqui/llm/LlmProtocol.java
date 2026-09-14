@@ -84,5 +84,7 @@ public interface LlmProtocol {
         void onDelta(String textDelta);
         void onComplete(ProtocolResult result);
         void onFailure(Throwable t);
+        /** Partial tool-call arguments while streaming (write_ui lang onto the canvas). */
+        default void onToolCallDelta(String name, String argumentsSoFar) { }
     }
 }
