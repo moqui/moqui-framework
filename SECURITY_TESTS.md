@@ -153,6 +153,9 @@ The two runners cannot share the database at the same time (Moqui locks `btm2.tl
 | `simplifyRequestParameters` drops percent-encoded query names (`sq%6c`) | A05 | `SecurityMisconfigTests` | N/A |
 | DataSnapshot-style load with `disableEntityEca` can restore `ADMIN` membership; ECA on cannot | A01 | `SecurityIntegrityTests` | N/A |
 | HMAC replay cache is `type="distributed"` | A02 | `SecurityMisconfigTests` | N/A |
+| `/llm/v1` CSRF on POST; dummy `login_key` / Basic does not skip CSRF; empty `allowed-path` is fail-closed | A01 | `LlmServletTests` | N/A (no `sec.*` HTTP client for `/llm`) |
+| A2A JSON-RPC / Agent Card: `a2a_enabled` default false; task ownership; card advertises JSON-RPC | A01 | `A2ACoreTests`, `A2AFacadeTests`, `A2AJsonRpcTests` | `framework/test/a2a/` is opt-in (not `pytest.sh`); instance must set `a2a_enabled=true` |
+| HOLD `TransactionCacheDb` create/update/delete does not write production | A01 | `TransactionCacheDbTests` | N/A |
 
 ### Designed exposure (documented, not a control)
 
@@ -165,6 +168,8 @@ These rows record a default that is deliberately permissive. They are not proofs
 | `email_allowed_hosts` default is empty (poll/send may connect to any host until operators set the list) | A02 | `SecurityMisconfigTests` |
 | DataSnapshot import defaults `disableEntityEca` true so a Tools update user can restore security rows | A01 | `SecurityIntegrityTests` |
 | `SmatNone` remotes are explicit no-auth ingest (`loginAnonymousIfNoUser`) | A01 | N/A |
+| Assist profile (`tools/MoquiConf.xml`) enables `allow-write-ui`, `allow-browse`, `allow-run-service`, `allow-unprefixed-request`, `allow-enter-sim` | A01 | N/A |
+| `llm-facade.@enabled` defaults true; `/llm/*` is mounted | A02 | `LlmServletTests` (route map) |
 
 ### Proof strength notes
 
@@ -180,6 +185,9 @@ These rows record a default that is deliberately permissive. They are not proofs
 - `test_a07_more.py` `test_create_initial_admin_http_fails_when_users_exist` accepts `"error" in body`, which matches most rendered pages. `SecurityAuthnTests` (`ec.message.hasError()`) is the real proof.
 - REST screen transitions (`rest.xml` `require-authentication="false"`) do not write `ArtifactAuthzFailure`. Inner `AT_ENTITY` / `AT_REST_PATH` checks do (`SecurityIntegrityTests` measures entity find).
 - HMAC replay `putIfAbsent` is cluster-wide only when a real distributed cache factory is configured; the default factory is local MCache.
+- `LlmServletTests` CSRF and tool-flag proofs are in-process stubs (`HttpServletRequest` / `FakeLlmProtocol`), not the `MoquiAuthFilter` chain. There is no Python HTTP row for anonymous `/llm/*`, Assist without `LlmGateway`, or `/rest/s1/moqui/llm`.
+- `TransactionCacheDbTests` prove HOLD entity CUD isolation and that `RestClient` / `ServiceCallAsync` are skipped when `simSession` is true.
+- `llm_log_content=false` is the `LlmCallLog` default; unredacted `LlmTrace` dumps require `llm_trace_dump=true`.
 
 ## Future work
 
@@ -188,3 +196,4 @@ Still open; not public failing PoCs:
 - **`consume#ReceivedSystemMessage`** is `authenticate="anonymous-all"` (needed for the scheduled job). Tightening that needs a separate review; leave as-is.
 - **Upload polyglots**: `isExecutable` still does not treat a text-prefixed PE, a JAR/ZIP (`PK`), or HTML/JS as executable. ZIP uploads are a Tools feature.
 - **`showErrorDetail` servlet gate**, `/status` from a non-allow-listed TCP source, `/notws` topic ACL, and HSTS on an HTTPS listener remain proof-strength notes rather than catalog gaps.
+- **LLM HTTP proofs**: anonymous `/llm/*` and Assist without `LlmGateway`; `/rest/s1/moqui/llm` vs servlet permission; A2A 404 while `a2a_enabled=false`.

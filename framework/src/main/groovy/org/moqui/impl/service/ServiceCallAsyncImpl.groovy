@@ -24,6 +24,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import java.util.concurrent.Callable
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Future
 
 @CompileStatic
@@ -55,6 +56,10 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
     void call() {
         ExecutionContextFactoryImpl ecfi = sfi.ecfi
         ExecutionContextImpl eci = ecfi.getEci()
+        if (eci.simSession) {
+            logger.info("Skipping async service ${serviceName} in LLM sim session")
+            return
+        }
         validateCall(eci)
 
         AsyncServiceRunnable runnable = new AsyncServiceRunnable(eci, serviceName, parameters)
@@ -69,6 +74,13 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
     Future<Map<String, Object>> callFuture() throws ServiceException {
         ExecutionContextFactoryImpl ecfi = sfi.ecfi
         ExecutionContextImpl eci = ecfi.getEci()
+        if (eci.simSession) {
+            logger.info("Skipping async service ${serviceName} in LLM sim session")
+            Map<String, Object> skipped = new HashMap<>()
+            skipped.put("simSkipped", Boolean.TRUE)
+            skipped.put("serviceName", serviceName)
+            return CompletableFuture.completedFuture(skipped)
+        }
         validateCall(eci)
 
         AsyncServiceCallable callable = new AsyncServiceCallable(eci, serviceName, parameters)
@@ -81,12 +93,26 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
 
     @Override
     Runnable getRunnable() {
-        return new AsyncServiceRunnable(sfi.ecfi.getEci(), serviceName, parameters)
+        ExecutionContextImpl eci = sfi.ecfi.getEci()
+        if (eci.simSession) {
+            return { logger.info("Skipping async service ${serviceName} in LLM sim session") } as Runnable
+        }
+        return new AsyncServiceRunnable(eci, serviceName, parameters)
     }
 
     @Override
     Callable<Map<String, Object>> getCallable() {
-        return new AsyncServiceCallable(sfi.ecfi.getEci(), serviceName, parameters)
+        ExecutionContextImpl eci = sfi.ecfi.getEci()
+        if (eci.simSession) {
+            return {
+                logger.info("Skipping async service ${serviceName} in LLM sim session")
+                Map<String, Object> skipped = new HashMap<>()
+                skipped.put("simSkipped", Boolean.TRUE)
+                skipped.put("serviceName", serviceName)
+                return skipped
+            } as Callable<Map<String, Object>>
+        }
+        return new AsyncServiceCallable(eci, serviceName, parameters)
     }
 
     static class AsyncServiceInfo implements Externalizable {

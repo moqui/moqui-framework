@@ -199,7 +199,7 @@ public final class LlmGateway {
         boolean wantBrowse = tools.contains("browse");
         boolean wantRunService = tools.contains("run_service");
         boolean wantFindSkill = tools.contains("find_skill") || wantBrowse || wantRunService;
-        boolean wantEnterSim = tools.contains("enter_sim") || wantBrowse || wantRunService;
+        boolean wantEnterSim = tools.contains("enter_sim");
         if (wantRequest) {
             boolean unprefixed = profile != null && profile.allowUnprefixedRequest;
             LlmTool rt = requestToolForServlet(profile != null ? profile.allowedPaths : null, unprefixed);
@@ -215,12 +215,19 @@ public final class LlmGateway {
         if (wantBrowse && profile != null && profile.allowBrowse) client.tool(LlmTool.browse());
         if (wantRunService && profile != null && profile.allowRunService) client.tool(LlmTool.runService());
         if (wantFindSkill) client.tool(LlmTool.findSkill());
-        if (wantEnterSim) client.tool(LlmTool.enterSim());
+        if (wantEnterSim && profile != null && profile.allowEnterSim) client.tool(LlmTool.enterSim());
+    }
+
+    public static void requireLlmGateway(ExecutionContext ec) {
+        if (ec == null || ec.getUser() == null || !ec.getUser().hasPermission("LlmGateway"))
+            throw new LlmException("User does not have permission to use the LLM gateway",
+                    null, LlmFinishReason.ERROR, 403, null, null);
     }
 
     public static LlmClientImpl prepareClient(ExecutionContext ec, Map<String, Object> body, boolean resume) {
         if (ec == null) throw new LlmException("ExecutionContext is required",
                 null, LlmFinishReason.ERROR, 500, null, null);
+        requireLlmGateway(ec);
         if (body == null) body = new LinkedHashMap<>();
         String profileName = str(body.get("profile"));
         if (profileName == null) profileName = "default";
@@ -312,6 +319,11 @@ public final class LlmGateway {
         if ((impl.activeSkillName == null || impl.activeSkillName.isBlank()) && impl.conversation != null) {
             Object v = impl.conversation.getAttributes().get("activeSkillName");
             if (v != null && !v.toString().isBlank()) impl.activeSkillName = v.toString();
+        }
+        String bodySkill = body != null ? str(body.get("activeSkillName")) : null;
+        if (bodySkill != null) {
+            SkillIndex.SkillDoc doc = SkillIndex.getByName(impl.ec, bodySkill);
+            if (doc != null) SkillUseGate.activate(impl, doc.name);
         }
     }
 
@@ -411,6 +423,7 @@ public final class LlmGateway {
      * Outside the single-flight 409 rule for in-flight turns.
      */
     public static Map<String, Object> cancel(ExecutionContext ec, String conversationId) {
+        requireLlmGateway(ec);
         LlmConversation conv = LlmConversationImpl.load(ec, conversationId, true);
         return cancel(conv);
     }
@@ -432,6 +445,7 @@ public final class LlmGateway {
     }
 
     public static Map<String, Object> getConversationMap(ExecutionContext ec, String conversationId) {
+        requireLlmGateway(ec);
         LlmConversation conv = LlmConversationImpl.load(ec, conversationId, true);
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("conversationId", conv.getConversationId());
@@ -451,6 +465,7 @@ public final class LlmGateway {
      * Owner's conversations, newest first. ADMIN may list all. Optional profile and purpose (attributes.purpose).
      */
     public static List<Map<String, Object>> listConversations(ExecutionContext ec, String profile, String purpose) {
+        requireLlmGateway(ec);
         List<Map<String, Object>> out = new ArrayList<>();
         if (ec == null || ec.getEntity() == null || ec.getUser() == null) return out;
         String userId = ec.getUser().getUserId();
@@ -490,6 +505,7 @@ public final class LlmGateway {
 
     /** Profiles the current user is authorized to use (AT_LLM VIEW). Names + model, never keys. */
     public static List<Map<String, Object>> listProfiles(ExecutionContext ec) {
+        requireLlmGateway(ec);
         LlmFacade facade = ec.getLlm();
         ArtifactExecutionFacade aefi = ec.getArtifactExecution();
         List<Map<String, Object>> out = new ArrayList<>();
@@ -508,6 +524,7 @@ public final class LlmGateway {
                     row.put("allowBrowse", ps.allowBrowse);
                     row.put("allowRunService", ps.allowRunService);
                     row.put("allowUnprefixedRequest", ps.allowUnprefixedRequest);
+                    row.put("allowEnterSim", ps.allowEnterSim);
                     row.put("allowClientSystem", ps.allowClientSystem);
                 }
                 out.add(row);

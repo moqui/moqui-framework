@@ -134,6 +134,7 @@ public class OpenAiCompatProtocol implements LlmProtocol {
                 .retry(request.retryInitialSeconds > 0 ? request.retryInitialSeconds : 2.0f,
                         request.retryMax >= 0 ? request.retryMax : 5)
                 .redactHeaders(redactHeaderNames(request))
+                .allowInSim(true)
                 .text(json);
         if (request.requestFactory != null) restClient.withRequestFactory(request.requestFactory);
         applyAuthAndHeaders(restClient, request);

@@ -22,6 +22,11 @@ import spock.lang.Specification
 
 class LlmTraceTests extends Specification {
 
+    def "unredacted dumps are off unless llm_trace_dump is true"() {
+        expect:
+        !LlmTrace.isDumpEnabled()
+    }
+
     def "browse call shows path and match and omits default depth"() {
         expect:
         LlmTrace.summarizeCall("browse", [path: "/qapps/system", match: "UserAccount"]) ==

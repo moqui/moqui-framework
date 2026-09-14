@@ -1015,6 +1015,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     // ====================================================
 
     @Override @Nonnull ExecutionContext getExecutionContext() { return getEci() }
+    @Override ExecutionContext getActiveExecutionContext() { return activeContext.get() }
     ExecutionContextImpl getEci() {
         // the ExecutionContextImpl cast here looks funny, but avoids Groovy using a slow castToType call
         ExecutionContextImpl ec = (ExecutionContextImpl) activeContext.get()

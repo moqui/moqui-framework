@@ -669,6 +669,11 @@ along with this software (see the LICENSE.md file). If not, see
                         (any path the current user is authorized to hit). Default profile stays fail-closed.
                     </xs:documentation></xs:annotation>
                 </xs:attribute>
+                <xs:attribute name="allow-enter-sim" type="boolean-expandable" default="false">
+                    <xs:annotation><xs:documentation>Attach enter_sim when the client requests it. Nested sim copies
+                        the parent's request/browse/run_service tools; it does not grant unprefixed request on its own.
+                    </xs:documentation></xs:annotation>
+                </xs:attribute>
                 <xs:attribute name="system-location" type="xs:string">
                     <xs:annotation><xs:documentation>Resource Facade location of SYSTEM text applied every turn
                         (replaces client body.system). Example: component://tools/template/AssistSystem.md

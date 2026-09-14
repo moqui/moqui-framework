@@ -47,7 +47,7 @@
     -->
     <default-property name="user_privileged_groups" value="ADMIN,ADMIN_ADV"/>
     <default-property name="user_sealed_permissions"
-            value="GROOVY_SHELL_WEB,SQL_RUNNER_WEB,SERVICE_LOAD_RUNNER,ADMIN_LOGIN_AS,ADMIN_PASSWORD,ElasticRemote,KibanaRemote,REST_SCHEMA"/>
+            value="GROOVY_SHELL_WEB,SQL_RUNNER_WEB,SERVICE_LOAD_RUNNER,ADMIN_LOGIN_AS,ADMIN_PASSWORD,ElasticRemote,KibanaRemote,REST_SCHEMA,LlmGateway"/>
 
     <!--
         email_allowed_hosts: comma-separated hostnames/IPs poll#EmailServer and send#Email may connect to.

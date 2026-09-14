@@ -257,6 +257,7 @@ class SecurityMisconfigTests extends Specification {
         groups.contains("ADMIN_ADV")
         perms.contains("GROOVY_SHELL_WEB")
         perms.contains("REST_SCHEMA")
+        perms.contains("LlmGateway")
     }
 
     def "removeUserAccountIdentityFromMap drops control fields"() {

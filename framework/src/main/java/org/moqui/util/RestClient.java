@@ -74,6 +74,9 @@ import org.eclipse.jetty.util.thread.ScheduledExecutorScheduler;
 import org.eclipse.jetty.util.thread.Scheduler;
 
 import org.moqui.BaseException;
+import org.moqui.Moqui;
+import org.moqui.context.ExecutionContext;
+import org.moqui.context.ExecutionContextFactory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -138,6 +141,7 @@ public class RestClient {
     private boolean timeoutRetry = false;
     private RequestFactory overrideRequestFactory = null;
     private boolean isolate = false;
+    private boolean allowInSim = false;
     private Set<String> redactHeaderNames = null;
 
     public RestClient() { }
@@ -299,6 +303,18 @@ public class RestClient {
     /** If true isolate the request from all other requests by using a new HttpClient instance per request (no cookies, keep alive, etc; each request isolated from others) */
     public RestClient isolate(boolean isolate) { this.isolate = isolate; return this; }
 
+    /** LLM provider calls set this so sim can still reach the model. All other RestClient use is refused in sim. */
+    public RestClient allowInSim(boolean allow) { this.allowInSim = allow; return this; }
+
+    private void refuseIfSim() {
+        if (allowInSim) return;
+        ExecutionContextFactory factory = Moqui.getExecutionContextFactory();
+        if (factory == null) return;
+        ExecutionContext ec = factory.getActiveExecutionContext();
+        if (ec != null && ec.isSimSession())
+            throw new BaseException("RestClient is disabled in LLM sim session (" + uriString + ")");
+    }
+
     /** Names of request headers to mask in TRACE logs (values printed as {@code ***}). Unused unless set. */
     public RestClient redactHeaders(String... names) {
         if (names == null || names.length == 0) {
@@ -317,6 +333,7 @@ public class RestClient {
      *  Does not retry after a 2xx body stream is handed over. 429/timeout retry happens
      *  only before that, using the same backoff as call(). */
     public RestStream stream() {
+        refuseIfSim();
         float curWaitSeconds = initialWaitSeconds;
         if (curWaitSeconds == 0) curWaitSeconds = 1;
 
@@ -462,6 +479,7 @@ public class RestClient {
 
     /** Do the HTTP request and get the response */
     public RestResponse call() {
+        refuseIfSim();
         float curWaitSeconds = initialWaitSeconds;
         if (curWaitSeconds == 0) curWaitSeconds = 1;
 
@@ -583,6 +601,7 @@ public class RestClient {
 
     /** Call in background  */
     public Future<RestResponse> callFuture() {
+        refuseIfSim();
         if (uriString == null || uriString.isEmpty()) throw new IllegalStateException("No URI set in RestClient");
         return new RestClientFuture(this);
     }

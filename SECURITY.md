@@ -20,6 +20,6 @@ For more information on submitting issues and pull requests please see the [Issu
 
 ## Attack surface
 
-A map of HTTP, screen, REST/RPC, WebSocket, and optional listeners in moqui-framework and moqui-runtime is in [SECURITY_SURFACE.md](SECURITY_SURFACE.md). That file also covers production notices and heavy lock-down options (including the demo.moqui.org pattern). Operator checklist: [Run and Deploy — Production security](https://www.moqui.org/m/docs/framework/Run+and+Deploy). Authn/authz model: [Security](https://www.moqui.org/m/docs/framework/Security).
+A map of HTTP, screen, REST/RPC, WebSocket, and optional listeners in moqui-framework and moqui-runtime is in [SECURITY_SURFACE.md](SECURITY_SURFACE.md). That file also covers production notices and heavy lock-down options (including the demo.moqui.org pattern), plus the LLM gateway (`/llm/*`), A2A (default off), and the Assist screen (`/qapps/assist`). Operator checklist: [Run and Deploy — Production security](https://www.moqui.org/m/docs/framework/Run+and+Deploy). Authn/authz model: [Security](https://www.moqui.org/m/docs/framework/Security).
 
 Proof tests (what is covered, how to run Spock and the Python HTTP suite): [SECURITY_TESTS.md](SECURITY_TESTS.md).

@@ -152,7 +152,37 @@ class LlmServletTests extends Specification {
         proto.lastRequest.tools.find { it.name == "browse" } != null
         proto.lastRequest.tools.find { it.name == "run_service" } != null
         proto.lastRequest.tools.find { it.name == "find_skill" } != null
-        proto.lastRequest.tools.find { it.name == "enter_sim" } != null
+        proto.lastRequest.tools.find { it.name == "enter_sim" } == null
+    }
+
+    def "attachServletTools adds enter_sim only when allowed and requested"() {
+        given:
+        def proto = new FakeLlmProtocol()
+        proto.results = [FakeLlmProtocol.stop("ok")]
+        def noSim = LlmFacadeImpl.ProfileState.forTest("assist", proto, "m", false, 2, 0f, 5,
+                [], true, true, true, true, true, false)
+        def withSim = LlmFacadeImpl.ProfileState.forTest("assist", proto, "m", false, 2, 0f, 5,
+                [], true, true, true, true, true, true)
+        def clientNo = new LlmClientImpl(null, noSim, { false })
+        def clientYes = new LlmClientImpl(null, withSim, { false })
+        def clientBrowse = new LlmClientImpl(null, withSim, { false })
+        when:
+        LlmGateway.attachServletTools(clientNo, noSim, ["enter_sim", "browse", "run_service"])
+        clientNo.user("hi").call()
+        def toolsNo = proto.lastRequest.tools*.name
+        proto.results = [FakeLlmProtocol.stop("ok")]
+        LlmGateway.attachServletTools(clientYes, withSim, ["enter_sim"])
+        clientYes.user("hi").call()
+        def toolsYes = proto.lastRequest.tools*.name
+        proto.results = [FakeLlmProtocol.stop("ok")]
+        LlmGateway.attachServletTools(clientBrowse, withSim, ["browse"])
+        clientBrowse.user("hi").call()
+        def toolsBrowse = proto.lastRequest.tools*.name
+        then:
+        !toolsNo.contains("enter_sim")
+        toolsYes.contains("enter_sim")
+        !toolsBrowse.contains("enter_sim")
+        toolsBrowse.contains("find_skill")
     }
 
     def "applySystem ignores client system when allow-client-system is false"() {

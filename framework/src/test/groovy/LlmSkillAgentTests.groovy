@@ -19,7 +19,9 @@ import org.moqui.entity.EntityValue
 import org.moqui.impl.llm.EnterSimTool
 import org.moqui.impl.llm.LlmClientImpl
 import org.moqui.impl.llm.LlmFacadeImpl
+import org.moqui.impl.llm.LlmGateway
 import org.moqui.impl.llm.SkillIndex
+import org.moqui.llm.LlmException
 import org.moqui.llm.LlmMessage
 import org.moqui.llm.LlmProtocol.ProtocolRequest
 import org.moqui.llm.LlmResponse
@@ -551,6 +553,63 @@ ${pad}
         } finally {
             if (!d) ec.artifactExecution.enableAuthz()
         }
+    }
+
+    def "applyForceSkillUse activates known body.activeSkillName and ignores unknown"() {
+        given:
+        def proto = new FakeLlmProtocol()
+        proto.results = [FakeLlmProtocol.stop("ok")]
+        LlmClientImpl known = agent(proto)
+        LlmClientImpl unknown = agent(proto)
+        when:
+        LlmGateway.applyForceSkillUse(known, [activeSkillName: "create-user-account"])
+        LlmGateway.applyForceSkillUse(unknown, [activeSkillName: "no-such-skill-xyz"])
+        then:
+        known.getActiveSkillName() == "create-user-account"
+        unknown.getActiveSkillName() == null
+    }
+
+    def "LlmGateway.chat requires LlmGateway permission"() {
+        given:
+        if (ec.user.userId) ec.user.logoutUser()
+        when:
+        LlmGateway.chat(ec, [profile: "default", user: "hi", tools: []])
+        then:
+        LlmException e = thrown()
+        e.httpStatus == 403
+    }
+
+    def "enter_sim nested agent does not gain unprefixed request or extra tools"() {
+        given:
+        List nestedNames = null
+        def proto = new FakeLlmProtocol()
+        proto.handler = { ProtocolRequest req ->
+            boolean sim = isSim(req)
+            def last = lastTool(req)
+            if (sim) {
+                nestedNames = (req.tools ?: []).collect { it.name }
+                return FakeLlmProtocol.stop("sim-ok")
+            }
+            if (last?.name == "enter_sim") return FakeLlmProtocol.stop("done")
+            return FakeLlmProtocol.toolCalls(new LlmToolCall("e1", "enter_sim",
+                    '{"goal":"look around"}'))
+        }
+        def profile = LlmFacadeImpl.ProfileState.forTest("default", proto, "test-model", false, 2, 0f, 5)
+        LlmClientImpl client = new LlmClientImpl(ec, profile, { false })
+        client.tool(LlmTool.findSkill())
+        client.tool(LlmTool.enterSim())
+        client.maxIterations(8)
+
+        when:
+        LlmResponse r = client.user("explore").call()
+        then:
+        r.content == "done"
+        nestedNames != null
+        !nestedNames.contains("request")
+        !nestedNames.contains("run_service")
+        !nestedNames.contains("browse")
+        !nestedNames.contains("enter_sim")
+        !nestedNames.contains("find_skill")
     }
 
     private LlmClientImpl agent(FakeLlmProtocol proto) {

@@ -298,6 +298,24 @@ class SecurityAccessControlTests extends Specification {
         row == null
     }
 
+    def "SYSTEM_APP ALL cannot grant LlmGateway"() {
+        when:
+        SecurityTestSupport.login(ec, SecurityTestSupport.ALL_USERNAME, SecurityTestSupport.ALL_PASSWORD)
+        ScreenTestRender str = system.render("Security/UserGroup/UserGroupDetail/createUserGroupPermission",
+                SecurityTestSupport.csrfParams(ec, [userGroupId: SecurityTestSupport.ALL_GROUP_ID,
+                        userPermissionId: "LlmGateway", fromDate: ec.user.nowTimestamp.toString()]), "post")
+        String all = ((str.errorMessages ?: []) + [str.output ?: ""]).join("\n").toLowerCase()
+        def row = null
+        SecurityTestSupport.withAuthzDisabled(ec) {
+            row = ec.entity.find("moqui.security.UserGroupPermission")
+                    .condition("userGroupId", SecurityTestSupport.ALL_GROUP_ID)
+                    .condition("userPermissionId", "LlmGateway").one()
+        }
+        then:
+        all.contains("not authorized") || SecurityTestSupport.looksLikeAuthzFailure(str)
+        row == null
+    }
+
     def "SYSTEM_APP ALL can add a member to its own group"() {
         given:
         String uid = SecurityTestSupport.userIdForUsername(ec, SecurityTestSupport.NONE_USERNAME)

@@ -22,6 +22,7 @@ import org.moqui.llm.a2a.A2AFacade;
 import jakarta.servlet.ServletContext;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import jakarta.websocket.server.ServerContainer;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -32,6 +33,9 @@ import java.util.List;
 public interface ExecutionContextFactory {
     /** Get the ExecutionContext associated with the current thread or initialize one and associate it with the thread. */
     @Nonnull ExecutionContext getExecutionContext();
+
+    /** Current thread ExecutionContext, or null. Does not create one. */
+    @Nullable ExecutionContext getActiveExecutionContext();
 
     /** Destroy the active Execution Context. When another is requested in this thread a new one will be created. */
     void destroyActiveExecutionContext();

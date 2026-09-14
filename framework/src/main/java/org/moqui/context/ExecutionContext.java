@@ -94,6 +94,9 @@ public interface ExecutionContext {
     /** For A2A 1.0 operations on behalf of the current user. */
     @Nonnull A2AFacade getA2A();
 
+    /** True while an LLM {@code enter_sim} HOLD overlay is active on this thread. */
+    boolean isSimSession();
+
     /** For calling services (local or remote, sync or async or scheduled). */
     @Nonnull ServiceFacade getService();
 

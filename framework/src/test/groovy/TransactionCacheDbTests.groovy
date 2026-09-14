@@ -12,11 +12,14 @@
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
 
+import org.moqui.BaseException
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
 import org.moqui.entity.EntityValue
+import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.TransactionCacheDb
 import org.moqui.impl.entity.EntityFacadeImpl
+import org.moqui.util.RestClient
 import spock.lang.Shared
 import spock.lang.Specification
 
@@ -34,6 +37,7 @@ class TransactionCacheDbTests extends Specification {
         ec.transaction.begin(null)
     }
     def cleanup() {
+        ((ExecutionContextImpl) ec).simSession = false
         if (ec.entity.isTxCacheActive()) ec.entity.stopTxCache()
         if (ec.transaction.isTransactionInPlace()) ec.transaction.commit()
         ec.artifactExecution.enableAuthz()
@@ -181,5 +185,35 @@ class TransactionCacheDbTests extends Specification {
 
         cleanup:
         ec.entity.find("moqui.test.TestEntity").condition("testId", "TCFLUSH1").one()?.delete()
+    }
+
+    def "RestClient is refused in simSession"() {
+        when:
+        ((ExecutionContextImpl) ec).simSession = true
+        new RestClient().uri("http://127.0.0.1:9/").timeout(1).call()
+        then:
+        BaseException e = thrown()
+        e.message.contains("sim session")
+    }
+
+    def "RestClient allowInSim is not the sim fence"() {
+        when:
+        ((ExecutionContextImpl) ec).simSession = true
+        new RestClient().allowInSim(true).uri("http://127.0.0.1:1/").timeout(1).call()
+        then:
+        BaseException e = thrown()
+        !e.message.contains("sim session")
+    }
+
+    def "async service is skipped in simSession"() {
+        when:
+        ((ExecutionContextImpl) ec).simSession = true
+        def future = ec.service.async().name("create#moqui.test.TestEntity")
+                .parameter("testId", "TCSIMASYNC").parameter("testMedium", "nope").callFuture()
+        def result = future.get()
+        EntityValue world = ec.entity.find("moqui.test.TestEntity").condition("testId", "TCSIMASYNC").one()
+        then:
+        result.simSkipped == true
+        world == null
     }
 }

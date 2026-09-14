@@ -729,14 +729,24 @@ public class LlmClientImpl implements LlmClient {
         return DEFAULT_MAX_ITERATIONS;
     }
 
-    /** Nested sim agent: same profile/protocol, no write_ui / enter_sim / find_skill. */
+    /** Nested sim agent: same profile/protocol and parent tools except write_ui / enter_sim / find_skill. */
     LlmClientImpl nestForSim(int maxIter) {
         LlmClientImpl nested = new LlmClientImpl(ec, profile, transactionInPlace);
         nested.maxIterations(maxIter > 0 ? maxIter : 32);
         nested.allowedPaths.addAll(allowedPaths);
-        nested.tool(LlmTool.browse());
-        nested.tool(LlmTool.runService());
-        nested.tool(LlmTool.request());
+        nested.allowedEntities.addAll(allowedEntities);
+        for (LlmTool t : tools) {
+            if (t == null) continue;
+            String n = t.getName();
+            if (WriteUiTool.NAME.equals(n) || EnterSimTool.NAME.equals(n) || FindSkillTool.NAME.equals(n)) continue;
+            if (t instanceof RequestTool) {
+                boolean unprefixed = profile != null && profile.allowUnprefixedRequest;
+                LlmTool rt = LlmGateway.requestToolForServlet(allowedPaths, unprefixed);
+                if (rt != null) nested.tool(rt);
+            } else {
+                nested.tool(t);
+            }
+        }
         return nested;
     }
 
