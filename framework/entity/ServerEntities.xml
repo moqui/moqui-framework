@@ -32,7 +32,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="isSlowHit" type="text-indicator"/>
         <field name="outputSize" type="number-integer"/>
         <field name="wasError" type="text-indicator"/>
-        <field name="errorMessage" type="text-long"/>
+        <field name="errorMessage" type="text-very-long"/>
         <field name="requestUrl" type="text-long"/>
         <field name="referrerUrl" type="text-long"/>
         <field name="serverIpAddress" type="id"/>
