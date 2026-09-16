@@ -40,8 +40,11 @@ import org.slf4j.LoggerFactory;
 
 import jakarta.transaction.Synchronization;
 import jakarta.transaction.Transaction;
+import javax.transaction.xa.XAException;
 import javax.transaction.xa.XAResource;
 import java.io.IOException;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Proxy;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.*;
@@ -471,6 +474,9 @@ public class ContextJavaUtil {
         protected Connection con;
         TransactionFacadeImpl tfi;
         String groupName;
+        // When XAER_RMFAIL is detected on this connection, mark it for physical destruction on close
+        // so the dirty XA branch is not returned to the Bitronix pool and recycled indefinitely.
+        private volatile boolean destroyOnClose = false;
 
         public ConnectionWrapper(Connection con, TransactionFacadeImpl tfi, String groupName) {
             this.con = con;
@@ -481,12 +487,62 @@ public class ContextJavaUtil {
         public String getGroupName() { return groupName; }
 
         public void closeInternal() throws SQLException {
-            con.close();
+            if (destroyOnClose) {
+                // Physical destroy: removes connection from Bitronix pool entirely.
+                // Prevents XAER_RMFAIL cascade: dirty XA branch stays on pool connection when
+                // release() is called (XA END no-op + requeue), causing every subsequent checkout
+                // to fail. JdbcPooledConnection.close() destroys the physical connection instead.
+                physicallyDestroy();
+            } else {
+                // Normal path: release() back to pool via ConnectionJavaProxy.close().
+                con.close();
+            }
         }
 
-        @Override public Statement createStatement() throws SQLException { return con.createStatement(); }
-        @Override public PreparedStatement prepareStatement(String sql) throws SQLException { return con.prepareStatement(sql); }
-        @Override public CallableStatement prepareCall(String sql) throws SQLException { return con.prepareCall(sql); }
+        private void physicallyDestroy() {
+            // con is a JDK Proxy; handler is ConnectionJavaProxy which has getPooledConnection().
+            // JdbcPooledConnection.close() unregisters from pool and closes the physical DB connection.
+            try {
+                if (Proxy.isProxyClass(con.getClass())) {
+                    InvocationHandler handler = Proxy.getInvocationHandler(con);
+                    Object jdbcPC = handler.getClass().getMethod("getPooledConnection").invoke(handler);
+                    jdbcPC.getClass().getMethod("close").invoke(jdbcPC);
+                    return;
+                }
+            } catch (Throwable t) {
+                logger.warn("Could not physically destroy Bitronix pooled connection for group " + groupName + ", falling back to close()", t);
+            }
+            try { con.close(); } catch (Throwable t) { logger.warn("Error on fallback close for group " + groupName, t); }
+        }
+
+        private static boolean isXaRmFail(Throwable e) {
+            for (Throwable t = e; t != null; t = t.getCause()) {
+                if (t instanceof XAException && ((XAException) t).errorCode == XAException.XAER_RMFAIL) return true;
+            }
+            return false;
+        }
+
+        @Override public Statement createStatement() throws SQLException {
+            try { return con.createStatement(); }
+            catch (SQLException e) {
+                if (isXaRmFail(e)) destroyOnClose = true;
+                throw e;
+            }
+        }
+        @Override public PreparedStatement prepareStatement(String sql) throws SQLException {
+            try { return con.prepareStatement(sql); }
+            catch (SQLException e) {
+                if (isXaRmFail(e)) destroyOnClose = true;
+                throw e;
+            }
+        }
+        @Override public CallableStatement prepareCall(String sql) throws SQLException {
+            try { return con.prepareCall(sql); }
+            catch (SQLException e) {
+                if (isXaRmFail(e)) destroyOnClose = true;
+                throw e;
+            }
+        }
         @Override public String nativeSQL(String sql) throws SQLException { return con.nativeSQL(sql); }
         @Override public void setAutoCommit(boolean autoCommit) throws SQLException { con.setAutoCommit(autoCommit); }
         @Override public boolean getAutoCommit() throws SQLException { return con.getAutoCommit(); }
