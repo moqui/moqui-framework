@@ -349,6 +349,10 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="use-clone" default="false" type="boolean">
                 <xs:annotation><xs:documentation>Use a datasource clone, if one is configured</xs:documentation></xs:annotation>
             </xs:attribute>
+            <xs:attribute name="disable-authz" type="boolean" default="false">
+                <xs:annotation><xs:documentation>Disable authorization checks (and row-level EntityFilters) for this
+                    find. Equivalent to ec.entity.find(...).disableAuthz() in script.</xs:documentation></xs:annotation>
+            </xs:attribute>
         </xs:complexType>
     </xs:element>
     <xs:element name="entity-find" substitutionGroup="EntityFindOperations">
@@ -409,6 +413,10 @@ along with this software (see the LICENSE.md file). If not, see
             </xs:attribute>
             <xs:attribute name="limit" type="xs:string">
                 <xs:annotation><xs:documentation>Get back only this many results.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="disable-authz" type="boolean" default="false">
+                <xs:annotation><xs:documentation>Disable authorization checks (and row-level EntityFilters) for this
+                    find. Equivalent to ec.entity.find(...).disableAuthz() in script.</xs:documentation></xs:annotation>
             </xs:attribute>
         </xs:complexType>
     </xs:element>
@@ -656,6 +664,10 @@ along with this software (see the LICENSE.md file). If not, see
             <xs:attribute name="distinct" default="false" type="boolean">
                 <xs:annotation><xs:documentation>Get only distinct results, based on the combination of all fields
                     selected. Defaults to false.</xs:documentation></xs:annotation>
+            </xs:attribute>
+            <xs:attribute name="disable-authz" type="boolean" default="false">
+                <xs:annotation><xs:documentation>Disable authorization checks (and row-level EntityFilters) for this
+                    find. Equivalent to ec.entity.find(...).disableAuthz() in script.</xs:documentation></xs:annotation>
             </xs:attribute>
         </xs:complexType>
     </xs:element>
