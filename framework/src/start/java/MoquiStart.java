@@ -249,6 +249,9 @@ public class MoquiStart {
 
             Object server = serverClass.getConstructor().newInstance();
             Object httpConfig = httpConfigurationClass.getConstructor().newInstance();
+            httpConfigurationClass
+                    .getMethod("setSendServerVersion", boolean.class)
+                    .invoke(httpConfig, false);
 
             // ForwardedRequestCustomizer so Jetty sees HTTPS from X-Forwarded-Proto / X-Proxied-Https.
             // Do not take the client address from X-Forwarded-For or RFC 7239 Forwarded; those are spoofable
