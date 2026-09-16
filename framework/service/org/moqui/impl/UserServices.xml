@@ -96,7 +96,7 @@ along with this software (see the LICENSE.md file). If not, see
             </else-if></if>
         </actions>
     </service>
-    <service verb="update" noun="UserAccount">
+    <service verb="update" noun="UserAccount" authenticate="anonymous-all" allow-remote="false">
         <in-parameters>
             <parameter name="userId" required="true"/>
             <auto-parameters entity-name="moqui.security.UserAccount" include="nonpk">
