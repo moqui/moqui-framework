@@ -144,7 +144,9 @@ final class A2AExecutorImpl implements A2AExecutor {
             List<Map<String, Object>> pending = llmResult.pendingToolCalls instanceof List ?
                     (List<Map<String, Object>>) llmResult.pendingToolCalls : []
             if (llmResult.yielded == true) {
-                Map<String, Object> pendingCall = pending ? pending.first() : [:]
+                if (pending.size() != 1)
+                    throw new A2AException(A2AException.INVALID_PARAMS, 'expected one pending client tool call')
+                Map<String, Object> pendingCall = pending.first()
                 emitStatus(sink, A2AGateway.updateStatus(ec, task, 'TASK_STATE_INPUT_REQUIRED', agentMessage,
                     [inFlight: 'N', pendingToolCallId: pendingCall.id, pendingToolName: pendingCall.name]))
             } else {
@@ -155,6 +157,12 @@ final class A2AExecutorImpl implements A2AExecutor {
                 historyLength: historyLength]).task] as Map<String, Object>
             A2ATaskStore.saveResult(ec, inputMessage, task, result)
             result
+        } catch (org.moqui.context.ArtifactTarpitException tarpit) {
+            clearInFlightFailed(ec, task, inputMessage, sink, historyLength)
+            throw tarpit
+        } catch (org.moqui.context.ArtifactAuthorizationException denied) {
+            clearInFlightFailed(ec, task, inputMessage, sink, historyLength)
+            throw denied
         } catch (Throwable failure) {
             // CancelTask from another request wins: the aborted or late turn reports the canceled task
             if (stateOrNull(ec, task.taskId as String) == 'TASK_STATE_CANCELED') {
@@ -180,6 +188,22 @@ final class A2AExecutorImpl implements A2AExecutor {
             } catch (Throwable ignored) { }
             throw failure
         }
+    }
+
+    /** Terminal failure that clears inFlight, then the caller rethrows so the servlet can send 403/429. */
+    private static void clearInFlightFailed(ExecutionContext ec, EntityValue task, EntityValue inputMessage,
+            A2AStreamSink sink, Object historyLength) {
+        try {
+            Map<String, Object> errorMessage = [
+                messageId: UUID.randomUUID().toString(), role: 'ROLE_AGENT',
+                parts: [[text: 'Internal error']]
+            ]
+            emitStatus(sink, A2AGateway.updateStatus(ec, task, 'TASK_STATE_FAILED', errorMessage,
+                [inFlight: 'N', pendingToolCallId: null, pendingToolName: null]))
+            Map<String, Object> result = [task: A2AGateway.getTask(ec, [taskId: task.taskId,
+                historyLength: historyLength]).task] as Map<String, Object>
+            A2ATaskStore.saveResult(ec, inputMessage, task, result)
+        } catch (Throwable ignored) { }
     }
 
     /** LLM conversation backing an A2A context; the conversation row carries the contextId. */

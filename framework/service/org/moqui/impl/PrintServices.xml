@@ -155,6 +155,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="jobId" type="Integer"/>
         </out-parameters>
         <actions>
+            <if condition="ec.simSession"><return error="true" message="Printing is disabled in LLM sim session"/></if>
             <return error="true" message="Network printing support not installed (add moqui-cups component)"/>
         </actions>
     </service>

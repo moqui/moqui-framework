@@ -94,6 +94,7 @@ public class EnterSimTool implements LlmTool {
             startedOverlay = true;
         }
         eci.simSession = true;
+        boolean feedWasOff = eci.artifactExecutionFacade.disableEntityDataFeed();
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("sim", Boolean.TRUE);
         result.put("goal", goal);
@@ -123,20 +124,25 @@ public class EnterSimTool implements LlmTool {
             if (content != null && content.contains("---")) {
                 SkillIndex.SkillDoc doc = SkillIndex.parseMarkdown(content, null);
                 if (doc.name != null && !doc.name.isEmpty()) {
-                    result.put("proposedSkillName", doc.name);
-                    result.put("proposedSkillBody", content);
-                    EntityValue persisted = persistProposedInTx(ec, doc, content);
-                    if (persisted != null) {
-                        Object sid = persisted.get("skillId");
-                        if (sid != null) result.put("proposedSkillId", sid.toString());
-                        Object st = persisted.get("statusId");
-                        if (st != null) result.put("proposedSkillStatus", st.toString());
+                    if (SkillIndex.nameReserved(ec, doc.name)) {
+                        result.put("error", "skill_name_taken");
+                        result.put("proposedSkillNameBlocked", doc.name);
+                    } else {
+                        result.put("proposedSkillName", doc.name);
+                        result.put("proposedSkillBody", content);
+                        EntityValue persisted = persistProposedInTx(ec, doc, content);
+                        if (persisted != null) {
+                            Object sid = persisted.get("skillId");
+                            if (sid != null) result.put("proposedSkillId", sid.toString());
+                            Object st = persisted.get("statusId");
+                            if (st != null) result.put("proposedSkillStatus", st.toString());
+                        }
                     }
                 }
             }
         } catch (Throwable t) {
-            logger.warn("enter_sim nested agent failed: " + t.getMessage());
-            result.put("error", t.getMessage());
+            logger.warn("enter_sim nested agent failed", t);
+            result.put("error", "sim_failed");
         } finally {
             Object proposed = result.get("proposedSkillName");
             Object err = result.get("error");
@@ -144,6 +150,7 @@ public class EnterSimTool implements LlmTool {
                     proposed != null ? proposed.toString() : null,
                     err != null ? err.toString() : null);
             eci.simSession = prevSim;
+            if (!feedWasOff) eci.artifactExecutionFacade.enableEntityDataFeed();
             if (startedOverlay) {
                 try { ec.getEntity().stopTxCache(); }
                 catch (Throwable t) { logger.warn("enter_sim overlay stop: " + t.getMessage()); }

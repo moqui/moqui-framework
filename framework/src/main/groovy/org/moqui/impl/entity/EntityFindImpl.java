@@ -166,6 +166,8 @@ public class EntityFindImpl extends EntityFindBase {
         EntityDefinition ed = getEntityDef();
         db.ensureReady(ed);
         db.beginBypass();
+        boolean wasForUpdate = getForUpdate();
+        if (wasForUpdate && db.isHold()) forUpdate(false);
         try {
             try (EntityListIterator eli = iteratorInternal(whereCondition, havingCondition, orderByExpanded,
                     fieldInfoArray, fieldOptionsArray, null, null)) {
@@ -179,6 +181,7 @@ public class EntityFindImpl extends EntityFindBase {
                 }
             }
         } finally {
+            if (wasForUpdate && db.isHold()) forUpdate(true);
             db.endBypass();
         }
     }

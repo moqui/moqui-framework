@@ -263,6 +263,7 @@ public class LlmFacadeImpl implements LlmFacade {
         public final boolean allowRunService;
         public final boolean allowUnprefixedRequest;
         public final boolean allowEnterSim;
+        public final boolean allowVueSfc;
 
         ProfileState(String name, MNode confNode, String url, String path, String endpointUrl, String apiKey,
                 String authHeaderName, String authHeaderValue, String model, String maxTokensParameter,
@@ -274,7 +275,7 @@ public class LlmFacadeImpl implements LlmFacade {
                 Set<String> allowedEntities, List<AllowedPath> allowedPaths,
                 boolean allowWriteUi, int ssePingSeconds, String systemLocation, boolean allowClientSystem,
                 boolean allowBrowse, boolean allowRunService, boolean allowUnprefixedRequest,
-                boolean allowEnterSim) {
+                boolean allowEnterSim, boolean allowVueSfc) {
             this.name = name;
             this.confNode = confNode;
             this.url = url;
@@ -309,6 +310,7 @@ public class LlmFacadeImpl implements LlmFacade {
             this.allowRunService = allowRunService;
             this.allowUnprefixedRequest = allowUnprefixedRequest;
             this.allowEnterSim = allowEnterSim;
+            this.allowVueSfc = allowVueSfc;
         }
 
         static ProfileState fromConf(String name, MNode node, ExecutionContextFactoryImpl ecfi) {
@@ -343,11 +345,12 @@ public class LlmFacadeImpl implements LlmFacade {
             String systemLocation = node.attribute("system-location");
             if (systemLocation != null) systemLocation = systemLocation.trim();
             if (systemLocation != null && systemLocation.isEmpty()) systemLocation = null;
-            boolean allowClientSystem = parseBoolean(node.attribute("allow-client-system"), true);
+            boolean allowClientSystem = parseBoolean(node.attribute("allow-client-system"), false);
             boolean allowBrowse = parseBoolean(node.attribute("allow-browse"), false);
             boolean allowRunService = parseBoolean(node.attribute("allow-run-service"), false);
             boolean allowUnprefixedRequest = parseBoolean(node.attribute("allow-unprefixed-request"), false);
             boolean allowEnterSim = parseBoolean(node.attribute("allow-enter-sim"), false);
+            boolean allowVueSfc = parseBoolean(node.attribute("allow-vue-sfc"), false);
 
             Map<String, String> extraHeaders = new LinkedHashMap<>();
             for (MNode header : node.children("header")) {
@@ -399,7 +402,7 @@ public class LlmFacadeImpl implements LlmFacade {
                     rf, protocol, Collections.unmodifiableSet(allowedEntities),
                     Collections.unmodifiableList(allowedPaths), allowWriteUi, ssePingSeconds,
                     systemLocation, allowClientSystem, allowBrowse, allowRunService, allowUnprefixedRequest,
-                    allowEnterSim);
+                    allowEnterSim, allowVueSfc);
         }
 
         /** Test helper: no HTTP pool. */
@@ -420,7 +423,7 @@ public class LlmFacadeImpl implements LlmFacade {
                     Collections.emptyMap(), Collections.emptyMap(), null, protocol,
                     Collections.emptySet(),
                     allowedPaths != null ? allowedPaths : Collections.emptyList(),
-                    allowWriteUi, 15, null, true, false, false, false, false);
+                    allowWriteUi, 15, null, true, false, false, false, false, false);
         }
         public static ProfileState forTest(String name, LlmProtocol protocol, String model,
                 boolean allowTxOverHttp, int emptyRetries, float retryInitialSeconds, int retryMax,
@@ -451,7 +454,7 @@ public class LlmFacadeImpl implements LlmFacade {
                     Collections.emptySet(),
                     allowedPaths != null ? allowedPaths : Collections.emptyList(),
                     allowWriteUi, 15, null, allowClientSystem, allowBrowse, allowRunService, allowUnprefixedRequest,
-                    allowEnterSim);
+                    allowEnterSim, false);
         }
     }
 

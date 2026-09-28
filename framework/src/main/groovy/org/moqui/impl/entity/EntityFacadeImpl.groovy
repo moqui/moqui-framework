@@ -1849,6 +1849,7 @@ class EntityFacadeImpl implements EntityFacade {
 
     @Override
     EntityListIterator sqlFind(String sql, List<Object> sqlParameterList, String entityName, List<String> fieldList) {
+        org.moqui.impl.context.SimFence.refuse("sqlFind")
         EntityDefinition ed = this.getEntityDefinition(entityName)
         this.entityDbMeta.checkTableRuntime(ed)
 
@@ -2090,6 +2091,8 @@ class EntityFacadeImpl implements EntityFacade {
 
     @Override Connection getConnection(String groupName) { return getConnection(groupName, false) }
     @Override Connection getConnection(String groupName, boolean useClone) {
+        // Not fenced here: excluded entities (moqui.llm.*, sequences) and the entity engine itself
+        // use this method during sim. sqlFind is the raw-SQL fence.
         TransactionFacadeImpl tfi = ecfi.transactionFacade
         if (!tfi.isTransactionOperable()) throw new EntityException("Cannot get connection, transaction not in operable status (${tfi.getStatusString()})")
 

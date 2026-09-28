@@ -206,8 +206,8 @@ public class RequestTool implements LlmTool {
         cs.push();
         try {
             Map<String, Object> params = new LinkedHashMap<>();
-            if (query != null) params.putAll(query);
-            if (body != null) params.putAll(body);
+            if (query != null) params.putAll(ServiceCallTool.sanitizeArguments(query));
+            if (body != null) params.putAll(ServiceCallTool.sanitizeArguments(body));
 
             Map<String, Object> sessionAttrs = new LinkedHashMap<>();
             if (previous != null && previous.getSessionAttributes() != null)

@@ -58,6 +58,7 @@ class A2ACardServlet extends HttpServlet {
         String etag = '"' + MessageDigest.getInstance("SHA-256").digest(bytes).encodeHex().toString().substring(0, 32) + '"'
         response.setHeader("ETag", etag)
         response.setHeader("Cache-Control", "public, max-age=300")
+        response.setHeader("Vary", "Host")
         if (etag == request.getHeader("If-None-Match")) {
             response.setStatus(HttpServletResponse.SC_NOT_MODIFIED)
             return
@@ -77,6 +78,13 @@ class A2ACardServlet extends HttpServlet {
     static String baseUrl(HttpServletRequest request) {
         String configured = validBaseUrl(SystemBinding.getPropOrEnv("a2a_public_url"))
         if (configured != null) return configured
+
+        String configuredHost = validHost(SystemBinding.getPropOrEnv("webapp_http_host"))
+        if (configuredHost != null) {
+            String https = SystemBinding.getPropOrEnv("webapp_https_enabled")
+            String configuredScheme = "true".equalsIgnoreCase(https) ? "https" : "http"
+            return configuredScheme + "://" + configuredHost + (request.getContextPath() ?: "")
+        }
 
         String scheme = null
         String host = null

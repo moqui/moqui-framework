@@ -189,6 +189,7 @@ public class UrlResourceReference extends ResourceReference {
 
     @Override public boolean supportsWrite() { return isFileProtocol; }
     @Override public void putText(String text) {
+        org.moqui.impl.context.SimFence.refuse("File write");
         if (!isFileProtocol) {
             final URL url = locationUrl;
             throw new IllegalArgumentException("Write not supported for resource [" + getLocation() + "] with protocol [" + (url == null ? null : getUrl().getProtocol()) + "]");
@@ -209,6 +210,7 @@ public class UrlResourceReference extends ResourceReference {
     }
 
     @Override public void putStream(InputStream stream) {
+        org.moqui.impl.context.SimFence.refuse("File write");
         if (!isFileProtocol) {
             throw new IllegalArgumentException("Write not supported for resource [" + locationUrl + "] with protocol [" + (locationUrl == null ? null : locationUrl.getProtocol()) + "]");
         }

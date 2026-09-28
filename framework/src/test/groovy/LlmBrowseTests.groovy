@@ -286,6 +286,22 @@ class LlmBrowseTests extends Specification {
         sys.contains("DatePeriod(")
         sys.contains("kind=openui")
         !sys.contains("<#include")
+        !sys.contains("kind=vue-sfc")
+        !sys.contains("module.exports")
+    }
+
+    def "AssistSystem includes VueSfc prompt only when allowVueSfc"() {
+        when:
+        String off = LlmGateway.renderPrompt(ec, "component://tools/prompt/AssistSystem.ftl", [allowVueSfc: false])
+        String on = LlmGateway.renderPrompt(ec, "component://tools/prompt/AssistSystem.ftl", [allowVueSfc: true])
+        String openUi = new File("../runtime/base-component/tools/prompt/OpenUiLang.prompt.txt").text
+
+        then:
+        off != null && !off.contains("kind=vue-sfc")
+        on.contains("kind=vue-sfc")
+        on.contains("module.exports")
+        on.contains("moquiSessionToken")
+        !openUi.contains("vue-sfc")
     }
 
     def "OpenUI spec component names appear in OpenUiLang prompt"() {

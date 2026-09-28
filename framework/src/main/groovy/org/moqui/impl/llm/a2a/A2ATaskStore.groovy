@@ -594,6 +594,7 @@ final class A2ATaskStore {
     static Map<String, Object> cleanData(ExecutionContext ec, Map<String, Object> request) {
         isolated(ec) {
             int daysToKeep = request.daysToKeep != null ? request.daysToKeep as int : 90
+            if (daysToKeep < 1) throw new IllegalArgumentException('daysToKeep must be at least 1')
             Calendar calendar = ec.user.getCalendarSafe()
             calendar.add(Calendar.DAY_OF_YEAR, -daysToKeep)
             Timestamp before = new Timestamp(calendar.timeInMillis)

@@ -1,5 +1,13 @@
 # Skill-first memory for Moqui (Unforgettable-shaped, ERP-native)
 
+## Current implementation
+
+Shipped on `llm-client`: shipped `skill/*.md` plus `LlmSkill` rows, `find_skill`, prompt inject of active and shipped skills, HOLD `TransactionCacheDb`, `enter_sim`, and fences for email, `RestClient`, async, jobs, raw JDBC, file/JCR writes, and print. A proposed skill cannot take a shipped or active human/world name. It is promoted only after that name is selected and a later server-side world write succeeds. Resume payloads do not promote.
+
+Not what this document originally specified: `risk` is not enforced, `LlmLesson` is unused, success criteria are not checked, a user click is not required before `request` / `run_service`, and overlay SQL still uses the production database dialect. FLUSH exists. `enter_sim` uses HOLD only.
+
+The PR plan below is historical.
+
 Make the Assist/LLM agent remember *how* to do work as skills, look those up before inventing a path, and when none exists spawn a sub-agent in a sim that can read production data and write only to an overlay. Do not import the Python Unforgettable package. Reimplement the architecture in the framework, in Moqui terms.
 
 ## Why this is not Unforgettable's default act path

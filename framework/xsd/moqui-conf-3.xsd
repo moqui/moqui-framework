@@ -652,7 +652,7 @@ along with this software (see the LICENSE.md file). If not, see
                     </xs:restriction></xs:simpleType>
                 </xs:attribute>
                 <xs:attribute name="allow-write-ui" type="boolean-expandable" default="false"/>
-                <xs:attribute name="allow-client-system" type="boolean-expandable" default="true">
+                <xs:attribute name="allow-client-system" type="boolean-expandable" default="false">
                     <xs:annotation><xs:documentation>If false, servlet/gateway ignores body.system (Assist profile).
                     </xs:documentation></xs:annotation>
                 </xs:attribute>
@@ -667,6 +667,11 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:attribute name="allow-unprefixed-request" type="boolean-expandable" default="false">
                     <xs:annotation><xs:documentation>If true and allowed-path is empty, attach request with no prefixes
                         (any path the current user is authorized to hit). Default profile stays fail-closed.
+                    </xs:documentation></xs:annotation>
+                </xs:attribute>
+                <xs:attribute name="allow-vue-sfc" type="boolean-expandable" default="false">
+                    <xs:annotation><xs:documentation>If true, write_ui may yield kind=vue-sfc. Default false:
+                        the server drops that kind. Vue SFC script runs in the signed-in browser session.
                     </xs:documentation></xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="allow-enter-sim" type="boolean-expandable" default="false">

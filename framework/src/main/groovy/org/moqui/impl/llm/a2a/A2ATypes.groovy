@@ -127,6 +127,12 @@ final class A2ATypes {
             if (variant == 'raw') requireBase64(part.raw)
             if (variant == 'url' && (!(part.url instanceof String) || text(part.url) == null))
                 throw new IllegalArgumentException('Part.url must be a non-blank string')
+            if (variant == 'data') {
+                String dataJson = toJson(part.data)
+                int dataBytes = (dataJson ?: '').getBytes(StandardCharsets.UTF_8).length
+                if (dataBytes > maxPartBytes())
+                    throw new IllegalArgumentException("Part.data exceeds a2a_max_part_bytes (${maxPartBytes()})")
+            }
             if (part.filename != null && !(part.filename instanceof String))
                 throw new IllegalArgumentException('Part.filename must be a string')
             if (part.mediaType != null && !(part.mediaType instanceof String))

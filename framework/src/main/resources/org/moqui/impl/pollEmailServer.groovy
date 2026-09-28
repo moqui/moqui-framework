@@ -36,6 +36,10 @@ import org.moqui.impl.context.ExecutionContextImpl
 Logger logger = LoggerFactory.getLogger("org.moqui.impl.pollEmailServer")
 
 ExecutionContextImpl ec = context.ec
+if (ec.simSession) {
+    ec.message.addError("Email poll is disabled in LLM sim session")
+    return
+}
 
 EntityValue emailServer = ec.entity.find("moqui.basic.email.EmailServer").condition("emailServerId", emailServerId).one()
 if (!emailServer) { ec.message.addError(ec.resource.expand('No EmailServer found for ID [${emailServerId}]','')); return }

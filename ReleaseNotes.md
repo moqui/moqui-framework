@@ -29,10 +29,12 @@ def result = ec.llm.getDefault()
 - Artifact type `AT_LLM` (authz and tarpit enabled). Seed grants ADMIN `AUTHZT_ALWAYS` on group `LlmProfiles`
   with `inheritAuthz=N` so that does not skip later service/screen/entity checks. Servlet access is permission
   `LlmGateway` (ADMIN by default).
-- Agent loop: server tool `request` (method + path through ScreenRender on the same thread, authz and tarpit ON)
-  and client tool `write_ui` (schemaVersion 4 openui Lang or vue-sfc yield; the server never submits). Optional typed
-  `LlmTool.service()`. Servlet may also attach `browse` (authz-filtered catalog) and `run_service`
-  (generic service call) when the profile allows them.
+- Agent loop: server tool `request` (method + path through ScreenRender on the same thread, authz and tarpit ON;
+  login-switch fields are stripped from the tool body) and client tool `write_ui` (schemaVersion 4 OpenUI Lang;
+  `kind=vue-sfc` only when the profile sets `allow-vue-sfc`, default false). `run_service` calls only services with
+  `authenticate="true"`. A sim-proposed skill cannot replace a shipped or active human/world skill, and it is promoted
+  only after it is selected and a later server-side write succeeds. Sim refuses raw JDBC, service jobs, outbound HTTP
+  that does not go through RestClient, file and content writes, and print. A2A is on only when `a2a_enabled` is `true`.
 - Managed servlet at `/llm/*`. Not a provider-key proxy (keys stay on the profile). Service REST wrappers at
   `/rest/s1/moqui/llm/...` for sync JSON only; do not SSE through Service REST.
 

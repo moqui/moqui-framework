@@ -352,13 +352,17 @@ final class LlmAgentLoop {
         }
         List<LlmToolCall> pending = new ArrayList<>(conv.getPendingClientToolCalls());
         List<LlmToolResult> results = client.resumeToolResults;
+        java.util.Set<String> pendingIds = new java.util.LinkedHashSet<>();
+        for (LlmToolCall pendingCall : pending) {
+            if (pendingCall != null && pendingCall.id != null) pendingIds.add(pendingCall.id);
+        }
         java.util.Set<String> seen = new java.util.LinkedHashSet<>();
         for (LlmToolResult tr : results) {
             if (tr == null) continue;
             String id = tr.toolCallId;
+            if (id == null || !pendingIds.contains(id)) continue;
             conv.appendInternal(LlmMessage.tool(id, tr.name, contentText(tr.content)));
             if (id != null) seen.add(id);
-            noteSkillLifecycle(tr.name, null, tr.content);
             noteResumeEmit(id, tr.name, tr.content);
         }
         for (LlmToolCall pendingCall : pending) {
@@ -375,7 +379,6 @@ final class LlmAgentLoop {
         for (LlmToolResult tr : client.resumeToolResults) {
             if (tr == null) continue;
             working.add(LlmMessage.tool(tr.toolCallId, tr.name, contentText(tr.content)));
-            noteSkillLifecycle(tr.name, null, tr.content);
             noteResumeEmit(tr.toolCallId, tr.name, tr.content);
         }
     }
@@ -429,6 +432,8 @@ final class LlmAgentLoop {
             if (v != null) name = v.toString();
         }
         if (name == null || name.isBlank()) return;
+        String active = client.activeSkillName;
+        if (active == null || active.isBlank() || !active.equals(name)) return;
         EntityValue admitted = SkillIndex.admitWorldPassInTx(client.ec, name);
         if (admitted == null) return;
         client.pendingProposedSkillName = null;

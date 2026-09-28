@@ -7,6 +7,8 @@
 
 ## Current Implementation Status
 
+The design sections after "Superseded" are the original plan. What shipped is this status block. Do not implement REST, Bearer, `/a2a`, or an `A2AServer` permission from those later sections.
+
 ### Implemented
 
 ```mermaid

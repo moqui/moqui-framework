@@ -1072,7 +1072,7 @@ class LlmClientTests extends Specification {
 
     def "write_ui kind vue-sfc is kept and form drops sfc"() {
         given:
-        WriteUiTool tool = new WriteUiTool()
+        WriteUiTool tool = new WriteUiTool().setAllowVueSfc(true)
         String sfc = "<template><div>{{values.n}}</div></template>\n<script>module.exports = {props:['values']}</script>"
         when:
         def vue = tool.enrichForClient([
@@ -1102,7 +1102,7 @@ class LlmClientTests extends Specification {
 
     def "write_ui vue-sfc assembles parts, strips script src and fences, rejects empty and oversized"() {
         given:
-        WriteUiTool tool = new WriteUiTool()
+        WriteUiTool tool = new WriteUiTool().setAllowVueSfc(true)
         String huge = "<template><div>" + ("x" * (64 * 1024 + 10)) + "</div></template>"
         when:
         def parts = tool.enrichForClient([
@@ -1149,7 +1149,7 @@ class LlmClientTests extends Specification {
     def "write_ui writeThrough replaces or keeps vue-sfc and switches kind"() {
         given:
         def conv = LlmConversationImpl.create(null, "default", null)
-        WriteUiTool tool = new WriteUiTool()
+        WriteUiTool tool = new WriteUiTool().setAllowVueSfc(true)
         def first = tool.enrichForClient([
                 kind: "vue-sfc",
                 title: "One",

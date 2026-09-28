@@ -16,7 +16,10 @@ package org.moqui.impl.llm;
 import org.moqui.context.ArtifactAuthorizationException;
 import org.moqui.context.ArtifactTarpitException;
 import org.moqui.context.ExecutionContext;
+import org.moqui.impl.service.ServiceDefinition;
+import org.moqui.impl.service.ServiceFacadeImpl;
 import org.moqui.llm.LlmTool;
+import org.moqui.service.ServiceFacade;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -62,6 +65,8 @@ public class RunServiceTool implements LlmTool {
         serviceName = serviceName.trim();
         if (ec == null || ec.getService() == null)
             return error("no ExecutionContext for service call");
+        String authError = requireAuthenticatedService(ec, serviceName);
+        if (authError != null) return error(authError);
         Map<String, Object> in = ServiceCallTool.sanitizeArguments(asMap(args.get("parameters")));
         try {
             Map<String, Object> out = ec.getService().sync().name(serviceName).parameters(in).call();
@@ -105,5 +110,22 @@ public class RunServiceTool implements LlmTool {
         Map<String, Object> m = error(message);
         m.put("status", status);
         return m;
+    }
+
+    /**
+     * Only services that authenticate (and therefore require artifact authz) may be called.
+     * authenticate=false services such as clean#LlmData skip that check and often disable authz internally.
+     * Entity-auto names (create#Entity) have no ServiceDefinition; entity authz still runs.
+     */
+    static String requireAuthenticatedService(ExecutionContext ec, String serviceName) {
+        ServiceFacade sf = ec.getService();
+        if (!(sf instanceof ServiceFacadeImpl)) return null;
+        ServiceFacadeImpl sfi = (ServiceFacadeImpl) sf;
+        if (!sfi.isServiceDefined(serviceName)) return null;
+        ServiceDefinition sd = sfi.getServiceDefinition(serviceName);
+        if (sd == null) return null;
+        if (!"true".equals(sd.authenticate))
+            return "service " + serviceName + " is not available to run_service";
+        return null;
     }
 }

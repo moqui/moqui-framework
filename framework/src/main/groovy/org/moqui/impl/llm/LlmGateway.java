@@ -207,6 +207,7 @@ public final class LlmGateway {
         }
         if (wantWriteUi && profile != null && profile.allowWriteUi) {
             WriteUiTool wt = new WriteUiTool();
+            wt.setAllowVueSfc(profile.allowVueSfc);
             if (profile.allowUnprefixedRequest && (profile.allowedEntities == null || profile.allowedEntities.isEmpty()))
                 wt.setAllowAnyAuthorizedEntity(true);
             client.tool(wt);
@@ -281,7 +282,7 @@ public final class LlmGateway {
             List<LlmMessage> extra = new ArrayList<>();
             for (Object o : (List<?>) msgs) {
                 LlmMessage parsed = toMessage(o);
-                if (parsed != null) extra.add(parsed);
+                if (parsed != null && parsed.role == LlmMessage.Role.USER) extra.add(parsed);
             }
             if (!extra.isEmpty()) impl.messages(extra);
         }
@@ -341,7 +342,9 @@ public final class LlmGateway {
     static void applySystem(LlmClientImpl impl, Map<String, Object> body) {
         LlmFacadeImpl.ProfileState profile = impl != null ? impl.profile : null;
         if (profile != null && profile.systemLocation != null && !profile.systemLocation.isBlank()) {
-            String text = renderPrompt(impl.ec, profile.systemLocation, null);
+            Map<String, Object> promptCtx = new LinkedHashMap<>();
+            promptCtx.put("allowVueSfc", profile.allowVueSfc);
+            String text = renderPrompt(impl.ec, profile.systemLocation, promptCtx);
             if (text != null && !text.isBlank()) impl.system(text);
             return;
         }
@@ -526,6 +529,7 @@ public final class LlmGateway {
                     row.put("allowUnprefixedRequest", ps.allowUnprefixedRequest);
                     row.put("allowEnterSim", ps.allowEnterSim);
                     row.put("allowClientSystem", ps.allowClientSystem);
+                    row.put("allowVueSfc", ps.allowVueSfc);
                 }
                 out.add(row);
             } catch (ArtifactAuthorizationException ignored) {

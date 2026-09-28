@@ -88,6 +88,40 @@ class TransactionCacheDbTests extends Specification {
         ec.entity.find("moqui.test.TestEntity").condition("testId", "TCUPD1").one()?.delete()
     }
 
+    def "HOLD partial update does not null other columns"() {
+        when:
+        ec.entity.makeValue("moqui.test.TestEntity").setAll([testId:"TCPART1", testMedium:"keep-me", testLong:"long-keep"]).create()
+        ec.transaction.commit()
+        ec.transaction.begin(null)
+
+        ec.entity.startTxCacheDb(true)
+        ec.entity.makeValue("moqui.test.TestEntity").set("testId", "TCPART1").set("testMedium", "changed").update()
+        EntityValue overlay = ec.entity.find("moqui.test.TestEntity").condition("testId", "TCPART1").one()
+        EntityValue world = worldFind("moqui.test.TestEntity", "testId", "TCPART1")
+
+        then:
+        overlay.testMedium == "changed"
+        overlay.testLong == "long-keep"
+        world.testMedium == "keep-me"
+        world.testLong == "long-keep"
+
+        cleanup:
+        if (ec.entity.isTxCacheActive()) ec.entity.stopTxCache()
+        ec.entity.find("moqui.test.TestEntity").condition("testId", "TCPART1").one()?.delete()
+    }
+
+    def "sqlFind is refused in sim"() {
+        when:
+        ((org.moqui.impl.context.ExecutionContextImpl) ec).simSession = true
+        ec.entity.sqlFind("select TEST_ID from TEST_ENTITY", null, "moqui.test.TestEntity", ["testId"])
+
+        then:
+        thrown(Exception)
+
+        cleanup:
+        ((org.moqui.impl.context.ExecutionContextImpl) ec).simSession = false
+    }
+
     def "HOLD delete does not remove production and copy-on-read does not resurrect"() {
         when:
         ec.entity.makeValue("moqui.test.TestEntity").setAll([testId:"TCDEL1", testMedium:"keep"]).create()

@@ -143,6 +143,8 @@ public class ServiceCallTool implements LlmTool {
     public Object execute(Map<String, Object> arguments, ExecutionContext ec) {
         if (ec == null || ec.getService() == null)
             return error("no ExecutionContext for service call");
+        String authError = RunServiceTool.requireAuthenticatedService(ec, serviceName);
+        if (authError != null) return error(authError);
         Map<String, Object> in = sanitizeArguments(arguments);
         return ec.getService().sync().name(serviceName).parameters(in).call();
     }

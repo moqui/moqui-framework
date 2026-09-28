@@ -245,6 +245,10 @@ public class ExecutionContextImpl implements ExecutionContext {
     }
     /** Uses the ECFI constructor for ThreadPoolRunnable so does NOT use the current ECI in the separate thread */
     public Future runInWorkerThread(@Nonnull Closure closure) {
+        if (simSession) {
+            loggerDirect.info("Skipping runInWorkerThread in LLM sim session");
+            return CompletableFuture.completedFuture(null);
+        }
         ThreadPoolRunnable runnable = new ThreadPoolRunnable(ecfi, closure);
         return ecfi.workerPool.submit(runnable);
     }

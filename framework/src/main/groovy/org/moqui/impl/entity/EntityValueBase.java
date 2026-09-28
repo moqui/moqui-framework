@@ -1396,6 +1396,16 @@ public abstract class EntityValueBase implements EntityValue {
     @Override public abstract EntityValue cloneValue();
     public abstract EntityValue cloneDbValue(boolean getOld);
 
+    /** Sim must not fall through to a store the H2 overlay does not handle (Elastic, raw JDBC, and so on). */
+    private void refuseSimWriteOutsideOverlay(ExecutionContextImpl ec, EntityTxCache curTxCache, EntityDefinition ed) {
+        if (ec == null || !ec.simSession) return;
+        if (curTxCache instanceof org.moqui.impl.context.TransactionCacheDb) {
+            org.moqui.impl.context.TransactionCacheDb db = (org.moqui.impl.context.TransactionCacheDb) curTxCache;
+            if (db.handles(ed) || db.allowsProductionWrite(ed)) return;
+        }
+        throw new EntityException("Entity " + ed.getFullEntityName() + " is disabled in LLM sim session");
+    }
+
     private boolean doDataFeed(ExecutionContextImpl ec) {
         EntityTxCache active = getEntityFacadeImpl().getActiveTxCache();
         if (active instanceof TransactionCacheDb && ((TransactionCacheDb) active).isHold()) return false;
@@ -1535,6 +1545,7 @@ public abstract class EntityValueBase implements EntityValue {
             // if there is not a txCache or the txCache doesn't handle the create, call the abstract method to create the main record
             EntityTxCache curTxCache = getTxCache(ecfi);
             if (curTxCache == null || !curTxCache.create(this)) {
+                refuseSimWriteOutsideOverlay(ec, curTxCache, ed);
                 // NOTE: calls basicCreate() instead of createExtended() directly so don't register lock here
 
                 this.basicCreate(null);
@@ -1688,6 +1699,7 @@ public abstract class EntityValueBase implements EntityValue {
 
             // if there is not a txCache or the txCache doesn't handle the update, call the abstract method to update the main record
             if (curTxCache == null || !curTxCache.update(this)) {
+                refuseSimWriteOutsideOverlay(ec, curTxCache, ed);
                 // no TX cache update, etc: ready to do actual update
 
                 // if enabled register locks before operation
@@ -1771,11 +1783,12 @@ public abstract class EntityValueBase implements EntityValue {
             efi.runEecaRules(entityName, this, "delete", true);
 
             // check DataDocuments to update (if not primary entity) or delete (if primary entity)
-            efi.getEntityDataFeed().dataFeedCheckDelete(this);
+            if (doDataFeed(ec)) efi.getEntityDataFeed().dataFeedCheckDelete(this);
 
             // if there is not a txCache or the txCache doesn't handle the delete, call the abstract method to delete the main record
             EntityTxCache curTxCache = getTxCache(ecfi);
             if (curTxCache == null || !curTxCache.delete(this)) {
+                refuseSimWriteOutsideOverlay(ec, curTxCache, ed);
                 // if enabled register locks before operation
                 registerMutateLock();
 

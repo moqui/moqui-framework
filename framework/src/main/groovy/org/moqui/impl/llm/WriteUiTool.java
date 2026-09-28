@@ -192,6 +192,7 @@ public class WriteUiTool implements LlmTool {
 
     private final Set<String> allowedEntities = new LinkedHashSet<>();
     private boolean allowAnyAuthorizedEntity = false;
+    private boolean allowVueSfc = false;
 
     public WriteUiTool() { }
 
@@ -201,6 +202,10 @@ public class WriteUiTool implements LlmTool {
     }
     public WriteUiTool setAllowAnyAuthorizedEntity(boolean allow) {
         this.allowAnyAuthorizedEntity = allow;
+        return this;
+    }
+    public WriteUiTool setAllowVueSfc(boolean allow) {
+        this.allowVueSfc = allow;
         return this;
     }
 
@@ -300,6 +305,11 @@ public class WriteUiTool implements LlmTool {
         }
         applyOpenUiLang(out, kind);
         applyVueSfc(out, kind, kept);
+        if (!allowVueSfc && KIND_VUE_SFC.equals(out.get("kind"))) {
+            out.remove("sfc");
+            out.put("sfcError", "vue-sfc is disabled");
+            out.put("kind", hasLang(out) ? KIND_OPENUI : KIND_FORM);
+        }
         if (!(out.get("writeThrough") instanceof Boolean)) out.put("writeThrough", Boolean.FALSE);
 
         out.put("columns", cleanColumns(out.get("columns")));
@@ -565,7 +575,6 @@ public class WriteUiTool implements LlmTool {
             return;
         }
         if (lang.length() > MAX_LANG_CHARS) {
-            if (writeThrough) return;
             out.put("kind", KIND_OPENUI);
             out.put("langError", "openui lang exceeds 64KiB");
             out.remove("lang");

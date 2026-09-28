@@ -171,6 +171,25 @@ class LlmRequestToolTests extends Specification {
         eci.clearWebFacade()
     }
 
+    def "request body cannot switch user via authUsername"() {
+        given:
+        String before = ec.user.userId
+        when:
+        LlmTool.request().execute([method: "GET", path: "/apps/system/dashboard/actions",
+                body: [authUsername: "john.doe", authPassword: "moqui"]], ec)
+        then:
+        ec.user.userId == before
+    }
+
+    def "run_service refuses authenticate false services"() {
+        when:
+        def result = LlmTool.runService().execute([serviceName: "org.moqui.impl.LlmServices.clean#LlmData",
+                parameters: [daysToKeep: 0]], ec)
+        then:
+        result instanceof Map
+        ((Map) result).error?.toString()?.contains("not available")
+    }
+
     def "service tool does not switch user via authUsername authPassword"() {
         given:
         LlmTool tool = LlmTool.service("org.moqui.impl.LlmServices.clean#LlmData", "clean_llm")

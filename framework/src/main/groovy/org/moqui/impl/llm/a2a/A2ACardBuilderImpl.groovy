@@ -36,7 +36,8 @@ final class A2ACardBuilderImpl {
 
     private A2ACardBuilderImpl() { }
 
-    static boolean enabled() { !'false'.equalsIgnoreCase(property('a2a_enabled')) }
+    /** On only when the property is the string true. Anything else, including unset, is off. */
+    static boolean enabled() { 'true'.equalsIgnoreCase(property('a2a_enabled')) }
 
     static Map<String, Object> buildPublic(String baseUrl) {
         card([:], interfacesFor(baseUrl), [genericSkill()], true)

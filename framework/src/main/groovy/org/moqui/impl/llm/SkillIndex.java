@@ -116,63 +116,116 @@ public class SkillIndex {
     }
 
     /**
-     * Exact name lookup for find_skill select. Prefers an active or proposed entity row (has skillId),
-     * else a shipped file. Superseded / rejected / deprecated rows are not selectable.
+     * Exact name lookup for find_skill select.
+     * A shipped file or an active human/world row wins over a proposed, sim, infer, or mixed row
+     * with the same name. A proposed row is selectable when nothing stronger has that name.
+     * Superseded / rejected / deprecated rows are not selectable.
      */
     public static SkillDoc getByName(ExecutionContext ec, String name) {
         if (name == null || name.isBlank()) return null;
         String n = name.trim();
-        if (ec != null && ec.getEntity() != null) {
-            try {
-                EntityValue ev = withAuthzDisabled(ec, () -> ec.getEntity().find("moqui.llm.LlmSkill")
-                        .condition("name", n).useCache(false).one());
-                if (ev != null) {
-                    String st = ev.getString("statusId");
-                    if ("LsksActive".equals(st) || "LsksProposed".equals(st)) return fromEntity(ev);
-                }
-            } catch (Throwable t) {
-                logger.warn("LlmSkill getByName: {}", t.getMessage());
-            }
-        }
-        for (SkillDoc doc : scanShipped(ec)) {
-            if (n.equals(doc.name)) return doc;
-        }
-        return null;
+        SkillDoc shipped = shippedByName(ec, n);
+        SkillDoc entity = entityByName(ec, n);
+        return prefer(shipped, entity);
     }
 
+    /**
+     * Search for inject and find_skill query. Active human/world rows and shipped files only,
+     * plus an active row with no shipped file of that name. Proposed rows are not listed;
+     * {@link #getByName} still returns one when select asks for it and the name is not reserved.
+     */
     public static List<SkillDoc> retrieve(ExecutionContext ec, String query, int limit) {
         if (limit <= 0) limit = DEFAULT_LIMIT;
         String q = query == null ? "" : query.toLowerCase(Locale.ROOT);
+        List<SkillDoc> shipped = scanShipped(ec);
+        java.util.Set<String> shippedNames = new java.util.HashSet<>();
+        for (SkillDoc doc : shipped) if (doc.name != null) shippedNames.add(doc.name);
         List<Scored> scored = new ArrayList<>();
-        for (SkillDoc doc : scanShipped(ec)) {
+        for (SkillDoc doc : shipped) {
             int s = score(doc, q);
-            if (s > 0 || q.isEmpty()) scored.add(new Scored(s, doc));
+            if (s > 0 || q.isEmpty()) scored.add(new Scored(s, doc, true));
         }
         if (ec != null && ec.getEntity() != null) {
             try {
                 EntityList rows = withAuthzDisabled(ec, () -> ec.getEntity().find("moqui.llm.LlmSkill")
-                        .condition("statusId", EntityCondition.IN, Arrays.asList("LsksActive", "LsksProposed"))
-                        .useCache(false).list());
+                        .condition("statusId", "LsksActive").useCache(false).list());
                 int n = rows == null ? 0 : rows.size();
                 for (int i = 0; i < n; i++) {
-                    EntityValue ev = rows.get(i);
-                    SkillDoc doc = fromEntity(ev);
+                    SkillDoc doc = fromEntity(rows.get(i));
+                    if (doc.name != null && shippedNames.contains(doc.name) && !isHumanOrWorld(doc)) continue;
                     int s = score(doc, q);
-                    if (s > 0 || q.isEmpty()) scored.add(new Scored(s, doc));
+                    if (s > 0 || q.isEmpty()) scored.add(new Scored(s, doc, false));
                 }
             } catch (Throwable t) {
                 logger.warn("LlmSkill retrieve: {}", t.getMessage());
             }
         }
-        scored.sort((a, b) -> Integer.compare(b.score, a.score));
+        scored.sort((a, b) -> {
+            int c = Integer.compare(b.score, a.score);
+            if (c != 0) return c;
+            if (a.shipped == b.shipped) return 0;
+            return a.shipped ? 1 : -1;
+        });
         List<SkillDoc> out = new ArrayList<>();
-        java.util.Set<String> seen = new java.util.HashSet<>();
+        Map<String, Integer> seenAt = new LinkedHashMap<>();
         for (Scored s : scored) {
-            if (s.doc.name == null || !seen.add(s.doc.name)) continue;
-            out.add(s.doc);
-            if (out.size() >= limit) break;
+            if (s.doc.name == null) continue;
+            Integer at = seenAt.get(s.doc.name);
+            if (at == null) {
+                seenAt.put(s.doc.name, out.size());
+                out.add(s.doc);
+            } else if (!s.shipped && isHumanOrWorld(s.doc) && !isHumanOrWorld(out.get(at))) {
+                out.set(at, s.doc);
+            }
         }
+        if (out.size() > limit) return new ArrayList<>(out.subList(0, limit));
         return out;
+    }
+
+    /** Shipped file or active human/world row already owns this name. Proposed sim rows must not take it. */
+    public static boolean nameReserved(ExecutionContext ec, String name) {
+        if (name == null || name.isBlank()) return false;
+        String n = name.trim();
+        if (shippedByName(ec, n) != null) return true;
+        SkillDoc entity = entityByName(ec, n);
+        return entity != null && "LsksActive".equals(entity.statusId) && isHumanOrWorld(entity);
+    }
+
+    static boolean isHumanOrWorld(SkillDoc doc) {
+        if (doc == null) return false;
+        return "LskpHuman".equals(doc.provenanceId) || "LskpWorld".equals(doc.provenanceId);
+    }
+
+    private static SkillDoc prefer(SkillDoc shipped, SkillDoc entity) {
+        if (entity == null) return shipped;
+        if (shipped == null) return selectable(entity) ? entity : null;
+        if ("LsksActive".equals(entity.statusId) && isHumanOrWorld(entity)) return entity;
+        return shipped;
+    }
+
+    private static boolean selectable(SkillDoc doc) {
+        return doc != null && ("LsksActive".equals(doc.statusId) || "LsksProposed".equals(doc.statusId));
+    }
+
+    private static SkillDoc shippedByName(ExecutionContext ec, String name) {
+        for (SkillDoc doc : scanShipped(ec)) {
+            if (name.equals(doc.name)) return doc;
+        }
+        return null;
+    }
+
+    private static SkillDoc entityByName(ExecutionContext ec, String name) {
+        if (ec == null || ec.getEntity() == null) return null;
+        try {
+            EntityValue ev = withAuthzDisabled(ec, () -> ec.getEntity().find("moqui.llm.LlmSkill")
+                    .condition("name", name).useCache(false).one());
+            if (ev == null) return null;
+            SkillDoc doc = fromEntity(ev);
+            return selectable(doc) ? doc : null;
+        } catch (Throwable t) {
+            logger.warn("LlmSkill getByName: {}", t.getMessage());
+            return null;
+        }
     }
 
     public static String formatInject(ExecutionContext ec, List<SkillDoc> docs) {
@@ -237,6 +290,7 @@ public class SkillIndex {
 
     public static EntityValue persistProposed(ExecutionContext ec, SkillDoc doc, String rawBody) {
         if (ec == null || doc == null || doc.name == null || doc.name.isEmpty()) return null;
+        if (nameReserved(ec, doc.name)) return null;
         return withAuthzDisabled(ec, () -> {
             EntityValue existing = ec.getEntity().find("moqui.llm.LlmSkill")
                     .condition("name", doc.name).useCache(false).one();
@@ -333,6 +387,11 @@ public class SkillIndex {
     private static final class Scored {
         final int score;
         final SkillDoc doc;
-        Scored(int score, SkillDoc doc) { this.score = score; this.doc = doc; }
+        final boolean shipped;
+        Scored(int score, SkillDoc doc, boolean shipped) {
+            this.score = score;
+            this.doc = doc;
+            this.shipped = shipped;
+        }
     }
 }

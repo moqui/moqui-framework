@@ -87,6 +87,10 @@ final class A2AGateway {
             message.contextId = a2aContext.contextId
             message.taskId = task.taskId
         }
+        // Claim a continuation before commit so a second SendMessage cannot also resume it.
+        if (continuation) {
+            A2ATaskStore.setStatus(ec, task, A2ATypes.stateId(ec, 'TASK_STATE_WORKING'), null, [inFlight: 'Y'])
+        }
 
         EntityValue messageValue = A2ATaskStore.persistMessage(ec, task, message)
         return [

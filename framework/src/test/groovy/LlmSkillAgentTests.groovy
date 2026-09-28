@@ -21,6 +21,7 @@ import org.moqui.impl.llm.LlmClientImpl
 import org.moqui.impl.llm.LlmFacadeImpl
 import org.moqui.impl.llm.LlmGateway
 import org.moqui.impl.llm.SkillIndex
+import org.moqui.impl.llm.SkillUseGate
 import org.moqui.llm.LlmException
 import org.moqui.llm.LlmMessage
 import org.moqui.llm.LlmProtocol.ProtocolRequest
@@ -121,14 +122,18 @@ Call run_service create#moqui.test.TestEntity with testId and testMedium.
                         simId + '","testMedium":"from-sim"}}'
                 return FakeLlmProtocol.toolCalls(new LlmToolCall("sim1", "run_service", args))
             }
+            if (last?.name == "find_skill" && last.content?.contains("\"selected\"")) {
+                String args = '{"serviceName":"create#moqui.test.TestEntity","parameters":{"testId":"' +
+                        worldId + '","testMedium":"from-world"}}'
+                return FakeLlmProtocol.toolCalls(new LlmToolCall("w1", "run_service", args))
+            }
             if (last?.name == "find_skill") {
                 return FakeLlmProtocol.toolCalls(new LlmToolCall("e1", "enter_sim",
                         '{"goal":"create TestEntity","success_criteria":"row exists","max_iterations":6}'))
             }
             if (last?.name == "enter_sim") {
-                String args = '{"serviceName":"create#moqui.test.TestEntity","parameters":{"testId":"' +
-                        worldId + '","testMedium":"from-world"}}'
-                return FakeLlmProtocol.toolCalls(new LlmToolCall("w1", "run_service", args))
+                return FakeLlmProtocol.toolCalls(new LlmToolCall("s1", "find_skill",
+                        '{"select":"' + skillName + '"}'))
             }
             if (last?.name == "run_service") {
                 return FakeLlmProtocol.stop("world created " + worldId)
@@ -534,11 +539,12 @@ ${pad}
 
         then:
         shipped?.name == "create-user-account"
+        shipped?.skillId == null
         persisted != null
         proposed?.name == name
         proposed?.skillId == persisted.skillId
         missing == null
-        retrieved.any { it.name == name }
+        !retrieved.any { it.name == name }
 
         cleanup:
         boolean d = ec.artifactExecution.disableAuthz()
@@ -549,6 +555,140 @@ ${pad}
             if (b) ec.transaction.commit()
         } catch (Throwable t) {
             if (b) ec.transaction.rollback("getByName cleanup", t)
+            throw t
+        } finally {
+            if (!d) ec.artifactExecution.enableAuthz()
+        }
+    }
+
+    def "sim cannot shadow a shipped skill name"() {
+        given:
+        def doc = SkillIndex.parseMarkdown("""---
+name: create-user-account
+description: replaced by sim
+risk: reversible
+---
+do something else
+""", null)
+
+        when:
+        boolean began = ec.transaction.begin(null)
+        EntityValue persisted = SkillIndex.persistProposed(ec, doc, doc.body)
+        if (began) ec.transaction.commit()
+        def looked = SkillIndex.getByName(ec, "create-user-account")
+        def listed = SkillIndex.retrieve(ec, "create user account", 5)
+
+        then:
+        SkillIndex.nameReserved(ec, "create-user-account")
+        persisted == null
+        looked?.name == "create-user-account"
+        looked?.skillId == null
+        looked?.body?.contains("ADMIN") || looked?.description?.toLowerCase()?.contains("user")
+        listed.any { it.name == "create-user-account" && it.skillId == null }
+        ec.entity.find("moqui.llm.LlmSkill").condition("name", "create-user-account").useCache(false).one() == null
+    }
+
+    def "world write without select does not admit a proposed skill"() {
+        given:
+        String stamp = Long.toString(System.currentTimeMillis())
+        String skillName = "noselect-" + stamp
+        String worldId = "NSLW" + stamp
+        def proto = new FakeLlmProtocol()
+        proto.handler = { ProtocolRequest req ->
+            boolean sim = isSim(req)
+            def last = lastTool(req)
+            if (sim) {
+                return FakeLlmProtocol.stop("""---
+name: ${skillName}
+description: should stay proposed
+risk: reversible
+---
+steps
+""")
+            }
+            if (last?.name == "enter_sim") {
+                String args = '{"serviceName":"create#moqui.test.TestEntity","parameters":{"testId":"' +
+                        worldId + '","testMedium":"from-world"}}'
+                return FakeLlmProtocol.toolCalls(new LlmToolCall("w1", "run_service", args))
+            }
+            if (last?.name == "run_service") return FakeLlmProtocol.stop("wrote")
+            return FakeLlmProtocol.toolCalls(new LlmToolCall("e1", "enter_sim", '{"goal":"write a skill"}'))
+        }
+        LlmClientImpl client = agent(proto)
+
+        when:
+        client.user("go").call()
+        EntityValue row = ec.entity.find("moqui.llm.LlmSkill").condition("name", skillName).useCache(false).one()
+
+        then:
+        row != null
+        row.statusId == "LsksProposed"
+        row.provenanceId == "LskpSim"
+
+        cleanup:
+        boolean d = ec.artifactExecution.disableAuthz()
+        boolean b = ec.transaction.begin(null)
+        try {
+            ec.entity.find("moqui.test.TestEntity").condition("testId", worldId).one()?.delete()
+            def sk = ec.entity.find("moqui.llm.LlmSkill").condition("name", skillName).useCache(false).one()
+            if (sk != null) {
+                ec.entity.find("moqui.llm.LlmSkillUse").condition("skillId", sk.skillId).deleteAll()
+                sk.delete()
+            }
+            if (b) ec.transaction.commit()
+        } catch (Throwable t) {
+            if (b) ec.transaction.rollback("noselect cleanup", t)
+            throw t
+        } finally {
+            if (!d) ec.artifactExecution.enableAuthz()
+        }
+    }
+
+    def "resume tool result does not admit a proposed skill"() {
+        given:
+        String stamp = Long.toString(System.currentTimeMillis())
+        String skillName = "resume-admit-" + stamp
+        def proto = new FakeLlmProtocol()
+        int calls = 0
+        proto.handler = { ProtocolRequest req ->
+            calls++
+            boolean sim = isSim(req)
+            if (sim) {
+                return FakeLlmProtocol.stop("""---
+name: ${skillName}
+description: stay proposed
+risk: reversible
+---
+steps
+""")
+            }
+            if (calls == 1) return FakeLlmProtocol.toolCalls(new LlmToolCall("e1", "enter_sim", '{"goal":"skill"}'))
+            return FakeLlmProtocol.stop("resumed")
+        }
+        LlmClientImpl client = agent(proto)
+
+        when:
+        client.user("go").call()
+        SkillUseGate.activate(client, skillName)
+        client.toolResults([new org.moqui.llm.LlmToolResult("fake", "run_service", [ok: true])]).call()
+        EntityValue row = ec.entity.find("moqui.llm.LlmSkill").condition("name", skillName).useCache(false).one()
+
+        then:
+        row != null
+        row.statusId == "LsksProposed"
+
+        cleanup:
+        boolean d = ec.artifactExecution.disableAuthz()
+        boolean b = ec.transaction.begin(null)
+        try {
+            def sk = ec.entity.find("moqui.llm.LlmSkill").condition("name", skillName).useCache(false).one()
+            if (sk != null) {
+                ec.entity.find("moqui.llm.LlmSkillUse").condition("skillId", sk.skillId).deleteAll()
+                sk.delete()
+            }
+            if (b) ec.transaction.commit()
+        } catch (Throwable t) {
+            if (b) ec.transaction.rollback("resume admit cleanup", t)
             throw t
         } finally {
             if (!d) ec.artifactExecution.enableAuthz()

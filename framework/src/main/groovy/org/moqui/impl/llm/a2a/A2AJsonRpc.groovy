@@ -77,7 +77,7 @@ final class A2AJsonRpc {
             case 'ListTasks':
                 return A2AGateway.listTasks(ec, listRequest(params))
             case 'CancelTask':
-                return A2AGateway.cancelTask(ec, [taskId: params.id]).task
+                return A2AGateway.cancelTask(ec, [taskId: params.id, historyLength: params.historyLength]).task
             case 'GetExtendedAgentCard':
                 return A2ACardBuilderImpl.buildExtended(ec, [baseUrl: baseUrl, streaming: true])
             case 'SendStreamingMessage':
@@ -110,6 +110,7 @@ final class A2AJsonRpc {
         if (A2ATypes.terminalState(state))
             throw new A2AException(A2AException.UNSUPPORTED_OPERATION, "task is ${state}; terminal tasks cannot be subscribed to")
         if (!sink.emit([task: snapshot.task] as Map<String, Object>)) return
+        if (pausedState(state)) return
         long lastOrdinal = snapshot.lastOrdinal as long
         long deadline = System.currentTimeMillis() + timeoutMillis
         long lastWrite = System.currentTimeMillis()
@@ -122,12 +123,17 @@ final class A2AJsonRpc {
                 lastWrite = System.currentTimeMillis()
             }
             lastOrdinal = delta.lastOrdinal as long
-            if (A2ATypes.terminalState((delta.task as Map).status?.state as String)) return
+            String deltaState = (delta.task as Map).status?.state as String
+            if (A2ATypes.terminalState(deltaState) || pausedState(deltaState)) return
             if (System.currentTimeMillis() - lastWrite >= pingMillis) {
                 if (!sink.ping()) return
                 lastWrite = System.currentTimeMillis()
             }
         }
+    }
+
+    private static boolean pausedState(String state) {
+        state == 'TASK_STATE_INPUT_REQUIRED' || state == 'TASK_STATE_AUTH_REQUIRED'
     }
 
     static Map<String, Object> success(Object id, Object result) {

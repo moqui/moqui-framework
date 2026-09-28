@@ -94,11 +94,16 @@ public class TransactionCacheDb implements EntityTxCache {
 
     public boolean handles(EntityDefinition ed) {
         if (ed == null) return false;
-        String name = ed.getFullEntityName();
-        if (name.startsWith("moqui.llm.")) return false;
-        if ("moqui.entity.SequenceValueItem".equals(name)) return false;
+        if (allowsProductionWrite(ed)) return false;
         if (ed.isViewEntity) return true;
         return ed.entityInfo.isEntityDatasourceFactoryImpl;
+    }
+
+    /** These stay on the real database during sim. Everything else that this cache does not handle is refused. */
+    public boolean allowsProductionWrite(EntityDefinition ed) {
+        if (ed == null) return false;
+        String name = ed.getFullEntityName();
+        return name.startsWith("moqui.llm.") || "moqui.entity.SequenceValueItem".equals(name);
     }
 
     public String nextSeq(String seqName) {
@@ -289,7 +294,8 @@ public class TransactionCacheDb implements EntityTxCache {
         return key != null && dirtyCreateKeys.contains(key);
     }
 
-    @Override public boolean isKnownLocked(EntityValueBase evb) { return false; }
+    /** HOLD reads must not lock production rows. FLUSH still does. */
+    @Override public boolean isKnownLocked(EntityValueBase evb) { return hold; }
 
     @Override
     public void flushCache(boolean clearRead) {
@@ -404,8 +410,12 @@ public class TransactionCacheDb implements EntityTxCache {
                     EntityValue one = efi.find(memberEd.getFullEntityName()).condition(cond).useCache(false).one();
                     if (one instanceof EntityValueBase) copyFromProduction((EntityValueBase) one);
                 } else {
-                    EntityList list = efi.find(memberEd.getFullEntityName()).condition(cond).useCache(false).list();
+                    EntityList list = efi.find(memberEd.getFullEntityName()).condition(cond).useCache(false)
+                            .limit(COPY_CAP + 1).list();
                     int sz = list.size();
+                    if (sz > COPY_CAP)
+                        throw new EntityException("TX cache DB copy-on-read exceeded " + COPY_CAP +
+                                " rows for " + memberEd.getFullEntityName());
                     for (int j = 0; j < sz; j++) {
                         EntityValue ev = list.get(j);
                         if (ev instanceof EntityValueBase) copyFromProduction((EntityValueBase) ev);
@@ -599,14 +609,17 @@ public class TransactionCacheDb implements EntityTxCache {
         else insertH2(evb, ed);
     }
 
+    /** SET only fields present on the value. A partial update# must not null the other columns. */
     private void updateH2(EntityValueBase evb, EntityDefinition ed) {
         FieldInfo[] nonPk = ed.entityInfo.nonPkFieldInfoArray;
         FieldInfo[] pks = ed.entityInfo.pkFieldInfoArray;
+        org.moqui.util.LiteStringMap<Object> values = evb.getValueMap();
         StringBuilder sql = new StringBuilder("UPDATE ").append(ed.getFullTableName()).append(" SET ");
         int n = 0;
         for (int i = 0; i < nonPk.length; i++) {
             FieldInfo fi = nonPk[i];
             if (fi == null) break;
+            if (!values.containsKeyIString(fi.name, fi.index) && !values.containsKey(fi.name)) continue;
             if (n > 0) sql.append(", ");
             sql.append(fi.columnName).append("=?");
             n++;
@@ -620,8 +633,9 @@ public class TransactionCacheDb implements EntityTxCache {
             for (int i = 0; i < nonPk.length; i++) {
                 FieldInfo fi = nonPk[i];
                 if (fi == null) break;
+                if (!values.containsKeyIString(fi.name, fi.index) && !values.containsKey(fi.name)) continue;
                 fi.setPreparedStatementValue(ps, idx++,
-                        evb.getValueMap().getByIString(fi.name, fi.index), ed, efi);
+                        values.getByIString(fi.name, fi.index), ed, efi);
             }
             bindPk(ps, evb, pks, idx);
             ps.executeUpdate();

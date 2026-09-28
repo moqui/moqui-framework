@@ -779,6 +779,7 @@ public class WebUtilities {
     }
 
     public static String simpleHttpStringRequest(String location, String requestBody, String contentType) {
+        org.moqui.impl.context.SimFence.refuse("HTTP request");
         if (contentType == null || contentType.isEmpty()) contentType = "text/plain";
         String resultString = "";
 

@@ -147,6 +147,7 @@ class ContentResourceReference extends BaseResourceReference {
     @Override void putText(String text) { putObject(text) }
     @Override void putStream(InputStream stream) { putObject(stream) }
     protected void putObject(Object obj) {
+        org.moqui.impl.context.SimFence.refuse("Content repository write")
         if (obj == null) {
             logger.warn("Data was null, not saving to resource [${getLocation()}]")
             return

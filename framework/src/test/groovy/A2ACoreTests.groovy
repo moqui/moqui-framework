@@ -659,11 +659,14 @@ class A2ACoreTests extends Specification {
         when:
         System.setProperty('a2a_enabled', 'false')
         boolean offByProperty = A2ACardBuilderImpl.enabled()
+        System.setProperty('a2a_enabled', 'yes')
+        boolean yesIsOff = A2ACardBuilderImpl.enabled()
         System.setProperty('a2a_enabled', 'true')
         boolean onByProperty = A2ACardBuilderImpl.enabled()
 
         then:
         !offByProperty
+        !yesIsOff
         onByProperty
 
         cleanup:

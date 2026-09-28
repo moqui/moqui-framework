@@ -78,6 +78,8 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
     String run() throws ServiceException {
         ExecutionContextFactoryImpl ecfi = sfi.ecfi
         ExecutionContextImpl eci = ecfi.getEci()
+        if (eci != null && eci.simSession)
+            throw new ServiceException("Service jobs are disabled in LLM sim session")
         validateCall(eci)
 
         String jobRunId
