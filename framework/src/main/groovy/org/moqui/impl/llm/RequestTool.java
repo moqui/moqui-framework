@@ -287,6 +287,25 @@ public class RequestTool implements LlmTool {
         return 500;
     }
 
+    /** Drop the show-total footer row so Query counts and sums are not applied twice. */
+    static List<?> withoutTotalRows(List<?> rows) {
+        if (rows == null || rows.isEmpty()) return rows;
+        List<Object> kept = null;
+        for (int i = 0; i < rows.size(); i++) {
+            Object row = rows.get(i);
+            boolean total = row instanceof Map && "total".equals(String.valueOf(((Map<?, ?>) row).get("_moquiRowType")));
+            if (!total) {
+                if (kept != null) kept.add(row);
+                continue;
+            }
+            if (kept == null) {
+                kept = new ArrayList<>(rows.size() - 1);
+                for (int j = 0; j < i; j++) kept.add(rows.get(j));
+            }
+        }
+        return kept != null ? kept : rows;
+    }
+
     /** Form-list GET {screen}/actions/{formName} returns a JSON array; wrap as {rows,totalCount} for Query(data.rows). */
     static boolean isFormListJsonPath(List<String> segments) {
         if (segments == null || segments.size() < 3) return false;
@@ -296,7 +315,7 @@ public class RequestTool implements LlmTool {
     static Object wrapFormListJson(List<String> segments, Object json, Map<String, Object> headers) {
         if (!isFormListJsonPath(segments) || !(json instanceof List)) return json;
         Map<String, Object> wrap = new LinkedHashMap<>();
-        List<?> rows = (List<?>) json;
+        List<?> rows = withoutTotalRows((List<?>) json);
         wrap.put("rows", rows);
         Object tc = headers != null ? headers.get("X-Total-Count") : null;
         if (tc == null && headers != null) tc = headers.get("x-total-count");

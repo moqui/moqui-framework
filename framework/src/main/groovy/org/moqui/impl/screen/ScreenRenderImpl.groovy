@@ -1752,6 +1752,8 @@ class ScreenRenderImpl implements ScreenRender {
         ArrayList<Map<String, Object>> outRows = new ArrayList<>(rowsSize)
         for (int ri = 0; ri < rowsSize; ri++) {
             Map<String, Object> row = (Map<String, Object>) listObject.get(ri)
+            // show-total map is a footer, not an order. Leaving it in makes counts and sums run twice.
+            if (row != null && "total".equals(row.get("_moquiRowType"))) continue
             outRows.add(transformFormListRow(renderInfo, row, (char) 'r'))
         }
         return outRows
@@ -1966,7 +1968,32 @@ class ScreenRenderImpl implements ScreenRender {
                 String icValue = ec.contextStack.getByString(icName)
                 if ((icValue == null || icValue.isEmpty()) && (icAttr == null || icAttr.isEmpty() || icAttr.equals("true"))) icValue = "Y"
                 fieldValues.put(icName, icValue ?: "N")
-            } else if (!"submit".equals(widgetName) && !"link".equals(widgetName)) {
+            } else if ("link".equals(widgetName)) {
+                // The row widget is often only a link (FindOrder.orderId). The plain field value is the
+                // row identity Assist Query needs; the link text is the display.
+                // Skip when this row has no value (the show-total footer) so the template does not become "null:null".
+                if (valuePlainString == null || valuePlainString.isEmpty()) continue
+                fieldValues.put(fieldName, valuePlainString)
+                String entityName = widgetNode.attribute("entity-name")
+                String text = null
+                if (entityName != null && !entityName.isEmpty()) {
+                    // Same path as the HTML link macro: load the entity, then expand PartyNameTemplate / FacilityNameTemplate.
+                    try {
+                        text = getFieldEntityValue(widgetNode)
+                    } catch (Throwable ignore) {
+                        text = null
+                    }
+                } else {
+                    String textAttr = widgetNode.attribute("text")
+                    if (textAttr != null && !textAttr.isEmpty())
+                        text = ec.resourceFacade.expand(textAttr, null)
+                }
+                if (text != null) {
+                    text = text.trim()
+                    if (!text.isEmpty() && !"null".equals(text) && !text.startsWith("null:"))
+                        fieldValues.put(fieldName + "_display", text)
+                }
+            } else if (!"submit".equals(widgetName)) {
                 // unknown/other type
                 fieldValues.put(fieldName, valuePlainString)
             }
