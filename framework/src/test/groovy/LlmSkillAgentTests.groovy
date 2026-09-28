@@ -936,6 +936,53 @@ steps
         unknown.getActiveSkillName() == null
     }
 
+    def "a failed write records a lesson and the next inject includes it"() {
+        given:
+        String stamp = Long.toString(System.currentTimeMillis())
+        String skillName = "lesson-skill-" + stamp
+        EntityValue sk = ec.entity.makeValue("moqui.llm.LlmSkill")
+                .set("name", skillName)
+                .set("title", "Lesson skill")
+                .set("description", "records a failure")
+                .set("body", "POST create")
+                .set("riskId", "LskConfirm")
+                .set("statusId", "LsksActive")
+                .set("provenanceId", "LskpHuman")
+                .set("version", 1)
+                .set("worldSuccessCount", 0)
+                .set("simSuccessCount", 0)
+        sk.setSequencedIdPrimary()
+        sk.create()
+
+        when:
+        SkillIndex.recordOutcomeInTx(ec, skillName, "world", "fail",
+                "run_service status=500\nfield roleTypeId: required", null)
+        def doc = SkillIndex.getByName(ec, skillName)
+        String injected = SkillIndex.formatInject(ec, [doc])
+
+        then:
+        injected.contains("roleTypeId")
+        injected.contains("Lessons")
+        ec.entity.find("moqui.llm.LlmLesson").condition("skillId", sk.skillId).useCache(false).count() == 1
+        ec.entity.find("moqui.llm.LlmSkillUse").condition("skillId", sk.skillId)
+                .condition("outcome", "fail").useCache(false).count() == 1
+
+        cleanup:
+        boolean d = ec.artifactExecution.disableAuthz()
+        boolean b = ec.transaction.begin(null)
+        try {
+            ec.entity.find("moqui.llm.LlmLesson").condition("skillId", sk.skillId).deleteAll()
+            ec.entity.find("moqui.llm.LlmSkillUse").condition("skillId", sk.skillId).deleteAll()
+            ec.entity.find("moqui.llm.LlmSkill").condition("skillId", sk.skillId).deleteAll()
+            if (b) ec.transaction.commit()
+        } catch (Throwable t) {
+            if (b) ec.transaction.rollback("lesson cleanup", t)
+            throw t
+        } finally {
+            if (!d) ec.artifactExecution.enableAuthz()
+        }
+    }
+
     def "LlmGateway.chat requires LlmGateway permission"() {
         given:
         if (ec.user.userId) ec.user.logoutUser()

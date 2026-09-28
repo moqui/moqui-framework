@@ -16,6 +16,8 @@ import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
 import org.moqui.impl.llm.BrowseTool
 import org.moqui.impl.llm.LlmGateway
+import org.moqui.impl.llm.ScreenSearchHints
+import org.moqui.impl.llm.SessionFacts
 import org.moqui.impl.llm.SkillIndex
 import spock.lang.IgnoreIf
 import spock.lang.Shared
@@ -252,6 +254,30 @@ class LlmBrowseTests extends Specification {
         then:
         hit != null
         hit.jsonPath.toString() == "/apps/marble/Asset/Asset/FindAsset/actions/ListAssets"
+    }
+
+    def "search hints name QuickSearch actions only for screens this user can view"() {
+        when:
+        String text = ScreenSearchHints.text(ec)
+
+        then:
+        text != null
+        text.contains("/apps/marble/QuickSearch/actions")
+        text.contains("queryString")
+        text.contains("documentList")
+        !text.contains("lookup#ById")
+        ScreenSearchHints.find(ec).every { it.actionsPath.startsWith("/apps/") && it.actionsPath.endsWith("/actions") }
+    }
+
+    def "session facts are this user and do not list permissions"() {
+        when:
+        String text = SessionFacts.text(ec)
+
+        then:
+        text.contains("userId=")
+        text.contains("partyId=")
+        !text.toLowerCase().contains("permission")
+        !text.contains("ADMIN")
     }
 
     def "AssistSystem documents screen-first ladder and find-form jsonPath"() {

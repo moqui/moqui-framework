@@ -36,7 +36,8 @@ final class SkillUseGate {
 
     static boolean allowed(LlmClientImpl client, String toolName) {
         if (client == null || !client.forceSkillUse) return true;
-        if (FindSkillTool.NAME.equals(toolName) || EnterSimTool.NAME.equals(toolName)) return true;
+        if (FindSkillTool.NAME.equals(toolName) || EnterSimTool.NAME.equals(toolName)
+                || PinTool.NAME.equals(toolName)) return true;
         if (client.ec instanceof ExecutionContextImpl && ((ExecutionContextImpl) client.ec).simSession)
             return true;
         return client.activeSkillName != null && !client.activeSkillName.isBlank();

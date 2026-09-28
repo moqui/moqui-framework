@@ -68,20 +68,28 @@ public class RunServiceTool implements LlmTool {
         String authError = requireAuthenticatedService(ec, serviceName);
         if (authError != null) return error(authError);
         Map<String, Object> in = ServiceCallTool.sanitizeArguments(asMap(args.get("parameters")));
+        MessageCapture.Snap prior = MessageCapture.take(ec);
         try {
             Map<String, Object> out = ec.getService().sync().name(serviceName).parameters(in).call();
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("ok", true);
             result.put("serviceName", serviceName);
             result.put("result", out);
-            return result;
+            return finish(result, ec);
         } catch (ArtifactAuthorizationException e) {
-            return errorStatus(403, e.getMessage());
+            return finish(errorStatus(403, e.getMessage()), ec);
         } catch (ArtifactTarpitException e) {
-            return errorStatus(429, e.getMessage());
+            return finish(errorStatus(429, e.getMessage()), ec);
         } catch (Throwable t) {
-            return error(t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName());
+            return finish(error(t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName()), ec);
+        } finally {
+            MessageCapture.restore(ec, prior);
         }
+    }
+
+    static Map<String, Object> finish(Map<String, Object> result, ExecutionContext ec) {
+        MessageCapture.attach(result, MessageCapture.take(ec));
+        return result;
     }
 
     @SuppressWarnings("unchecked")

@@ -165,8 +165,8 @@ public final class LlmGateway {
             String n = "write-ui".equals(raw) ? "write_ui" : raw;
             if ("run-service".equals(n)) n = "run_service";
             if (!"request".equals(n) && !"write_ui".equals(n) && !"browse".equals(n) && !"run_service".equals(n)
-                    && !"find_skill".equals(n) && !"enter_sim".equals(n))
-                throw new LlmException("tools may only subset {request, write_ui, browse, run_service, find_skill, enter_sim}",
+                    && !"find_skill".equals(n) && !"enter_sim".equals(n) && !"pin".equals(n))
+                throw new LlmException("tools may only subset {request, write_ui, browse, run_service, find_skill, enter_sim, pin}",
                         null, LlmFinishReason.ERROR, 400, null, null);
             seen.add(n);
         }
@@ -200,6 +200,7 @@ public final class LlmGateway {
         boolean wantRunService = tools.contains("run_service");
         boolean wantFindSkill = tools.contains("find_skill") || wantBrowse || wantRunService;
         boolean wantEnterSim = tools.contains("enter_sim");
+        boolean wantPin = tools.contains("pin") || wantFindSkill;
         if (wantRequest) {
             boolean unprefixed = profile != null && profile.allowUnprefixedRequest;
             LlmTool rt = requestToolForServlet(profile != null ? profile.allowedPaths : null, unprefixed);
@@ -217,6 +218,7 @@ public final class LlmGateway {
         if (wantRunService && profile != null && profile.allowRunService) client.tool(LlmTool.runService());
         if (wantFindSkill) client.tool(LlmTool.findSkill());
         if (wantEnterSim && profile != null && profile.allowEnterSim) client.tool(LlmTool.enterSim());
+        if (wantPin) client.tool(LlmTool.pin());
     }
 
     public static void requireLlmGateway(ExecutionContext ec) {
@@ -271,6 +273,8 @@ public final class LlmGateway {
         applyForceSkillUse(impl, body);
         applySystem(impl, body);
         appendForceSkillUseSystem(impl);
+        refreshContext(impl, "session", SessionFacts.text(impl.ec));
+        refreshContext(impl, "pins", PinTool.text(impl));
         String user = str(body.get("user"));
         if (user != null) {
             impl.user(user);
@@ -344,6 +348,12 @@ public final class LlmGateway {
         if (profile != null && profile.systemLocation != null && !profile.systemLocation.isBlank()) {
             Map<String, Object> promptCtx = new LinkedHashMap<>();
             promptCtx.put("allowVueSfc", profile.allowVueSfc);
+            try {
+                String hints = ScreenSearchHints.text(impl.ec);
+                if (hints != null && !hints.isBlank()) promptCtx.put("searchHints", hints);
+            } catch (Throwable t) {
+                logger.warn("Search screen hints failed: {}", t.getMessage());
+            }
             String text = renderPrompt(impl.ec, profile.systemLocation, promptCtx);
             if (text != null && !text.isBlank()) impl.system(text);
             return;
@@ -352,6 +362,17 @@ public final class LlmGateway {
         if (!allowClient) return;
         String system = str(body != null ? body.get("system") : null);
         if (system != null) impl.system(system);
+    }
+
+    /** Replace a named context block so a resumed turn does not stack copies. */
+    static void refreshContext(LlmClientImpl impl, String source, String content) {
+        if (impl == null || source == null) return;
+        try {
+            if (impl.conversation != null) impl.conversation.removeContextBySource(source);
+            if (content != null && !content.isBlank()) impl.injectContext(source, content);
+        } catch (Throwable t) {
+            logger.warn("Context {} failed: {}", source, t.getMessage());
+        }
     }
 
     static void injectSkills(LlmClientImpl impl, String userText) {

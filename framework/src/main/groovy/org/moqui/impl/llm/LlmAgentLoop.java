@@ -468,14 +468,96 @@ final class LlmAgentLoop {
     }
 
     private void noteSkillLifecycle(String toolName, String argumentsJson, Object stored) {
-        if (stored instanceof Map) {
-            Map<?, ?> m = (Map<?, ?>) stored;
-            if ("enter_sim".equals(toolName)) {
-                Object n = m.get("proposedSkillName");
-                if (n != null && !n.toString().isBlank()) rememberProposed(n.toString());
-            }
-            if (isWorldWriteSuccess(toolName, argumentsJson, m)) maybeAdmit();
+        if (!(stored instanceof Map)) return;
+        Map<?, ?> m = (Map<?, ?>) stored;
+        if ("enter_sim".equals(toolName)) {
+            Object n = m.get("proposedSkillName");
+            if (n != null && !n.toString().isBlank()) rememberProposed(n.toString());
         }
+        if ("write_ui".equals(toolName)) {
+            if (isWorldWriteSuccess(toolName, argumentsJson, m)) maybeAdmit();
+            return;
+        }
+        if (!executedWrite(toolName, argumentsJson, m)) return;
+        boolean sim = client.ec instanceof ExecutionContextImpl && ((ExecutionContextImpl) client.ec).simSession;
+        boolean callOk = callSucceeded(toolName, m);
+        String skill = client.activeSkillName;
+        if (sim) {
+            if (!callOk && skill != null && !skill.isBlank())
+                SkillIndex.recordOutcomeInTx(client.ec, skill, "sim", "fail",
+                        failureNotes(toolName, m), client.convId());
+            return;
+        }
+        if (callOk && !ToolResultTrim.hasErrorMessages(m)) {
+            if (skill != null && !skill.isBlank() && !skill.equals(proposedName()))
+                SkillIndex.recordOutcomeInTx(client.ec, skill, "world", "pass", null, client.convId());
+            else maybeAdmit();
+            return;
+        }
+        if (skill == null || skill.isBlank()) return;
+        SkillIndex.recordOutcomeInTx(client.ec, skill, "world", "fail",
+                failureNotes(toolName, m), client.convId());
+    }
+
+    private String proposedName() {
+        String proposed = client.pendingProposedSkillName;
+        if ((proposed == null || proposed.isBlank()) && client.conversation != null) {
+            Object v = client.conversation.getAttributes().get("proposedSkillName");
+            if (v != null) proposed = v.toString();
+        }
+        return proposed;
+    }
+
+    private static boolean executedWrite(String toolName, String argumentsJson, Map<?, ?> stored) {
+        if (stored == null) return false;
+        Object err = stored.get("error");
+        if (err != null) {
+            String code = err.toString();
+            if (SkillRiskGate.NOT_CONFIRMED.equals(code) || SkillRiskGate.DEFERRED.equals(code)
+                    || SkillUseGate.ERROR.equals(code)) return false;
+        }
+        if ("run_service".equals(toolName)) return true;
+        if (!"request".equals(toolName)) return false;
+        Map<String, Object> args = LlmJson.tryToMap(argumentsJson);
+        String method = args != null && args.get("method") != null ? args.get("method").toString() : null;
+        if (method == null) return false;
+        String mu = method.trim().toUpperCase(java.util.Locale.ROOT);
+        return !mu.isEmpty() && !"GET".equals(mu) && !"HEAD".equals(mu);
+    }
+
+    static String failureNotes(String toolName, Map<?, ?> stored) {
+        StringBuilder sb = new StringBuilder();
+        if (toolName != null) sb.append(toolName);
+        if (stored.get("status") != null) sb.append(" status=").append(stored.get("status"));
+        if (stored.get("serviceName") != null) sb.append(' ').append(stored.get("serviceName"));
+        appendNote(sb, stored.get("error"));
+        appendNote(sb, stored.get("text"));
+        Object messages = stored.get("messages");
+        if (messages instanceof Map) {
+            Map<?, ?> box = (Map<?, ?>) messages;
+            Object errors = box.get("errors");
+            if (errors instanceof List) {
+                for (Object line : (List<?>) errors) appendNote(sb, line);
+            }
+            Object validation = box.get("validationErrors");
+            if (validation instanceof List) {
+                for (Object row : (List<?>) validation) {
+                    if (!(row instanceof Map)) continue;
+                    Map<?, ?> ve = (Map<?, ?>) row;
+                    appendNote(sb, "field " + ve.get("field") + ": " + ve.get("message"));
+                }
+            }
+        }
+        String text = sb.toString().trim();
+        return text.length() > 800 ? text.substring(0, 800) : text;
+    }
+
+    private static void appendNote(StringBuilder sb, Object value) {
+        if (value == null) return;
+        String text = value.toString().trim();
+        if (text.isEmpty()) return;
+        if (sb.length() > 0) sb.append('\n');
+        sb.append(text);
     }
 
     private void rememberProposed(String skillName) {
@@ -498,10 +580,24 @@ final class LlmAgentLoop {
         if (client.conversation != null) client.conversation.setAttribute("proposedSkillName", null);
     }
 
+    /** True when the tool returned a success payload, including inside sim. Error messages count as failure. */
+    private static boolean callSucceeded(String toolName, Map<?, ?> stored) {
+        if (stored == null || stored.get("error") != null) return false;
+        if (ToolResultTrim.hasErrorMessages(stored)) return false;
+        if ("run_service".equals(toolName)) return Boolean.TRUE.equals(stored.get("ok"));
+        if ("request".equals(toolName)) {
+            Object status = stored.get("status");
+            int s = status instanceof Number ? ((Number) status).intValue() : 0;
+            return s >= 200 && s < 300;
+        }
+        return false;
+    }
+
     private boolean isWorldWriteSuccess(String toolName, String argumentsJson, Map<?, ?> stored) {
         if (client.ec instanceof ExecutionContextImpl && ((ExecutionContextImpl) client.ec).simSession)
             return false;
-        if (stored == null || stored.get("error") != null) return false;
+        if (!callSucceeded(toolName, stored)) return false;
+        if (stored.get("error") != null) return false;
         if ("run_service".equals(toolName)) return Boolean.TRUE.equals(stored.get("ok"));
         if ("request".equals(toolName)) {
             Map<String, Object> args = LlmJson.tryToMap(argumentsJson);

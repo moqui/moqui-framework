@@ -113,7 +113,12 @@ public class RequestTool implements LlmTool {
 
         Map<String, Object> query = asMap(args.get("query"));
         Map<String, Object> body = asMap(args.get("body"));
-        return renderOnScreen(ec, method, segments, query, body);
+        MessageCapture.Snap prior = MessageCapture.take(ec);
+        try {
+            return renderOnScreen(ec, method, segments, query, body);
+        } finally {
+            MessageCapture.restore(ec, prior);
+        }
     }
 
     /**
@@ -230,23 +235,19 @@ public class RequestTool implements LlmTool {
             String text = wfs.getResponseText();
             Map<String, Object> headers = headersFromStub(wfs);
             json = wrapFormListJson(segments, json, headers);
+            if (ToolResultTrim.isSearchActionsPath(segments)) json = ToolResultTrim.projectSearchActions(json);
             if (isHtmlDump(json, text, wfs.getHttpServletResponseStub().getContentType(), status)) {
-                return result(400, null, HTML_ERROR, headers);
+                return finish(result(400, null, HTML_ERROR, headers), eci);
             }
-            if (eci.getMessage().hasError()) {
-                String errors = eci.getMessage().getErrorsString();
-                eci.getMessage().clearErrors();
-                if (json == null && (text == null || text.isBlank())) text = errors;
-            }
-            return result(status, json, json != null ? null : text, headers);
+            return finish(result(status, json, json != null ? null : text, headers), eci);
         } catch (ArtifactAuthorizationException e) {
-            return result(403, null, e.getMessage(), null);
+            return finish(result(403, null, e.getMessage(), null), ec);
         } catch (ArtifactTarpitException e) {
-            return result(429, null, e.getMessage(), null);
+            return finish(result(429, null, e.getMessage(), null), ec);
         } catch (AuthenticationRequiredException e) {
-            return result(401, null, e.getMessage(), null);
+            return finish(result(401, null, e.getMessage(), null), ec);
         } catch (Throwable t) {
-            return result(statusFrom(t), null, t.getMessage(), null);
+            return finish(result(statusFrom(t), null, t.getMessage(), null), ec);
         } finally {
             cs.pop();
             if (previous != null) eci.setWebFacade(previous);
@@ -306,6 +307,16 @@ public class RequestTool implements LlmTool {
         } else total = rows.size();
         wrap.put("totalCount", total);
         return wrap;
+    }
+
+    /** Attach messages produced by the screen, including warnings on a 200. */
+    public static Map<String, Object> finish(Map<String, Object> result, ExecutionContext ec) {
+        MessageCapture.Snap snap = MessageCapture.take(ec);
+        MessageCapture.attach(result, snap);
+        if (result.get("text") == null && snap != null && !snap.errors.isEmpty() && result.get("json") == null) {
+            result.put("text", String.join("\n", snap.errors));
+        }
+        return result;
     }
 
     static Map<String, Object> result(int status, Object json, String text, Map<String, Object> headers) {

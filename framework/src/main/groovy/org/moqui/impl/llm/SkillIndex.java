@@ -27,6 +27,7 @@ import java.util.function.Supplier;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -239,6 +240,7 @@ public class SkillIndex {
                 m.put("description", d.description);
                 m.put("risk", d.risk);
                 m.put("body", d.body);
+                m.put("lessons", lessonLines(ec, d.skillId));
                 skills.add(m);
                 int approx = (d.body != null ? d.body.length() : 0) + 80;
                 remaining -= approx;
@@ -342,6 +344,111 @@ public class SkillIndex {
             }
             return sk;
         });
+    }
+
+    /** Pass/fail for the active skill. A fail also stores one lesson. Does not promote. */
+    public static void recordOutcome(ExecutionContext ec, String skillName, String contact, String outcome,
+            String lessonBody, String conversationId) {
+        if (ec == null || skillName == null || skillName.isBlank()) return;
+        if (outcome == null || outcome.isBlank()) return;
+        withAuthzDisabled(ec, () -> {
+            EntityValue sk = ec.getEntity().find("moqui.llm.LlmSkill")
+                    .condition("name", skillName).useCache(false).one();
+            if (sk == null) return null;
+            boolean pass = "pass".equals(outcome);
+            if (pass) {
+                String countField = "sim".equals(contact) ? "simSuccessCount" : "worldSuccessCount";
+                Object cur = sk.get(countField);
+                long n = cur instanceof Number ? ((Number) cur).longValue() : 0L;
+                sk.set(countField, n + 1L);
+            }
+            sk.set("lastUsedDate", ec.getUser().getNowTimestamp());
+            sk.update();
+            try {
+                EntityValue use = ec.getEntity().makeValue("moqui.llm.LlmSkillUse")
+                        .set("skillId", sk.get("skillId"))
+                        .set("conversationId", conversationId)
+                        .set("contact", contact)
+                        .set("outcome", outcome)
+                        .set("notes", cap(lessonBody, 500))
+                        .set("usedDate", ec.getUser().getNowTimestamp());
+                use.setSequencedIdPrimary();
+                use.create();
+            } catch (Throwable t) {
+                logger.warn("LlmSkillUse write: {}", t.getMessage());
+            }
+            if (!pass && lessonBody != null && !lessonBody.isBlank()) {
+                String title = lessonTitle(lessonBody);
+                EntityValue existing = ec.getEntity().find("moqui.llm.LlmLesson")
+                        .condition("skillId", sk.get("skillId")).condition("title", title).useCache(false).one();
+                if (existing == null) {
+                    EntityValue lesson = ec.getEntity().makeValue("moqui.llm.LlmLesson")
+                            .set("skillId", sk.get("skillId"))
+                            .set("title", title)
+                            .set("body", cap(lessonBody, 800))
+                            .set("provenanceId", "sim".equals(contact) ? "LskpSim" : "LskpWorld")
+                            .set("statusId", "LsksActive")
+                            .set("createdDate", ec.getUser().getNowTimestamp());
+                    lesson.setSequencedIdPrimary();
+                    lesson.create();
+                }
+            }
+            return sk;
+        });
+    }
+
+    public static void recordOutcomeInTx(ExecutionContext ec, String skillName, String contact, String outcome,
+            String lessonBody, String conversationId) {
+        if (ec == null || ec.getTransaction() == null) {
+            recordOutcome(ec, skillName, contact, outcome, lessonBody, conversationId);
+            return;
+        }
+        boolean began = false;
+        try {
+            began = ec.getTransaction().begin(60);
+            recordOutcome(ec, skillName, contact, outcome, lessonBody, conversationId);
+            ec.getTransaction().commit(began);
+        } catch (Throwable t) {
+            try { ec.getTransaction().rollback(began, "record LlmSkill outcome", t); }
+            catch (Throwable ignored) { }
+            logger.warn("recordOutcome: {}", t.getMessage());
+        }
+    }
+
+    static List<String> lessonLines(ExecutionContext ec, String skillId) {
+        if (ec == null || skillId == null || skillId.isBlank()) return Collections.emptyList();
+        try {
+            return withAuthzDisabled(ec, () -> {
+                List<String> lines = new ArrayList<>();
+                EntityList list = ec.getEntity().find("moqui.llm.LlmLesson")
+                        .condition("skillId", skillId).condition("statusId", "LsksActive")
+                        .orderBy("-createdDate").limit(3).list();
+                int size = list.size();
+                for (int i = 0; i < size; i++) {
+                    String body = list.get(i).getString("body");
+                    if (body != null && !body.isBlank()) lines.add(cap(body.trim(), 400));
+                }
+                return lines;
+            });
+        } catch (Throwable t) {
+            logger.warn("LlmLesson read: {}", t.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    static String lessonTitle(String body) {
+        String line = body == null ? "" : body.trim();
+        int nl = line.indexOf('\n');
+        if (nl >= 0) line = line.substring(0, nl).trim();
+        if (line.length() > 120) line = line.substring(0, 120).trim();
+        return line.isEmpty() ? "failed" : line;
+    }
+
+    static String cap(String text, int max) {
+        if (text == null) return null;
+        String t = text.trim();
+        if (t.length() <= max) return t;
+        return t.substring(0, max);
     }
 
     /** Same as {@link #admitWorldPass} but begins a short TX when the caller is not in one. */

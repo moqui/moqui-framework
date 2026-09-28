@@ -17,6 +17,7 @@ import org.moqui.context.ExecutionContext
 import org.moqui.context.WebFacade
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.UserFacadeImpl
+import org.moqui.impl.llm.MessageCapture
 import org.moqui.impl.llm.RequestTool
 import org.moqui.impl.llm.ServiceCallTool
 import org.moqui.impl.screen.WebFacadeStub
@@ -53,6 +54,32 @@ class LlmRequestToolTests extends Specification {
             ec.user.logoutUser()
             ec.user.loginUser("john.doe", "moqui")
         }
+    }
+
+    def "message capture returns warnings and field errors then restores the facade"() {
+        given:
+        ec.message.clearAll()
+        ec.message.addMessage("keep-me", "info")
+
+        when:
+        MessageCapture.Snap prior = MessageCapture.take(ec)
+        ec.message.addMessage("check the price", "warning")
+        ec.message.addError("not enough available")
+        ec.message.addValidationError("OrderItem", "quantity", "mantle.order.OrderServices.add#OrderProductQuantity",
+                "quantity required", null)
+        Map<String, Object> result = [status: 200, json: [ok: true]]
+        RequestTool.finish(result, ec)
+        MessageCapture.restore(ec, prior)
+
+        then:
+        result.messages.errors == ["not enough available"]
+        result.messages.validationErrors[0].field == "quantity"
+        result.messages.messages.any { it.type == "warning" && it.message == "check the price" }
+        !ec.message.hasError()
+        ec.message.messages.contains("keep-me")
+
+        cleanup:
+        ec.message.clearAll()
     }
 
     def "GET actions returns JSON not HTML"() {
