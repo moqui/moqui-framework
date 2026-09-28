@@ -695,6 +695,233 @@ steps
         }
     }
 
+    def "world-rim run_service without a skill is refused and does not write"() {
+        given:
+        String worldId = "RSK" + System.currentTimeMillis()
+        def proto = new FakeLlmProtocol()
+        proto.handler = { ProtocolRequest req ->
+            def last = lastTool(req)
+            if (last?.name == "run_service") return FakeLlmProtocol.stop("refused")
+            String args = '{"serviceName":"create#moqui.test.TestEntity","parameters":{"testId":"' +
+                    worldId + '","testMedium":"no-skill"}}'
+            return FakeLlmProtocol.toolCalls(new LlmToolCall("w1", "run_service", args))
+        }
+        LlmClientImpl client = agent(proto)
+
+        when:
+        LlmResponse r = client.user("write").call()
+        EntityValue row = ec.entity.find("moqui.test.TestEntity").condition("testId", worldId).one()
+
+        then:
+        r.content == "refused"
+        !r.yielded
+        row == null
+        r.toolResults.any { it.name == "run_service" && it.content instanceof Map &&
+                ((Map) it.content).error == "skill_required" }
+    }
+
+    def "GET request without a skill still runs"() {
+        given:
+        def proto = new FakeLlmProtocol()
+        int calls = 0
+        proto.handler = { ProtocolRequest req ->
+            def last = lastTool(req)
+            if (last?.name == "request") return FakeLlmProtocol.stop("got")
+            return FakeLlmProtocol.toolCalls(new LlmToolCall("g1", "request",
+                    '{"method":"GET","path":"/qapps"}'))
+        }
+        LlmClientImpl client = agent(proto)
+        client.tool(new org.moqui.llm.LlmTool() {
+            String getName() { "request" }
+            String getDescription() { "test request" }
+            Map getParametersSchema() { [:] }
+            LlmTool.Execution getExecution() { LlmTool.Execution.SERVER }
+            Object execute(Map arguments, org.moqui.context.ExecutionContext ec) { calls++; return [status: 200] }
+        })
+
+        when:
+        LlmResponse r = client.user("read").call()
+
+        then:
+        r.content == "got"
+        !r.yielded
+        calls == 1
+    }
+
+    def "confirm skill yields run_service until the user confirms"() {
+        given:
+        String stamp = Long.toString(System.currentTimeMillis())
+        String worldId = "CFM" + stamp
+        def proto = new FakeLlmProtocol()
+        proto.handler = { ProtocolRequest req ->
+            def last = lastTool(req)
+            if (last?.name == "run_service" && last.content?.contains("not_confirmed"))
+                return FakeLlmProtocol.stop("cancelled")
+            if (last?.name == "run_service" && last.content?.contains(worldId))
+                return FakeLlmProtocol.stop("created")
+            if (last?.name == "find_skill") {
+                String args = '{"serviceName":"create#moqui.test.TestEntity","parameters":{"testId":"' +
+                        worldId + '","testMedium":"confirmed"}}'
+                return FakeLlmProtocol.toolCalls(new LlmToolCall("w1", "run_service", args))
+            }
+            return FakeLlmProtocol.toolCalls(new LlmToolCall("f1", "find_skill",
+                    '{"select":"create-user-account"}'))
+        }
+        def conv = org.moqui.impl.llm.LlmConversationImpl.create(ec, "default", null)
+        LlmClientImpl client = agent(proto).conversation(conv)
+
+        when:
+        LlmResponse yielded = client.user("create").call()
+        EntityValue before = ec.entity.find("moqui.test.TestEntity").condition("testId", worldId).one()
+
+        then:
+        yielded.yielded
+        yielded.pendingToolCalls.size() == 1
+        yielded.pendingToolCalls[0].confirm == true
+        yielded.pendingToolCalls[0].risk == "confirm"
+        yielded.pendingToolCalls[0].name == "run_service"
+        before == null
+        conv.status == org.moqui.impl.llm.LlmConversationImpl.STATUS_YIELDED
+
+        when:
+        LlmResponse cancelled = agent(proto).conversation(conv)
+                .toolResults([new org.moqui.llm.LlmToolResult("w1", "run_service", [confirmed: false])])
+                .call()
+        EntityValue afterCancel = ec.entity.find("moqui.test.TestEntity").condition("testId", worldId).one()
+
+        then:
+        cancelled.content == "cancelled"
+        afterCancel == null
+
+        when:
+        // The cancel resume consumed the pending call. Run a fresh confirm and accept it.
+        def proto2 = new FakeLlmProtocol()
+        proto2.handler = { ProtocolRequest req ->
+            def last = lastTool(req)
+            if (last?.name == "run_service") return FakeLlmProtocol.stop("created")
+            if (last?.name == "find_skill") {
+                String args = '{"serviceName":"create#moqui.test.TestEntity","parameters":{"testId":"' +
+                        worldId + '","testMedium":"confirmed"}}'
+                return FakeLlmProtocol.toolCalls(new LlmToolCall("w2", "run_service", args))
+            }
+            return FakeLlmProtocol.toolCalls(new LlmToolCall("f2", "find_skill",
+                    '{"select":"create-user-account"}'))
+        }
+        def conv2 = org.moqui.impl.llm.LlmConversationImpl.create(ec, "default", null)
+        LlmResponse again = agent(proto2).conversation(conv2).user("create").call()
+        LlmResponse created = agent(proto2).conversation(conv2)
+                .toolResults([new org.moqui.llm.LlmToolResult("w2", "run_service", [confirmed: true])])
+                .call()
+        EntityValue row = ec.entity.find("moqui.test.TestEntity").condition("testId", worldId).one()
+
+        then:
+        again.yielded
+        created.content == "created"
+        row != null
+        row.testMedium == "confirmed"
+
+        cleanup:
+        boolean d = ec.artifactExecution.disableAuthz()
+        boolean b = ec.transaction.begin(null)
+        try {
+            ec.entity.find("moqui.test.TestEntity").condition("testId", worldId).one()?.delete()
+            if (b) ec.transaction.commit()
+        } catch (Throwable t) {
+            if (b) ec.transaction.rollback("confirm skill cleanup", t)
+            throw t
+        } finally {
+            if (!d) ec.artifactExecution.enableAuthz()
+        }
+    }
+
+    def "reversible skill runs run_service without a click and sim ignores confirm risk"() {
+        given:
+        String stamp = Long.toString(System.currentTimeMillis())
+        String skillName = "rev-skill-" + stamp
+        String worldId = "REV" + stamp
+        String simId = "REVS" + stamp
+        def doc = SkillIndex.parseMarkdown("---\nname: ${skillName}\ndescription: reversible write\nrisk: reversible\n---\nsteps", null)
+        boolean began = ec.transaction.begin(null)
+        SkillIndex.persistProposed(ec, doc, "steps")
+        SkillIndex.admitWorldPass(ec, skillName)
+        if (began) ec.transaction.commit()
+
+        def proto = new FakeLlmProtocol()
+        proto.handler = { ProtocolRequest req ->
+            boolean sim = isSim(req)
+            def last = lastTool(req)
+            if (sim) {
+                if (last?.name == "run_service") return FakeLlmProtocol.stop("sim-done")
+                String args = '{"serviceName":"create#moqui.test.TestEntity","parameters":{"testId":"' +
+                        simId + '","testMedium":"sim"}}'
+                return FakeLlmProtocol.toolCalls(new LlmToolCall("s1", "run_service", args))
+            }
+            if (last?.name == "run_service") return FakeLlmProtocol.stop("world-done")
+            if (last?.name == "find_skill") {
+                String args = '{"serviceName":"create#moqui.test.TestEntity","parameters":{"testId":"' +
+                        worldId + '","testMedium":"world"}}'
+                return FakeLlmProtocol.toolCalls(new LlmToolCall("w1", "run_service", args))
+            }
+            return FakeLlmProtocol.toolCalls(new LlmToolCall("f1", "find_skill",
+                    '{"select":"' + skillName + '"}'))
+        }
+        LlmClientImpl client = agent(proto)
+
+        when:
+        LlmResponse world = client.user("write").call()
+        EntityValue worldRow = ec.entity.find("moqui.test.TestEntity").condition("testId", worldId).one()
+
+        then:
+        world.content == "world-done"
+        !world.yielded
+        worldRow != null
+
+        when:
+        def simProto = new FakeLlmProtocol()
+        simProto.handler = { ProtocolRequest req ->
+            boolean inSim = isSim(req)
+            def last = lastTool(req)
+            if (inSim) {
+                if (last?.name == "run_service")
+                    return FakeLlmProtocol.stop("---\nname: sim-only-" + stamp + "\ndescription: x\nrisk: confirm\n---\nsteps\n")
+                return FakeLlmProtocol.toolCalls(new LlmToolCall("s1", "run_service",
+                        '{"serviceName":"create#moqui.test.TestEntity","parameters":{"testId":"' + simId + '"}}'))
+            }
+            if (last?.name == "enter_sim") return FakeLlmProtocol.stop("back")
+            return FakeLlmProtocol.toolCalls(new LlmToolCall("e1", "enter_sim", '{"goal":"try"}'))
+        }
+        LlmResponse simResult = agent(simProto).user("sim").call()
+        EntityValue simRow = ec.entity.find("moqui.test.TestEntity").condition("testId", simId).one()
+
+        then:
+        simResult.content == "back"
+        simRow == null
+
+        cleanup:
+        boolean d = ec.artifactExecution.disableAuthz()
+        boolean b = ec.transaction.begin(null)
+        try {
+            ec.entity.find("moqui.test.TestEntity").condition("testId", worldId).one()?.delete()
+            ec.entity.find("moqui.test.TestEntity").condition("testId", simId).one()?.delete()
+            def sk = ec.entity.find("moqui.llm.LlmSkill").condition("name", skillName).useCache(false).one()
+            if (sk != null) {
+                ec.entity.find("moqui.llm.LlmSkillUse").condition("skillId", sk.skillId).deleteAll()
+                sk.delete()
+            }
+            def simSkill = ec.entity.find("moqui.llm.LlmSkill").condition("name", "sim-only-" + stamp).useCache(false).one()
+            if (simSkill != null) {
+                ec.entity.find("moqui.llm.LlmSkillUse").condition("skillId", simSkill.skillId).deleteAll()
+                simSkill.delete()
+            }
+            if (b) ec.transaction.commit()
+        } catch (Throwable t) {
+            if (b) ec.transaction.rollback("reversible skill cleanup", t)
+            throw t
+        } finally {
+            if (!d) ec.artifactExecution.enableAuthz()
+        }
+    }
+
     def "applyForceSkillUse activates known body.activeSkillName and ignores unknown"() {
         given:
         def proto = new FakeLlmProtocol()

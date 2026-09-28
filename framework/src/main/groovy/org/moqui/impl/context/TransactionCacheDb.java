@@ -25,6 +25,7 @@ import org.moqui.impl.entity.EntityJavaUtil.WriteMode;
 import org.moqui.impl.entity.EntityListImpl;
 import org.moqui.impl.entity.EntityValueBase;
 import org.moqui.impl.entity.FieldInfo;
+import org.moqui.impl.entity.OverlayColumnNames;
 import org.moqui.util.LiteStringMap;
 import org.moqui.util.MNode;
 import org.slf4j.Logger;
@@ -487,7 +488,7 @@ public class TransactionCacheDb implements EntityTxCache {
             FieldInfo fi = all[i];
             if (fi == null) break;
             if (i > 0) sql.append(", ");
-            sql.append(fi.columnName).append(" ").append(h2SqlType(fi));
+            sql.append(OverlayColumnNames.column(fi)).append(" ").append(h2SqlType(fi));
             if (fi.isPk) {
                 sql.append(" NOT NULL");
                 pkCount++;
@@ -502,7 +503,7 @@ public class TransactionCacheDb implements EntityTxCache {
                 if (fi == null) break;
                 if (!first) sql.append(", ");
                 first = false;
-                sql.append(fi.columnName);
+                sql.append(OverlayColumnNames.column(fi));
             }
             sql.append(")");
         }
@@ -552,7 +553,7 @@ public class TransactionCacheDb implements EntityTxCache {
             FieldInfo fi = all[i];
             if (fi == null) break;
             if (i > 0) sql.append(", ");
-            sql.append(fi.columnName);
+            sql.append(OverlayColumnNames.column(fi));
         }
         sql.append(" FROM ").append(ed.getFullTableName()).append(" WHERE ");
         appendPkWhere(sql, pks);
@@ -584,7 +585,7 @@ public class TransactionCacheDb implements EntityTxCache {
             FieldInfo fi = all[i];
             if (fi == null) break;
             if (count > 0) { sql.append(", "); values.append(", "); }
-            sql.append(fi.columnName);
+            sql.append(OverlayColumnNames.column(fi));
             values.append("?");
             count++;
         }
@@ -621,7 +622,7 @@ public class TransactionCacheDb implements EntityTxCache {
             if (fi == null) break;
             if (!values.containsKeyIString(fi.name, fi.index) && !values.containsKey(fi.name)) continue;
             if (n > 0) sql.append(", ");
-            sql.append(fi.columnName).append("=?");
+            sql.append(OverlayColumnNames.column(fi)).append("=?");
             n++;
         }
         if (n == 0) return;
@@ -665,7 +666,7 @@ public class TransactionCacheDb implements EntityTxCache {
             if (fi == null) break;
             if (!first) sql.append(" AND ");
             first = false;
-            sql.append(fi.columnName).append("=?");
+            sql.append(OverlayColumnNames.column(fi)).append("=?");
         }
     }
 

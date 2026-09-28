@@ -21,6 +21,8 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="TestEntity" package="moqui.test" sequence-bank-size="100">
         <field name="testId" type="id" is-pk="true"/>
         <field name="testMedium" type="text-medium"/>
+        <!-- VALUE is reserved in H2 2 and is not rewritten on Postgres. Overlay SQL must use THE_VALUE. -->
+        <field name="value" type="text-short"/>
         <field name="testLong" type="text-long"/>
         <field name="testIndicator" type="text-indicator"/>
         <field name="testDate" type="date"/>

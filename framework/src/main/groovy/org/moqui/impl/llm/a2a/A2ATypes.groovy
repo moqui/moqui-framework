@@ -18,6 +18,7 @@ import org.moqui.context.ExecutionContext
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityValue
 import org.moqui.impl.context.ContextJavaUtil
+import org.moqui.resource.ResourceReference
 import org.moqui.util.SystemBinding
 
 import java.net.URI
@@ -125,8 +126,13 @@ final class A2ATypes {
                     throw new IllegalArgumentException("Part.text exceeds a2a_max_part_bytes (${maxPartBytes()})")
             }
             if (variant == 'raw') requireBase64(part.raw)
-            if (variant == 'url' && (!(part.url instanceof String) || text(part.url) == null))
-                throw new IllegalArgumentException('Part.url must be a non-blank string')
+            if (variant == 'url') {
+                if (!(part.url instanceof String) || text(part.url) == null)
+                    throw new IllegalArgumentException('Part.url must be a non-blank string')
+                if (!moquiContentLocation((String) part.url))
+                    throw new IllegalArgumentException(
+                        'Part.url must be a dbresource:// or content:// location; other URLs are not fetched')
+            }
             if (variant == 'data') {
                 String dataJson = toJson(part.data)
                 int dataBytes = (dataJson ?: '').getBytes(StandardCharsets.UTF_8).length
@@ -251,17 +257,83 @@ final class A2ATypes {
     }
 
     /** Text handed to the LLM for a message. Raw bytes stay on the task; the model only sees a reference. */
-    static String messageText(Map<String, Object> message) {
+    static String messageText(Map<String, Object> message) { messageText(null, message) }
+
+    static String messageText(ExecutionContext ec, Map<String, Object> message) {
+        messageTextEc.set(ec)
+        try {
+            return messageTextBody(message)
+        } finally {
+            messageTextEc.remove()
+        }
+    }
+
+    private static final ThreadLocal<ExecutionContext> messageTextEc = new ThreadLocal<>()
+
+    private static String messageTextBody(Map<String, Object> message) {
         List<String> chunks = new ArrayList<>()
         for (Map<String, Object> part in message.parts as List<Map<String, Object>>) {
             String media = part.mediaType ? " (${part.mediaType})" : ''
             if (part.containsKey('text')) chunks.add(part.text as String)
             else if (part.containsKey('data')) chunks.add(jsonValue(part.data))
-            else if (part.containsKey('url')) chunks.add("[File ${part.filename ?: ''}${media} at ${part.url}]".toString())
+            else if (part.containsKey('url')) chunks.add(urlCitation(part, media))
             else if (part.containsKey('raw'))
                 chunks.add("[Attached file ${part.filename ?: 'unnamed'}${media}, ${requireBase64(part.raw)} bytes, stored with the task]".toString())
         }
         chunks.join('\n')
+    }
+
+    /** dbresource:// and content:// only. http, https, file, and every other scheme are rejected and never fetched. */
+    static boolean moquiContentLocation(String location) {
+        location != null && (location.startsWith('dbresource://') || location.startsWith('content://'))
+    }
+
+    /**
+     * A url part must already exist and be readable by this user. Missing and unreadable look the same.
+     * Does not copy the bytes and does not follow any other scheme.
+     */
+    static void requireReadableUrls(ExecutionContext ec, Map<String, Object> message) {
+        if (message == null || !(message.parts instanceof List)) return
+        for (Object item in (List) message.parts) {
+            if (!(item instanceof Map) || !((Map) item).containsKey('url')) continue
+            String location = text(((Map) item).url)
+            if (!moquiContentLocation(location))
+                throw new IllegalArgumentException(
+                    'Part.url must be a dbresource:// or content:// location; other URLs are not fetched')
+            ResourceReference ref = null
+            try {
+                ref = ec?.resource?.getLocationReference(location)
+            } catch (Throwable ignored) {
+                ref = null
+            }
+            boolean readable = false
+            InputStream stream = null
+            try {
+                if (ref != null && ref.supportsExists() && ref.getExists()) {
+                    stream = ref.openStream()
+                    readable = stream != null
+                }
+            } catch (Throwable ignored) {
+                readable = false
+            } finally {
+                try { stream?.close() } catch (Throwable ignored) { }
+            }
+            if (!readable)
+                throw new IllegalArgumentException('Part.url is not an existing readable location')
+        }
+    }
+
+    private static String urlCitation(Map<String, Object> part, String media) {
+        String location = part.url as String
+        String size = ''
+        ExecutionContext ec = messageTextEc.get()
+        if (ec != null) {
+            try {
+                ResourceReference ref = ec.resource.getLocationReference(location)
+                if (ref != null && ref.supportsSize()) size = ", ${ref.getSize()} bytes"
+            } catch (Throwable ignored) { }
+        }
+        "[File ${part.filename ?: ''}${media} at ${location}${size}]".toString()
     }
 
     static String toJson(Object value) {

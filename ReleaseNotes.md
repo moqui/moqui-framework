@@ -33,7 +33,12 @@ def result = ec.llm.getDefault()
   login-switch fields are stripped from the tool body) and client tool `write_ui` (schemaVersion 4 OpenUI Lang;
   `kind=vue-sfc` only when the profile sets `allow-vue-sfc`, default false). `run_service` calls only services with
   `authenticate="true"`. A sim-proposed skill cannot replace a shipped or active human/world skill, and it is promoted
-  only after it is selected and a later server-side write succeeds. Sim refuses raw JDBC, service jobs, outbound HTTP
+  only after it is selected and a later server-side write succeeds. On the world rim, `run_service` and mutating
+  `request` follow the active skill's `risk`: no skill refuses them, `reversible` runs, and `confirm` or
+  `irreversible` waits for a click. Sim does not. Overlay SQL uses H2 column names (`VALUE` is `THE_VALUE`).
+  Chart.js, mermaid, SimpleMDE, marked, DOMPurify, highlight.js, and CKEditor 4 standard-all load from `/libs`.
+  A2A `Part.url` is only an existing readable `dbresource://` or `content://`. `SendStreamingMessage` pings during
+  the provider wait. Sim refuses raw JDBC, service jobs, outbound HTTP
   that does not go through RestClient, file and content writes, and print. A2A is on only when `a2a_enabled` is `true`.
 - Managed servlet at `/llm/*`. Not a provider-key proxy (keys stay on the profile). Service REST wrappers at
   `/rest/s1/moqui/llm/...` for sync JSON only; do not SSE through Service REST.

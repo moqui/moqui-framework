@@ -607,6 +607,8 @@ public final class LlmGateway {
         Map<String, Object> args = LlmJson.tryToMap(call.arguments);
         m.put("arguments", args != null ? args : call.arguments);
         m.put("execution", executionName(call.execution));
+        if (Boolean.TRUE.equals(call.confirm)) m.put("confirm", Boolean.TRUE);
+        if (call.risk != null && !call.risk.isBlank()) m.put("risk", call.risk);
         m.put("summary", LlmTrace.summarizeCall(call.name, args != null ? args : call.arguments));
         return m;
     }

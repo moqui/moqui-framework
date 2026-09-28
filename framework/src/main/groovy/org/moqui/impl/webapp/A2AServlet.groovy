@@ -182,6 +182,7 @@ class A2ASseSink implements A2AStreamSink {
     final Object id
     volatile boolean disconnected = false
     volatile boolean closed = false
+    volatile long lastWriteMs = System.currentTimeMillis()
     int emitted = 0
 
     A2ASseSink(Writer writer, Object id) {
@@ -212,6 +213,7 @@ class A2ASseSink implements A2AStreamSink {
         try {
             writer.write(text)
             writer.flush()
+            lastWriteMs = System.currentTimeMillis()
             // the servlet PrintWriter swallows IOExceptions; checkError reports a dropped client
             if (writer instanceof PrintWriter && ((PrintWriter) writer).checkError()) disconnected = true
         } catch (IOException ignored) {

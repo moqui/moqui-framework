@@ -256,6 +256,7 @@ class EntityDefinition {
         FieldInfo fieldInfo = memberEd.getFieldInfo(fieldName)
         if (fieldInfo == null) throw new EntityException("Invalid field name ${fieldName} for entity ${memberEd.getFullEntityName()}")
         String subSelectAttr = memberEntity.attribute("sub-select")
+        if (OverlayColumnNames.active()) return OverlayColumnNames.column(fieldInfo)
         if ("true".equals(subSelectAttr) || "non-lateral".equals(subSelectAttr)) {
             // sub-select uses alias field name changed to underscored
             return EntityJavaUtil.camelCaseToUnderscored(fieldInfo.name)

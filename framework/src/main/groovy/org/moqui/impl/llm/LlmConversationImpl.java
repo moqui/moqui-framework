@@ -780,6 +780,10 @@ public class LlmConversationImpl implements LlmConversation {
                         tc.execution = org.moqui.llm.LlmTool.Execution.valueOf(exec.toString().toUpperCase());
                     } catch (Exception ignored) { }
                 }
+                if (Boolean.TRUE.equals(map.get("confirm")) || "true".equals(String.valueOf(map.get("confirm"))))
+                    tc.confirm = Boolean.TRUE;
+                Object risk = map.get("risk");
+                if (risk != null) tc.risk = risk.toString();
                 out.add(tc);
             }
         }

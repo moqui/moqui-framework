@@ -16,6 +16,7 @@ package org.moqui.impl.entity.condition;
 import org.moqui.BaseArtifactException;
 import org.moqui.impl.entity.EntityDefinition;
 import org.moqui.impl.entity.FieldInfo;
+import org.moqui.impl.entity.OverlayColumnNames;
 import org.moqui.util.MNode;
 
 import java.io.Externalizable;
@@ -64,7 +65,9 @@ public class ConditionAlias extends ConditionField implements Externalizable {
         if (memberEd.isViewEntity) {
             MNode memberEntity = ed.getMemberEntityNode(entityAlias);
             String subSelectAttr = memberEntity.attribute("sub-select");
-            if ("true".equals(subSelectAttr) || "non-lateral".equals(subSelectAttr)) colName.append(memberEd.getFieldInfo(fieldName).columnName);
+            FieldInfo memberFi = memberEd.getFieldInfo(fieldName);
+            if ("true".equals(subSelectAttr) || "non-lateral".equals(subSelectAttr))
+                colName.append(OverlayColumnNames.active() ? OverlayColumnNames.column(memberFi) : memberFi.columnName);
             else colName.append(memberEd.getColumnName(fieldName));
         } else {
             colName.append(memberEd.getColumnName(fieldName));

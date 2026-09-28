@@ -18,7 +18,10 @@ import org.moqui.context.ExecutionContext
 import org.moqui.entity.EntityValue
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.TransactionCacheDb
+import org.moqui.impl.entity.EntityDefinition
 import org.moqui.impl.entity.EntityFacadeImpl
+import org.moqui.impl.entity.FieldInfo
+import org.moqui.impl.entity.OverlayColumnNames
 import org.moqui.util.RestClient
 import spock.lang.Shared
 import spock.lang.Specification
@@ -249,5 +252,38 @@ class TransactionCacheDbTests extends Specification {
         then:
         result.simSkipped == true
         world == null
+    }
+
+    def "overlay column names follow the H2 name-replace list"() {
+        when:
+        EntityDefinition ed = ((EntityFacadeImpl) ec.entity).getEntityDefinition("moqui.test.TestEntity")
+        FieldInfo fi = ed.getFieldInfo("value")
+        def h2 = ((EntityFacadeImpl) ec.entity).getDatabaseNodeByConf("h2")
+        def postgres = ((EntityFacadeImpl) ec.entity).getDatabaseNodeByConf("postgres")
+        String full
+        OverlayColumnNames.setActive(true)
+        try {
+            full = fi.getFullColumnName()
+        } finally {
+            OverlayColumnNames.setActive(false)
+        }
+        ec.entity.startTxCacheDb(true)
+        ec.entity.makeValue("moqui.test.TestEntity")
+                .setAll([testId:"TCVAL1", testMedium:"m", value:"kept"]).create()
+        EntityValue overlay = ec.entity.find("moqui.test.TestEntity").condition("testId", "TCVAL1").one()
+
+        then:
+        OverlayColumnNames.rawName(fi) == "VALUE"
+        OverlayColumnNames.apply(h2, "VALUE") == "THE_VALUE"
+        OverlayColumnNames.apply(postgres, "VALUE") == "VALUE"
+        OverlayColumnNames.apply(h2, "THE_VALUE") == "THE_VALUE"
+        OverlayColumnNames.column(fi) == "THE_VALUE"
+        full == "THE_VALUE"
+        overlay != null
+        overlay.value == "kept"
+
+        cleanup:
+        if (ec.entity.isTxCacheActive()) ec.entity.stopTxCache()
+        ec.entity.find("moqui.test.TestEntity").condition("testId", "TCVAL1").one()?.delete()
     }
 }

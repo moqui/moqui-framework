@@ -87,7 +87,9 @@ public class FindSkillTool implements LlmTool {
             SkillUseGate.activate(LlmAgentLoop.currentClient(), chosen.name);
             result.put("selected", toMap(chosen));
             result.put("hint", "Skill " + chosen.name
-                    + " is now the active skill. browse, request, run_service, and write_ui are allowed.");
+                    + " is now the active skill. browse, GET request, and write_ui are allowed. "
+                    + "run_service and other request methods run immediately only when risk is reversible; "
+                    + "confirm and irreversible wait for the user to click.");
         } else if (out.isEmpty()) {
             result.put("hint", "No skill. Call enter_sim before writes, or find_skill with select to activate one.");
         }

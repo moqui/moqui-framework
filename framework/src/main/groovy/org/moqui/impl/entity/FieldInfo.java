@@ -161,8 +161,17 @@ public class FieldInfo {
         }
     }
 
-    /** Full column name for complex finds on view entities; plain entity column names are never expanded */
+    /** Full column name for complex finds on view entities; plain entity column names are never expanded.
+     * While overlay SQL is being built, names are the H2 name-replace forms, not the primary database's. */
     public String getFullColumnName() {
+        if (OverlayColumnNames.active()) {
+            if (!ed.isViewEntity) return OverlayColumnNames.column(this);
+            String rebuilt = ed.makeFullColumnName(fieldNode, true);
+            if (rebuilt == null) return OverlayColumnNames.column(this);
+            if (rebuilt.contains("${"))
+                return ed.efi.ecfi.resourceFacade.expand(rebuilt, "", null, false);
+            return rebuilt;
+        }
         if (fullColumnNameInternal != null) return fullColumnNameInternal;
         return ed.efi.ecfi.resourceFacade.expand(expandColumnName, "", null, false);
     }

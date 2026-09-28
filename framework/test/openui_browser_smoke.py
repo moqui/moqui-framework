@@ -291,7 +291,7 @@ bar = BarChart(["A", "B", "C"], [Series("N", [1, 4, 2])])
 pie = PieChart(["Open", "Closed"], [3, 1], "donut")
 """
     def chk(d, info):
-        # Chart.js from cdnjs
+        # Chart.js from /libs
         end = time.time() + 20
         n = 0
         chart_ok = False
@@ -305,7 +305,7 @@ pie = PieChart(["Open", "Closed"], [3, 1], "donut")
         failed = "failed to load" in text.lower()
         oks = [
             check("charts two canvases", n >= 2, "canvases=%s Chart=%s text=%s" % (n, chart_ok, text[:200])),
-            check("charts Chart.js loaded", chart_ok or failed, "cdn blocked?" if not chart_ok else "ok"),
+            check("charts Chart.js loaded", chart_ok or failed, "libs/Chart.js missing?" if not chart_ok else "ok"),
         ]
         if failed:
             oks.append(check("charts reported load error (cdn)", True, text[:200]))

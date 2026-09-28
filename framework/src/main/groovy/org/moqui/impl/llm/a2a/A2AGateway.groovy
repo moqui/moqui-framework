@@ -37,6 +37,7 @@ final class A2AGateway {
 
     static Map<String, Object> acceptMessage(ExecutionContext ec, Map<String, Object> request) {
         Map<String, Object> message = A2ATypes.requireMessage(request.message, true)
+        A2ATypes.requireReadableUrls(ec, message)
         String userId = A2ATaskStore.requireUser(ec)
         String profile = A2ATypes.text(request.profile) ?: A2ATypes.defaultProfile()
 

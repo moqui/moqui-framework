@@ -102,19 +102,23 @@ class A2ACoreTests extends Specification {
     def 'parts follow the A2A 1.0 oneof of text raw url and data'() {
         expect:
         requireParts([[raw: 'aGVsbG8=', filename: 'hello.txt', mediaType: 'text/plain']]).size() == 1
-        requireParts([[url: 'https://example.invalid/report.pdf', mediaType: 'application/pdf']]).size() == 1
+        requireParts([[url: 'dbresource://A2A/test/report.pdf', mediaType: 'application/pdf']]).size() == 1
         requireParts([[data: 'a JSON string is a valid data value']]).size() == 1
         invalid { requireParts([[file: [uri: 'https://example.invalid/x']]]) }
         invalid { requireParts([[raw: 'not base64!']]) }
         invalid { requireParts([[url: '']]) }
+        invalid { requireParts([[url: 'https://example.invalid/report.pdf']]) }
+        invalid { requireParts([[url: 'file:/tmp/secret']]) }
         invalid { requireParts([[text: 'x', filename: 7]]) }
     }
 
     def 'raw url and data parts round trip through task history'() {
         given:
+        String location = 'dbresource://A2A/test/m-parts.txt'
+        ec.resource.getLocationReference(location).putText('hello')
         Map req = request('m-parts')
         req.message.parts = [[text: 'see attached'], [raw: 'aGVsbG8=', filename: 'hello.txt', mediaType: 'text/plain'],
-                             [url: 'https://example.invalid/r.pdf'], [data: [n: 1]]]
+                             [url: location, filename: 'note.txt'], [data: [n: 1]]]
 
         when:
         Map accepted = A2AGateway.acceptMessage(ec, req)
@@ -122,7 +126,30 @@ class A2ACoreTests extends Specification {
 
         then:
         fetched.task.history[0].parts == req.message.parts
-        A2ATypes.messageText(req.message).contains('hello.txt')
+        A2ATypes.messageText(ec, req.message).contains('hello.txt')
+        A2ATypes.messageText(ec, req.message).contains(location)
+        A2ATypes.messageText(ec, req.message).contains('bytes')
+
+        cleanup:
+        try { ec.resource.getLocationReference(location).delete() } catch (Throwable ignored) { }
+    }
+
+    def 'url parts that are not an existing Moqui location are rejected and not fetched'() {
+        when:
+        A2AGateway.acceptMessage(ec, request('m-url-https') + [message: [messageId: 'm-url-https', role: 'ROLE_USER',
+                parts: [[url: 'https://example.invalid/r.pdf']]]])
+
+        then:
+        thrown(IllegalArgumentException)
+        ec.entity.find('moqui.a2a.A2ATask').count() == 0
+
+        when:
+        A2AGateway.acceptMessage(ec, request('m-url-missing') + [message: [messageId: 'm-url-missing', role: 'ROLE_USER',
+                parts: [[url: 'dbresource://A2A/test/does-not-exist.txt']]]])
+
+        then:
+        thrown(IllegalArgumentException)
+        ec.entity.find('moqui.a2a.A2ATask').count() == 0
     }
 
     def 'unsupported output modes fail before task creation'() {

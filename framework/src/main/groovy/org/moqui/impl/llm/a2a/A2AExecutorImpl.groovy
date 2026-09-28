@@ -18,15 +18,26 @@ import org.moqui.entity.EntityValue
 import org.moqui.entity.EntityList
 import org.moqui.impl.llm.LlmFacadeImpl
 import org.moqui.impl.llm.LlmGateway
+import org.moqui.impl.webapp.A2ASseSink
+import org.moqui.impl.llm.LlmClientImpl
 import org.moqui.llm.LlmConversation
 import org.moqui.llm.LlmStreamListener
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.TimeUnit
 import java.util.function.Supplier
 
 final class A2AExecutorImpl implements A2AExecutor {
     private static final Logger logger = LoggerFactory.getLogger(A2AExecutorImpl.class)
+    private static final ScheduledExecutorService PING_SCHED = Executors.newSingleThreadScheduledExecutor({ Runnable r ->
+        Thread t = new Thread(r, "A2A-sse-ping")
+        t.daemon = true
+        return t
+    })
     /** Artifact that carries the agent's textual answer; streamed as chunks, stored whole. */
     static final String RESPONSE_ARTIFACT_ID = 'response'
     private static final List<String> ASSIST_TOOLS =
@@ -79,9 +90,41 @@ final class A2AExecutorImpl implements A2AExecutor {
     private static Closure<Map<String, Object>> liveInvoker(ExecutionContext ec) {
         return { Map<String, Object> body, boolean resume, LlmStreamListener listener ->
             LlmGateway.withoutCallerTx(ec, {
-                LlmGateway.responseToMap(LlmGateway.prepareClient(ec, body, resume).stream(listener))
+                LlmClientImpl client = LlmGateway.prepareClient(ec, body, resume)
+                ScheduledFuture<?> ping = null
+                if (listener instanceof ResponseChunks) {
+                    A2AStreamSink streamSink = ((ResponseChunks) listener).streamSink()
+                    if (streamSink instanceof A2ASseSink)
+                        ping = scheduleSendPing((A2ASseSink) streamSink, client.ssePingSeconds(),
+                                { client.abortActiveStream() })
+                }
+                try {
+                    return LlmGateway.responseToMap(client.stream(listener))
+                } finally {
+                    if (ping != null) ping.cancel(false)
+                }
             } as Supplier<Map<String, Object>>)
         }
+    }
+
+    /**
+     * SSE comment while SendStreamingMessage is blocked in the provider call.
+     * Subscribe already pings from its poll loop; this timer is only for the live send.
+     */
+    static ScheduledFuture<?> scheduleSendPing(A2ASseSink sink, long periodSeconds, Runnable onFail) {
+        if (sink == null || periodSeconds < 1L) return null
+        long periodMs = periodSeconds * 1000L
+        PING_SCHED.scheduleAtFixedRate({
+            try {
+                if (sink.closed || sink.disconnected) return
+                if (System.currentTimeMillis() - sink.lastWriteMs < periodMs) return
+                if (!sink.ping() && onFail != null) onFail.run()
+            } catch (Throwable ignored) {
+                if (onFail != null) {
+                    try { onFail.run() } catch (Throwable ignoredAgain) { }
+                }
+            }
+        }, periodSeconds, periodSeconds, TimeUnit.SECONDS)
     }
 
     /**
@@ -129,7 +172,7 @@ final class A2AExecutorImpl implements A2AExecutor {
                 body.toolResults = [[toolCallId: pendingToolCallId, name: pendingToolName, content: resumeContent(message)]]
                 llmResult = invokeLlm.call(body, true, chunks)
             } else {
-                body.user = A2ATypes.messageText(message)
+                body.user = A2ATypes.messageText(ec, message)
                 llmResult = invokeLlm.call(body, false, chunks)
             }
 
@@ -307,6 +350,8 @@ final class A2AExecutorImpl implements A2AExecutor {
             this.taskId = task.taskId as String
             this.contextId = task.contextId as String
         }
+
+        A2AStreamSink streamSink() { sink }
 
         @Override
         void onDelta(String textDelta) { if (textDelta) send(textDelta, started, false) }

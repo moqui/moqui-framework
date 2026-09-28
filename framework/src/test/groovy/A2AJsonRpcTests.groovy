@@ -226,6 +226,24 @@ class A2AJsonRpcTests extends Specification {
         !afterClose
     }
 
+    def 'send-stream ping timer writes a comment during a quiet provider wait'() {
+        given:
+        StringWriter out = new StringWriter()
+        A2ASseSink sink = new A2ASseSink(out, 'req-ping')
+        def future = org.moqui.impl.llm.a2a.A2AExecutorImpl.scheduleSendPing(sink, 1L, null)
+
+        when:
+        long deadline = System.currentTimeMillis() + 4000L
+        while (System.currentTimeMillis() < deadline && !out.toString().contains(': ping')) Thread.sleep(50)
+
+        then:
+        out.toString().contains(': ping\n\n')
+
+        cleanup:
+        future?.cancel(false)
+        sink.close()
+    }
+
     def 'internal failures never leak implementation details to the caller'() {
         expect: 'ours are reported as-is'
         A2AJsonRpc.toA2A(new A2AException(A2AException.TASK_NOT_FOUND, 'task not found')).message == 'task not found'

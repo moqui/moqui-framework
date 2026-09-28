@@ -20,6 +20,13 @@ public final class LlmToolCall {
     public String arguments;
     /** Set when yielding client tools; not sent by the provider. */
     public LlmTool.Execution execution;
+    /**
+     * World-rim {@code request} write or {@code run_service} waiting for a click.
+     * The server runs the original arguments only after resume content {@code {confirmed:true}}.
+     */
+    public Boolean confirm;
+    /** Skill risk that required the click: {@code confirm} or {@code irreversible}. */
+    public String risk;
 
     public LlmToolCall() { }
     public LlmToolCall(String id, String name, String arguments) {
@@ -32,10 +39,14 @@ public final class LlmToolCall {
     public String getName() { return name; }
     public String getArguments() { return arguments; }
     public LlmTool.Execution getExecution() { return execution; }
+    public Boolean getConfirm() { return confirm; }
+    public String getRisk() { return risk; }
 
     public LlmToolCall copy() {
         LlmToolCall c = new LlmToolCall(id, name, arguments);
         c.execution = execution;
+        c.confirm = confirm;
+        c.risk = risk;
         return c;
     }
 }
