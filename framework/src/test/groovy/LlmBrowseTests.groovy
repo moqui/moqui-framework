@@ -178,6 +178,21 @@ class LlmBrowseTests extends Specification {
         out.leaf.inParameters.contains("newPassword")
         out.leaf.form == "CreateUserAccount"
         out.leaf.formFields.contains("username")
+        out.screenPath == "/qapps/system/Security/UserAccount/UserAccountList"
+        out.hint.toString().contains("not a catalog")
+        ((List) out.children).isEmpty()
+    }
+
+    def "actions path is a transition leaf and tells the model to browse the parent screen"() {
+        when:
+        Map out = (Map) new BrowseTool().execute(
+                [path: "/qapps/system/Security/UserAccount/UserAccountList/actions", match: "Item|Part"], ec)
+
+        then:
+        out.kind == "transition"
+        ((List) out.children).isEmpty()
+        out.screenPath == "/qapps/system/Security/UserAccount/UserAccountList"
+        out.hint.toString().contains("Do not retry match")
     }
 
     def "UserAccountList does not list the automatic actions transition"() {
@@ -339,6 +354,9 @@ class LlmBrowseTests extends Specification {
         text.contains("Find forms")
         text.contains("QuickSearch, Search, or QuickLookup")
         text.contains("kind=openui")
+        text.contains("adjust: true")
+        text.contains("Do not browse")
+        text.contains("`kind` `transition`")
         text.contains("YYYY-MM-DD HH:mm")
         text.contains("writeMode")
         text.contains("*_display")

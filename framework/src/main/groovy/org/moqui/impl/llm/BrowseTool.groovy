@@ -401,6 +401,9 @@ class BrowseTool implements LlmTool {
             if (!screenParams.isEmpty()) leaf.put("screenParameters", screenParams)
         }
         out.put("leaf", leaf)
+        out.put("screenPath", screenPath)
+        out.put("hint", "This path is a transition, not a catalog of screens or form-lists. "
+                + "Browse the parent screen. Do not retry match here.")
         return out
     }
     static Map<String, Object> screenDetail(ScreenDefinition sd, ServiceFacadeImpl sfi, String screenPath) {

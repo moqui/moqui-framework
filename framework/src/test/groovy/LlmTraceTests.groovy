@@ -128,6 +128,12 @@ class LlmTraceTests extends Specification {
                 .contains("notSelected")
         LlmTrace.summarizeResult("write_ui", [submitted: true, button: "submit"]).contains("submitted")
         LlmTrace.summarizeResult("write_ui", [submitted: false]).contains("not submitted")
+        LlmTrace.summarizeResult("write_ui", [submitted: false, adjust: true,
+                notices: [[message: "OpenUI program has no root."]]]).contains("not submitted adjust")
+        LlmTrace.summarizeResult("write_ui", [submitted: false, adjust: true,
+                notices: [[message: "OpenUI program has no root."]]]).contains("notices=1")
+        !LlmTrace.summarizeResult("write_ui", [submitted: false, adjust: true,
+                notices: [[message: "OpenUI program has no root."]]]).contains("OpenUI program has no root")
     }
 
     def "prompt preview is 60 chars of head and tail; short prompt has no tail"() {

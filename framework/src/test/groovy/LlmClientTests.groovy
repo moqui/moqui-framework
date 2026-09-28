@@ -1078,8 +1078,25 @@ class LlmClientTests extends Specification {
         assist.text.contains("writeMode")
         assist.text.contains("*_display")
         assist.text.contains("kind=openui")
+        assist.text.contains("adjust: true")
+        assist.text.toLowerCase().contains("do not browse")
+        assist.text.contains("`kind` `transition`")
+        !assist.text.contains("root = Stack([...])")
         openUi.text.contains("YYYY-MM-DD HH:mm")
         openUi.text.contains("*_display")
+        openUi.text.contains("root = Stack(...)")
+        !openUi.text.contains("root = Stack([...])")
+    }
+
+    def "write_ui instruction is a sentence and lang description is not the placeholder"() {
+        when:
+        WriteUiTool tool = new WriteUiTool()
+        Map props = tool.parametersSchema.get("properties")
+        then:
+        props.get("instruction").get("description").toString().contains("short sentence")
+        !props.get("instruction").get("description").toString().contains("root = Stack([...])")
+        !props.get("lang").get("description").toString().contains("root = Stack([...])")
+        !tool.description.contains("root = Stack([...])")
     }
 
     def "write_ui writeThrough merges fields and honors removeFields"() {

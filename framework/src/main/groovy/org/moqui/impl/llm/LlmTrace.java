@@ -363,6 +363,10 @@ public final class LlmTrace {
             } else if ("write_ui".equals(name)) {
                 if (m.containsKey("submitted"))
                     parts.add(Boolean.TRUE.equals(m.get("submitted")) ? "submitted" : "not submitted");
+                if (Boolean.TRUE.equals(m.get("adjust"))) parts.add("adjust");
+                Object notices = m.get("notices");
+                if (notices instanceof List && !((List<?>) notices).isEmpty())
+                    parts.add("notices=" + ((List<?>) notices).size());
                 Object button = m.get("button");
                 if (button != null && !button.toString().isBlank()) parts.add("button=" + button);
                 addError(parts, m);

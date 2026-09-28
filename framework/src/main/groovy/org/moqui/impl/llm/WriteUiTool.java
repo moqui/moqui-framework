@@ -133,7 +133,9 @@ public class WriteUiTool implements LlmTool {
         fields.put("items", field);
         Map<String, Object> props = new LinkedHashMap<>();
         props.put("title", mapOf("type", "string"));
-        props.put("instruction", mapOf("type", "string"));
+        Map<String, Object> instructionProp = mapOf("type", "string");
+        instructionProp.put("description", "One short sentence for the person, or omit. Not the lang program.");
+        props.put("instruction", instructionProp);
         props.put("submitLabel", mapOf("type", "string"));
         props.put("cancelLabel", mapOf("type", "string"));
         props.put("formId", mapOf("type", "string"));
@@ -146,7 +148,7 @@ public class WriteUiTool implements LlmTool {
                 + "vue-sfc: Vue 2 SFC escape hatch. form: legacy xml-form widgets.");
         props.put("kind", kindSchema);
         Map<String, Object> langProp = mapOf("type", "string");
-        langProp.put("description", "OpenUI Lang program (kind=openui). One statement per line; root = Stack([...]).");
+        langProp.put("description", "OpenUI Lang program (kind=openui). One statement per line. root is a Stack of the screen.");
         props.put("lang", langProp);
         Map<String, Object> sfcProp = mapOf("type", "string");
         sfcProp.put("description", "Full Vue 2 SFC. Wins over template/script/style. module.exports, not export default.");
@@ -223,7 +225,7 @@ public class WriteUiTool implements LlmTool {
 
     @Override public String getName() { return NAME; }
     @Override public String getDescription() {
-        return "Present a UI on Assist. Prefer kind=openui with lang (OpenUI Lang; root = Stack([...]); "
+        return "Present a UI on Assist. Prefer kind=openui with lang (OpenUI Lang; root is a Stack; "
                 + "Query/Mutation + Button Action). kind=vue-sfc is an escape hatch when the registered "
                 + "library cannot express the layout (Vue 2 SFC, module.exports, Quasar v1). "
                 + "kind=form is legacy xml-form widgets. Wait for the user to submit; values in the tool "

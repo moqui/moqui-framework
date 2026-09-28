@@ -7,6 +7,7 @@
 - TransactionCacheDb, a multi-tx alternative to TransactionCache that uses an H2 in-memory database overlay
 - LlmClient / LlmFacade OpenAI-compatible LLM client (see details below)
 - Assist Screen: AI assistant with chat on the left and screen canvas on the right; AI generates forms, user clicks submit; if no skill exists for requested action, AI figures it out in a sim and writes a skill, then validates the skill on first use (TransactionCacheDb is part of the sim isolation)
+- Assist Adjust: on a canvas, describe what to change or what is wrong. That note, the current screen, and any render errors are sent back so the model revises the write_ui output.
 
 #### LlmClient and LlmFacade
 
