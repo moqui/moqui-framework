@@ -21,6 +21,17 @@ import org.moqui.entity.EntityValue;
 import org.moqui.llm.LlmConversation;
 import org.moqui.llm.LlmTool;
 
+import org.moqui.impl.context.L10nFacadeImpl;
+
+import java.time.DateTimeException;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -30,6 +41,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.regex.Pattern;
 
 /**
@@ -267,6 +279,11 @@ public class WriteUiTool implements LlmTool {
                     field.put("defaultValue", clean(dv.toString()));
                 else if (dv != null && !(dv instanceof Number) && !(dv instanceof Boolean))
                     field.put("defaultValue", clean(dv.toString()));
+                if ("date-time".equals(widget) && field.containsKey("defaultValue")) {
+                    Object normalized = normalizeDateDefault(field.get("defaultValue"), str(field.get("widgetType")),
+                            System.currentTimeMillis(), dateLocale(ec), dateZone(ec));
+                    if (normalized != null) field.put("defaultValue", normalized);
+                }
                 Object options = field.get("options");
                 if (options instanceof List) {
                     List<Map<String, Object>> cleanOpts = new ArrayList<>();
@@ -543,6 +560,15 @@ public class WriteUiTool implements LlmTool {
         }
     }
 
+    static boolean hasFormBody(Map<String, Object> map) {
+        if (map == null) return false;
+        Object fields = map.get("fields");
+        if (fields instanceof List && !((List<?>) fields).isEmpty()) return true;
+        Object actions = map.get("actions");
+        if (actions instanceof List && !((List<?>) actions).isEmpty()) return true;
+        String submit = str(map.get("submitLabel"));
+        return submit != null && !submit.isBlank();
+    }
     static boolean hasLang(Map<String, Object> map) {
         String lang = str(map != null ? map.get("lang") : null);
         return lang != null && !lang.isBlank();
@@ -569,6 +595,14 @@ public class WriteUiTool implements LlmTool {
         String lang = stripLangFences(str(out.get("lang")));
         if (lang == null || lang.isBlank()) {
             if (writeThrough) return;
+            // Models often label a fields/actions confirm form as openui and omit lang.
+            // That shape is the form canvas: keep the fields and the submit action.
+            if (hasFormBody(out)) {
+                out.put("kind", KIND_FORM);
+                out.remove("lang");
+                out.remove("langError");
+                return;
+            }
             out.put("kind", KIND_OPENUI);
             out.put("langError", "openui requires lang");
             out.remove("lang");
@@ -797,6 +831,103 @@ public class WriteUiTool implements LlmTool {
             if (in.containsKey(k)) out.put(k, in.get(k));
         }
         return out;
+    }
+    /**
+     * m-date-time shows YYYY-MM-DD HH:mm (or a date/time slice). Epoch millis, epoch seconds,
+     * ISO strings, and the literal now become that pattern in the given time zone.
+     * Values that are not instants are returned unchanged.
+     */
+    static Object normalizeDateDefault(Object dv, String widgetType, long nowMillis, Locale locale, TimeZone tz) {
+        if (dv == null) return null;
+        if (locale == null) locale = Locale.ROOT;
+        if (tz == null) tz = TimeZone.getTimeZone("UTC");
+        Long epoch = epochMillis(dv, nowMillis);
+        if (epoch == null && dv instanceof CharSequence)
+            epoch = parseDateText(dv.toString().trim(), locale, tz);
+        if (epoch == null) return dv;
+        String formatted = L10nFacadeImpl.formatTimestamp(new java.util.Date(epoch), datePattern(widgetType), locale, tz);
+        return formatted != null ? formatted : dv;
+    }
+    static String datePattern(String widgetType) {
+        if ("date".equals(widgetType)) return "yyyy-MM-dd";
+        if ("time".equals(widgetType)) return "HH:mm";
+        return "yyyy-MM-dd HH:mm";
+    }
+    static Locale dateLocale(ExecutionContext ec) {
+        try {
+            if (ec != null && ec.getUser() != null && ec.getUser().getLocale() != null)
+                return ec.getUser().getLocale();
+        } catch (Throwable ignored) { }
+        return Locale.ROOT;
+    }
+    static TimeZone dateZone(ExecutionContext ec) {
+        try {
+            if (ec != null && ec.getUser() != null && ec.getUser().getTimeZone() != null)
+                return ec.getUser().getTimeZone();
+        } catch (Throwable ignored) { }
+        return TimeZone.getTimeZone("UTC");
+    }
+    static Long epochMillis(Object dv, long nowMillis) {
+        if (dv instanceof CharSequence) {
+            String s = dv.toString().trim();
+            if (s.equalsIgnoreCase("now")) return nowMillis;
+            if (!s.isEmpty() && digitSpan(s)) {
+                try { return scaleEpoch(Long.parseLong(s)); }
+                catch (NumberFormatException ignored) { return null; }
+            }
+            return null;
+        }
+        if (dv instanceof Number) return scaleEpoch(((Number) dv).longValue());
+        return null;
+    }
+    static boolean digitSpan(String s) {
+        int start = s.charAt(0) == '-' ? 1 : 0;
+        if (start >= s.length()) return false;
+        for (int i = start; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c < '0' || c > '9') return false;
+        }
+        return true;
+    }
+    /** Millis when abs ≥ 1e11, seconds when abs ≥ 1e9, otherwise not an epoch. */
+    static Long scaleEpoch(long n) {
+        long abs = n == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(n);
+        if (abs >= 100_000_000_000L) return n;
+        if (abs >= 1_000_000_000L) return n * 1000L;
+        return null;
+    }
+    static Long parseDateText(String s, Locale locale, TimeZone tz) {
+        if (s == null || s.isEmpty()) return null;
+        ZoneId zone;
+        try { zone = tz.toZoneId(); }
+        catch (DateTimeException e) { zone = ZoneId.of("UTC"); }
+        try { return Instant.parse(s).toEpochMilli(); }
+        catch (DateTimeParseException ignored) { }
+        try { return OffsetDateTime.parse(s).toInstant().toEpochMilli(); }
+        catch (DateTimeParseException ignored) { }
+        try { return LocalDateTime.parse(s).atZone(zone).toInstant().toEpochMilli(); }
+        catch (DateTimeParseException ignored) { }
+        String[] patterns = {
+                "yyyy-MM-dd HH:mm:ss.SSS", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm" };
+        for (String pattern : patterns) {
+            try {
+                LocalDateTime ldt = LocalDateTime.parse(s, DateTimeFormatter.ofPattern(pattern, locale));
+                return ldt.atZone(zone).toInstant().toEpochMilli();
+            } catch (DateTimeParseException ignored) { }
+        }
+        try {
+            LocalDate ld = LocalDate.parse(s, DateTimeFormatter.ofPattern("yyyy-MM-dd", locale));
+            return ld.atStartOfDay(zone).toInstant().toEpochMilli();
+        } catch (DateTimeParseException ignored) { }
+        try {
+            LocalTime lt = LocalTime.parse(s, DateTimeFormatter.ofPattern("HH:mm:ss", locale));
+            return lt.atDate(LocalDate.now(zone)).atZone(zone).toInstant().toEpochMilli();
+        } catch (DateTimeParseException ignored) { }
+        try {
+            LocalTime lt = LocalTime.parse(s, DateTimeFormatter.ofPattern("HH:mm", locale));
+            return lt.atDate(LocalDate.now(zone)).atZone(zone).toInstant().toEpochMilli();
+        } catch (DateTimeParseException ignored) { }
+        return null;
     }
     static String str(Object o) { return o == null ? null : o.toString(); }
     static Map<String, Object> mapOf(String k, Object v) {

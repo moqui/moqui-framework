@@ -271,9 +271,16 @@ public final class LlmGateway {
         }
 
         applyForceSkillUse(impl, body);
+        applyWriteMode(impl, body);
         applySystem(impl, body);
         appendForceSkillUseSystem(impl);
-        refreshContext(impl, "session", SessionFacts.text(impl.ec));
+        String session = SessionFacts.text(impl.ec);
+        String modeNote = writeModeNote(currentWriteMode(impl));
+        if (modeNote != null && !modeNote.isBlank()) {
+            if (session == null || session.isBlank()) session = modeNote;
+            else session = session + "\n" + modeNote;
+        }
+        refreshContext(impl, "session", session);
         refreshContext(impl, "pins", PinTool.text(impl));
         String user = str(body.get("user"));
         if (user != null) {
@@ -330,6 +337,38 @@ public final class LlmGateway {
             SkillIndex.SkillDoc doc = SkillIndex.getByName(impl.ec, bodySkill);
             if (doc != null) SkillUseGate.activate(impl, doc.name);
         }
+    }
+
+    static void applyWriteMode(LlmClientImpl impl, Map<String, Object> body) {
+        if (impl == null || impl.conversation == null || body == null || !body.containsKey("writeMode")) return;
+        String mode = canonicalWriteMode(body.get("writeMode"));
+        if (mode != null) impl.conversation.setAttribute("writeMode", mode);
+    }
+    static String currentWriteMode(LlmClientImpl impl) {
+        if (impl == null || impl.conversation == null) return null;
+        return canonicalWriteMode(impl.conversation.getAttributes().get("writeMode"));
+    }
+    static String canonicalWriteMode(Object raw) {
+        if (raw == null) return null;
+        String s = raw.toString().trim();
+        if ("script".equalsIgnoreCase(s)) return "script";
+        if ("agent".equalsIgnoreCase(s)) return "agent";
+        return null;
+    }
+    /** One session-context block naming the Assist write mode that is active for this turn. */
+    static String writeModeNote(String mode) {
+        if ("script".equals(mode)) {
+            return "writeMode=script\n"
+                    + "Script mode is active. Put the POST on the canvas: kind=openui Button "
+                    + "@Run(Mutation(\"request\", {method, path, body})), or kind=form actions with method and path. "
+                    + "A form with only submitLabel returns the values after the click; then request the write. Prefer the Mutation.";
+        }
+        if ("agent".equals(mode)) {
+            return "writeMode=agent\n"
+                    + "Agent mode is active. A submitLabel form is enough. After submitted:true, request or run_service the write. "
+                    + "For risk=confirm, wait for the click.";
+        }
+        return "";
     }
 
     static void appendForceSkillUseSystem(LlmClientImpl impl) {
