@@ -104,6 +104,7 @@ Other production notes:
   attach the `request` tool. Internal `LlmTool.request()` with no prefixes still means any path the user
   is authorized to hit. Profile `allow-unprefixed-request="true"` (Assist) attaches that unprefixed tool;
   operators may still add `allowed-path` prefixes to **narrow** it.
+- `text-fts` field type: `LIKE` / `NOT LIKE` uses the database `fts-style` (H2 native full text, Postgres `tsvector`, MySQL `FULLTEXT`; other databases keep SQL `LIKE`). `LlmSkill` description and body use it for `find_skill`. See `framework/plans/DbFullTextSearch.md`.
 - Assist tool results include message-facade errors, warnings, and field errors on success and failure. Large results are shortened by whole rows and keys. QuickSearch and QuickLookup `actions` responses keep the search and lookup maps. The confirm panel shows the call parameters (password-like values hidden). Each turn the prompt gets this user's party, locale, time zone, and active organization, plus QuickSearch/QuickLookup `actions` paths for screens that user can view (omitted when none are mounted). `pin` remembers ids already returned by a screen. A failed write on the active skill records `LlmSkillUse` and an `LlmLesson`, which is injected with that skill. A 200 that still carries errors does not promote a skill.
 - Assist **Force Skill Use** toggle (off by default): when on, the agent loop refuses
   `browse` / `request` / `run_service` / `write_ui` until the model calls `find_skill` with

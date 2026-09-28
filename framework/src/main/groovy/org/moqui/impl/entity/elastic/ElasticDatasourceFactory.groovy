@@ -210,7 +210,7 @@ class ElasticDatasourceFactory implements EntityDatasourceFactory {
     static final Map<String, String> esEntityTypeMap = [id:'keyword', 'id-long':'keyword', date:'date', time:'keyword',
             'date-time':'date', 'number-integer':'long', 'number-decimal':'double', 'number-float':'double',
             'currency-amount':'double', 'currency-precise':'double', 'text-indicator':'keyword', 'text-short':'text',
-            'text-medium':'text', 'text-intermediate':'text', 'text-long':'text', 'text-very-long':'text', 'binary-very-long':'binary']
+            'text-medium':'text', 'text-intermediate':'text', 'text-long':'text', 'text-very-long':'text', 'text-fts':'text', 'binary-very-long':'binary']
     static final Set<String> esEntityIsKeywordSet = esEntityTypeMap.findAll({"keyword".equals(it.value)}).keySet()
     static final Set<String> esEntityAddKeywordSet = new HashSet<>(['text-short', 'text-medium', 'text-intermediate'])
 

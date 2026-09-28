@@ -47,7 +47,7 @@ public final class ToolResultTrim {
     private ToolResultTrim() { }
 
     /**
-     * QuickSearch / QuickLookup root actions return the whole screen context.
+     * QuickSearch, QuickLookup, and mantle Search root actions return the whole screen context.
      * Keep the search and lookup keys the prompt names, capped, and drop the rest.
      * Returns the original object when none of those keys are present.
      */
@@ -209,7 +209,12 @@ public final class ToolResultTrim {
         }
     }
 
-    static boolean isSearchActionsPath(List<String> segments) {
+    /**
+     * QuickSearch and QuickLookup root actions, by screen name.
+     * A segment named Search is not enough: catalog product search uses that name too.
+     * Mantle Search.xml is {@link ScreenSearchHints#isMantleSearchActions}.
+     */
+    public static boolean isSearchActionsPath(List<String> segments) {
         if (segments == null || segments.size() < 2) return false;
         if (!"actions".equals(segments.get(segments.size() - 1))) return false;
         String screen = segments.get(segments.size() - 2);

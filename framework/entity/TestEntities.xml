@@ -34,6 +34,11 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="testCurrencyAmount" type="currency-amount"/>
         <field name="testCurrencyPrecise" type="currency-precise"/>
     </entity>
+    <entity entity-name="TestFts" package="moqui.test">
+        <field name="testFtsId" type="id" is-pk="true"/>
+        <field name="note" type="text-medium"/>
+        <field name="body" type="text-fts"/>
+    </entity>
     <entity entity-name="Foo" package="moqui.test" sequence-bank-size="100">
         <field name="fooId" type="id" is-pk="true"/>
         <field name="fooText" type="text-medium"/>

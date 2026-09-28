@@ -107,7 +107,7 @@ public class FindSkillTool implements LlmTool {
         if (d.skillId != null) m.put("skillId", d.skillId);
         if (d.statusId != null) m.put("status", d.statusId);
         if (d.sourceLocation != null) m.put("sourceLocation", d.sourceLocation);
-        if (d.skillId != null && ec != null) {
+        if (d.skillId != null && ec != null && !SkillIndex.isReference(d)) {
             List<String> lessons = SkillIndex.lessonLines(ec, d.skillId);
             if (!lessons.isEmpty()) m.put("lessons", lessons);
         }

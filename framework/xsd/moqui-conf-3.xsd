@@ -894,6 +894,26 @@ along with this software (see the LICENSE.md file). If not, see
                     <xs:enumeration value="ansi-no-parenthesis"/>
                 </xs:restriction></xs:simpleType>
             </xs:attribute>
+            <xs:attribute name="fts-style" default="none">
+                <xs:annotation><xs:documentation>
+                    How LIKE / NOT LIKE on a text-fts field is evaluated. none keeps SQL LIKE.
+                    h2-native, postgres-tsvector, mysql-fulltext, mssql-contains, and oracle-text use that
+                    database's full-text index. A missing index falls back to SQL LIKE.
+                </xs:documentation></xs:annotation>
+                <xs:simpleType><xs:restriction base="xs:token">
+                    <xs:enumeration value="none"/>
+                    <xs:enumeration value="h2-native"/>
+                    <xs:enumeration value="postgres-tsvector"/>
+                    <xs:enumeration value="mysql-fulltext"/>
+                    <xs:enumeration value="mssql-contains"/>
+                    <xs:enumeration value="oracle-text"/>
+                </xs:restriction></xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="fts-config" default="english" type="xs:token">
+                <xs:annotation><xs:documentation>
+                    Postgres text search configuration passed to to_tsvector / plainto_tsquery. Other fts-style values ignore it.
+                </xs:documentation></xs:annotation>
+            </xs:attribute>
             <xs:attribute name="offset-style" default="fetch">
                 <xs:simpleType><xs:restriction base="xs:token">
                     <xs:enumeration value="fetch"><xs:annotation>

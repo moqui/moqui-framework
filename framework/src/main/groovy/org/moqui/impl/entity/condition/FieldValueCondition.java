@@ -70,6 +70,8 @@ public class FieldValueCondition implements EntityConditionImplBase, Externaliza
         FieldInfo fi = field.getFieldInfo(curEd);
         if (fi == null) throw new EntityException("Could not find field " + field.fieldName + " in entity " + curEd.getFullEntityName());
 
+        if (FtsSql.appendIfRewritten(eqb, curEd, fi, operator, value)) return;
+
         if (value instanceof Collection && ((Collection) value).isEmpty()) {
             if (operator == IN) {
                 sql.append(" 1 = 2 ");

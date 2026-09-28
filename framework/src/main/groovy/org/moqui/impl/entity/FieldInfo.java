@@ -98,7 +98,7 @@ public class FieldInfo {
             String fieldJavaType = ed.efi.getFieldJavaType(type, ed);
             javaType = fieldJavaType != null ? fieldJavaType : "String";
             typeValue = EntityFacadeImpl.getJavaTypeInt(javaType);
-            isTextVeryLong = "text-very-long".equals(type);
+            isTextVeryLong = "text-very-long".equals(type) || "text-fts".equals(type);
         } else {
             throw new EntityException("No type specified or found for field " + name + " on entity " + entityName);
         }

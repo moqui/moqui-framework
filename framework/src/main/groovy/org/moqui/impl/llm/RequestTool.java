@@ -235,7 +235,8 @@ public class RequestTool implements LlmTool {
             String text = wfs.getResponseText();
             Map<String, Object> headers = headersFromStub(wfs);
             json = wrapFormListJson(segments, json, headers);
-            if (ToolResultTrim.isSearchActionsPath(segments)) json = ToolResultTrim.projectSearchActions(json);
+            if (ToolResultTrim.isSearchActionsPath(segments) || ScreenSearchHints.isMantleSearchActions(eci, segments))
+                json = ToolResultTrim.projectSearchActions(json);
             if (isHtmlDump(json, text, wfs.getHttpServletResponseStub().getContentType(), status)) {
                 return finish(result(400, null, HTML_ERROR, headers), eci);
             }

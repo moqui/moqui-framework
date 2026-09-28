@@ -1,5 +1,20 @@
 # In-database full-text search (`text-fts`)
 
+## Current implementation
+
+Shipped as an EntityFacade feature, not a SkillIndex-only helper and not OpenSearch.
+
+- Dictionary type `text-fts` (string). Per-database storage matches `text-very-long` (`MoquiDefaultConf.xml`). H2 uses `VARCHAR`, same as its `text-very-long`.
+- `fts-style` and `fts-config` (default `english`) on `<database>`. Defaults: h2 `h2-native`, postgres `postgres-tsvector`, mysql/mysql8 `mysql-fulltext`, mssql `mssql-contains`, oracle `oracle-text`, derby/hsql/db2/db2i `none`.
+- `LIKE` / `NOT LIKE` on `text-fts` is rewritten in `FtsSql` when the style is not `none`. Prefix-only `foo%` stays SQL `LIKE`. Tokens shorter than 3 characters are dropped. Remaining tokens are AND. `EQUALS` is unchanged.
+- Postgres: per-column generated `*_tsv` plus a GIN index. `startup-add-missing` does not treat `*_tsv` as an unknown column to warn about, and does not drop it.
+- H2: one `FT_CREATE_INDEX` per table covering every `text-fts` column (H2 allows one index per table). The LIKE predicate joins `FT_SEARCH_DATA` and also requires `column ILIKE` for that field, so a LIKE on `description` does not match text that is only in `body`. `TABLE` and `KEYS` are quoted because they are reserved.
+- MySQL: `FULLTEXT` index per column and `MATCH … AGAINST (? IN BOOLEAN MODE)`.
+- MSSQL and Oracle: finds use SQL `LIKE`. Automatic catalog DDL is not created; a missing catalog must not fail startup. `FtsSql.disable` is set for those styles until someone adds the catalog DDL.
+- HOLD `TransactionCacheDb` does not get `FT_INIT`. Finds on the overlay use SQL `LIKE`.
+- `LlmSkill.description` and `LlmSkill.body` are `text-fts`. `name` and `title` stay `text-medium`. `SkillIndex.retrieve` entity-finds active rows (OR of token `LIKE` on name/title and one `LIKE` on description/body) instead of loading every row when the query has a token. Shipped `skill/*.md` files are still scored in Java and merged. `select` stays an exact name. Reference skills (`name` starts with `marble-`) are a short gloss and do not take the three procedure slots in the prompt inject.
+- Not in this change: websearch OR / exclude / phrase / `orderBy("-ftsRank")`, `pg_trgm`, and a combined all-columns index. See the open questions below.
+
 Add full-text search as an **EntityFacade** feature: a dictionary field type, a per-database strategy attribute, DDL in `EntityDbMeta`, and an automatic rewrite of `LIKE` / `NOT LIKE` on those fields. Do not send these columns to OpenSearch. DataDocument / ElasticFacade stays the product for nested documents, aggregations, and logging.
 
 This is an alternative to feeding entity text into OpenSearch through the Elastic interface. First intended caller after the facade work: `LlmSkill` body (and maybe description) for `find_skill`.

@@ -16,8 +16,11 @@ package org.moqui.impl.llm;
 import org.moqui.context.ArtifactExecutionFacade;
 import org.moqui.context.ExecutionContext;
 import org.moqui.entity.EntityCondition;
+import org.moqui.entity.EntityConditionFactory;
+import org.moqui.entity.EntityFind;
 import org.moqui.entity.EntityList;
 import org.moqui.entity.EntityValue;
+import org.moqui.impl.entity.FtsSql;
 import org.moqui.impl.context.ExecutionContextFactoryImpl;
 import org.moqui.resource.ResourceReference;
 import org.slf4j.Logger;
@@ -148,8 +151,7 @@ public class SkillIndex {
         }
         if (ec != null && ec.getEntity() != null) {
             try {
-                EntityList rows = withAuthzDisabled(ec, () -> ec.getEntity().find("moqui.llm.LlmSkill")
-                        .condition("statusId", "LsksActive").useCache(false).list());
+                EntityList rows = withAuthzDisabled(ec, () -> activeRows(ec, q));
                 int n = rows == null ? 0 : rows.size();
                 for (int i = 0; i < n; i++) {
                     SkillDoc doc = fromEntity(rows.get(i));
@@ -158,7 +160,8 @@ public class SkillIndex {
                     if (s > 0 || q.isEmpty()) scored.add(new Scored(s, doc, false));
                 }
             } catch (Throwable t) {
-                logger.warn("LlmSkill retrieve: {}", t.getMessage());
+                logger.warn("LlmSkill retrieve: {} {}", t.getMessage(),
+                        t.getCause() != null ? t.getCause().toString() : "");
             }
         }
         scored.sort((a, b) -> {
@@ -227,6 +230,71 @@ public class SkillIndex {
             logger.warn("LlmSkill getByName: {}", t.getMessage());
             return null;
         }
+    }
+
+    /** True for concept cards such as marble-party-roles. They are not write playbooks. */
+    public static boolean isReference(SkillDoc doc) {
+        return doc != null && doc.name != null && doc.name.startsWith("marble-");
+    }
+
+    /**
+     * Procedure skills fill the inject slots. Reference cards are a short gloss beside them,
+     * not one of the three procedure slots.
+     */
+    public static String formatInjectForQuery(ExecutionContext ec, String query) {
+        List<SkillDoc> found = retrieve(ec, query, 15);
+        List<Map<String, Object>> skills = new ArrayList<>();
+        List<Map<String, Object>> references = new ArrayList<>();
+        if (found != null) {
+            for (SkillDoc d : found) {
+                if (isReference(d)) {
+                    if (references.size() >= 2) continue;
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("name", d.name);
+                    m.put("title", d.title);
+                    m.put("description", d.description);
+                    String body = d.body != null ? d.body.trim() : "";
+                    if (body.length() > 400) body = body.substring(0, 400);
+                    m.put("body", body);
+                    references.add(m);
+                } else if (skills.size() < 3) {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("name", d.name);
+                    m.put("title", d.title);
+                    m.put("description", d.description);
+                    m.put("risk", d.risk);
+                    m.put("body", d.body);
+                    m.put("lessons", lessonLines(ec, d.skillId));
+                    skills.add(m);
+                }
+            }
+        }
+        Map<String, Object> ctx = new LinkedHashMap<>();
+        ctx.put("skills", skills);
+        ctx.put("references", references);
+        String text = LlmGateway.renderPrompt(ec, LlmGateway.PROMPT_SKILL_INJECT, ctx);
+        if (text == null) return "";
+        if (text.length() > INJECT_CHARS) return text.substring(0, INJECT_CHARS);
+        return text;
+    }
+
+    /** Active rows for a query. A non-empty query is an entity find, not a full table load. */
+    static EntityList activeRows(ExecutionContext ec, String query) {
+        EntityFind find = ec.getEntity().find("moqui.llm.LlmSkill")
+                .condition("statusId", "LsksActive").useCache(false);
+        List<String> toks = FtsSql.tokens(query);
+        if (toks.isEmpty()) return find.list();
+        EntityConditionFactory cf = ec.getEntity().getConditionFactory();
+        List<EntityCondition> ors = new ArrayList<>();
+        for (String tok : toks) {
+            String like = "%" + tok.replace("%", "").replace("_", "") + "%";
+            ors.add(cf.makeCondition("name", EntityCondition.ComparisonOperator.LIKE, like));
+            ors.add(cf.makeCondition("title", EntityCondition.ComparisonOperator.LIKE, like));
+        }
+        String docLike = "%" + String.join(" ", toks) + "%";
+        ors.add(cf.makeCondition("description", EntityCondition.ComparisonOperator.LIKE, docLike));
+        ors.add(cf.makeCondition("body", EntityCondition.ComparisonOperator.LIKE, docLike));
+        return find.condition(cf.makeCondition(ors, EntityCondition.JoinOperator.OR)).limit(40).list();
     }
 
     public static String formatInject(ExecutionContext ec, List<SkillDoc> docs) {

@@ -180,8 +180,10 @@ class EntityDbMeta {
                                         addColumn(ed, fi, con)
                                     }
                                 }
+                                remainingColumns.removeAll { FtsDdl.ownedColumn(it as String) }
                                 if (remainingColumns.size() > 0)
                                     logger.warn("Found unknown columns on table ${tableName} for entity ${fullEntityName}: ${remainingColumns}")
+                                FtsDdl.ensure(efi, ed, con)
                             }
 
                             // FUTURE: also check all indexes? on large DBs may take a long time... maybe just warn about?
@@ -200,6 +202,7 @@ class EntityDbMeta {
                             createIndexes(ed, false, con)
                             // create foreign keys to all other tables that exist
                             createForeignKeys(ed, false, existingTableNames, con)
+                            FtsDdl.ensure(efi, ed, con)
                         }
                         entityTablesChecked.put(fullEntityName, new Timestamp(System.currentTimeMillis()))
                         entityTablesExist.put(fullEntityName, true)
@@ -408,11 +411,13 @@ class EntityDbMeta {
             createIndexes(ed, false, null)
             // create foreign keys to all other tables that exist
             createForeignKeys(ed, false, null, null)
+            FtsDdl.ensure(efi, ed)
         } else {
             // table exists, see if it is missing any columns
             ArrayList<FieldInfo> mcs = getMissingColumns(ed)
             int mcsSize = mcs.size()
             for (int i = 0; i < mcsSize; i++) addColumn(ed, (FieldInfo) mcs.get(i), null)
+            FtsDdl.ensure(efi, ed)
             // create foreign keys after checking each to see if it already exists
             if (startup) {
                 createForeignKeys(ed, true, null, null)

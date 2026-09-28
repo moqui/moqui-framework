@@ -568,7 +568,7 @@ class ScreenForm {
                 } else if (spType.endsWith("Timestamp") || spType == "java.util.Date") {
                     subFieldNode.append("date-time", [type:"date-time", format:parameterNode.attribute("format")])
                 } else {
-                    if (efType == "text-long" || efType == "text-very-long") {
+                    if (efType == "text-long" || efType == "text-very-long" || efType == "text-fts") {
                         subFieldNode.append("text-area", null)
                     } else {
                         subFieldNode.append("text-line", ['default-value':parameterNode.attribute("default-value")])
@@ -656,8 +656,8 @@ class ScreenForm {
                 Boolean displayField = (Boolean) null
                 String defaultDisplay = fi.fieldNode.attribute("default-display")
                 if (defaultDisplay != null && !defaultDisplay.isEmpty()) displayField = "true".equals(defaultDisplay)
-                if (displayField == null && efType in ['text-long', 'text-very-long', 'binary-very-long']) {
-                    // allow find by and display text-long even if not the default, but in form-list never do anything with text-very-long or binary-very-long
+                if (displayField == null && efType in ['text-long', 'text-very-long', 'text-fts', 'binary-very-long']) {
+                    // allow find by and display text-long even if not the default, but in form-list never do anything with text-very-long, text-fts, or binary-very-long
                     // DEJ 20201120 changed set displayField to true instead of false so is display, change to false to not display
                     if ("text-long".equals(efType)) { displayField = true } else { continue }
                 }
@@ -819,7 +819,7 @@ class ScreenForm {
             if (efType.startsWith("date") || efType.startsWith("time")) {
                 MNode dateTimeNode = subFieldNode.append("date-time", [type:efType])
                 if (fieldName == "fromDate") dateTimeNode.attributes.put("default-value", "\${ec.l10n.format(ec.user.nowTimestamp, 'yyyy-MM-dd HH:mm')}")
-            } else if ("text-long".equals(efType) || "text-very-long".equals(efType)) {
+            } else if ("text-long".equals(efType) || "text-very-long".equals(efType) || "text-fts".equals(efType)) {
                 subFieldNode.append("text-area", null)
             } else if ("text-indicator".equals(efType)) {
                 MNode dropDownNode = subFieldNode.append("drop-down", ["allow-empty":"true"])

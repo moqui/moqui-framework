@@ -378,8 +378,7 @@ public final class LlmGateway {
     static void injectSkills(LlmClientImpl impl, String userText) {
         if (impl == null || userText == null || userText.isBlank()) return;
         try {
-            List<SkillIndex.SkillDoc> docs = SkillIndex.retrieve(impl.ec, userText, 3);
-            impl.injectContext("skills", SkillIndex.formatInject(impl.ec, docs));
+            impl.injectContext("skills", SkillIndex.formatInjectForQuery(impl.ec, userText));
         } catch (Throwable t) {
             logger.warn("Skill inject failed: {}", t.getMessage());
         }

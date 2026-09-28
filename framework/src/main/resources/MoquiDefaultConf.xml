@@ -636,6 +636,8 @@
             in bytes -->
         <dictionary-type type="text-long" java-type="java.lang.String" default-sql-type="VARCHAR(4095)"/>
         <dictionary-type type="text-very-long" java-type="java.lang.String" default-sql-type="CLOB"/>
+        <!-- text-fts is a string column whose LIKE / NOT LIKE use the database fts-style. Storage matches text-very-long per database. -->
+        <dictionary-type type="text-fts" java-type="java.lang.String" default-sql-type="CLOB"/>
 
         <dictionary-type type="binary-very-long" java-type="java.sql.Blob" default-sql-type="BLOB"/>
 
@@ -653,7 +655,7 @@
             <inline-jdbc jdbc-uri="jdbc:db2://localhost:50000/moqui" jdbc-username="moqui" jdbc-password="moqui"/>
         </datasource>
         -->
-        <database name="db2" join-style="ansi" offset-style="limit" from-lateral-style="lateral" never-nulls="true"
+        <database name="db2" fts-style="none" join-style="ansi" offset-style="limit" from-lateral-style="lateral" never-nulls="true"
                 default-isolation-level="ReadCommitted" for-update="FOR UPDATE WITH RS"
                 use-schema-for-all="true" use-indexes-unique="false" use-pk-constraint-names="false" fk-style="name_fk"
                 default-test-query="SELECT 1 FROM SYSIBM.SYSDUMMY1"
@@ -669,7 +671,7 @@
             <inline-jdbc><xa-properties driverType="4" serverName="${entity_ds_host}" portNumber="${entity_ds_port?:'50000'}"
                     databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
         </database>
-        <database name="db2i" lb-name="db2" join-style="ansi" offset-style="limit" from-lateral-style="lateral" never-nulls="true"
+        <database name="db2i" fts-style="none" lb-name="db2" join-style="ansi" offset-style="limit" from-lateral-style="lateral" never-nulls="true"
                 default-isolation-level="ReadCommitted"  for-update="FOR UPDATE WITH RS"
                 use-schema-for-all="true" use-indexes-unique-where-not-null="true"
                 default-test-query="SELECT 1 FROM SYSIBM.SYSDUMMY1"
@@ -694,7 +696,7 @@
             <inline-jdbc jdbc-uri="jdbc:derby:moqui;create=true" jdbc-username="moqui" jdbc-password="moqui"/>
         </datasource>
         -->
-        <database name="derby" use-pk-constraint-names="false" use-indexes-unique="false" default-isolation-level="ReadCommitted"
+        <database name="derby" fts-style="none" use-pk-constraint-names="false" use-indexes-unique="false" default-isolation-level="ReadCommitted"
                 default-jdbc-driver="org.apache.derby.jdbc.EmbeddedDriver"
                 default-xa-ds-class="org.apache.derby.jdbc.EmbeddedXADataSource">
             <!-- default-test-query="???" maybe like SELECT 1 FROM SEQUENCE_VALUE_ITEM WHERE 1=0 -->
@@ -711,7 +713,7 @@
             <inline-jdbc jdbc-uri="jdbc:h2:${moqui_runtime}/db/h2/moqui;lock_timeout=30000" jdbc-username="sa" jdbc-password="sa"/>
         </datasource>
         -->
-        <database name="h2" use-pk-constraint-names="false" use-indexes-unique="true" add-unique-as="true" default-isolation-level="ReadCommitted"
+        <database name="h2" fts-style="h2-native" fts-config="english" use-pk-constraint-names="false" use-indexes-unique="true" add-unique-as="true" default-isolation-level="ReadCommitted"
                 default-jdbc-driver="org.h2.Driver" default-xa-ds-class="org.h2.jdbcx.JdbcDataSource"
                 default-start-server-args="-tcpPort 9092 -ifExists -baseDir ${moqui_runtime}/db/h2">
             <!-- 'VALUE' is a reserved word in H2 starting with version 2.0.202 -->
@@ -719,7 +721,7 @@
             <inline-jdbc><xa-properties url="${entity_ds_url}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
         </database>
         <!-- TODO: add configuration examples -->
-        <database name="hsql" lb-name="hsqldb" use-fk-initially-deferred="false" join-style="ansi-no-parenthesis"
+        <database name="hsql" fts-style="none" lb-name="hsqldb" use-fk-initially-deferred="false" join-style="ansi-no-parenthesis"
                 default-isolation-level="ReadUncommitted" default-jdbc-driver="org.hsqldb.jdbcDriver"
                 default-test-query="SELECT 1 FROM SEQUENCE_VALUE_ITEM WHERE 1=0">
             <database-type type="id" sql-type="VARCHAR"/>
@@ -738,6 +740,7 @@
             <database-type type="text-intermediate" sql-type="VARCHAR"/>
             <database-type type="text-long" sql-type="VARCHAR"/>
             <database-type type="text-very-long" sql-type="VARCHAR"/>
+            <database-type type="text-fts" sql-type="VARCHAR"/>
 
             <database-type type="binary-very-long" sql-type="OBJECT" sql-type-alias="OTHER"/>
         </database>
@@ -753,7 +756,7 @@
 
         NOTE: for MS SQL Server 2012 and later can use offset-style=fetch for better performance and consistent behavior
         -->
-        <database name="mssql" join-style="ansi" default-isolation-level="ReadCommitted" offset-style="fetch" from-lateral-style="apply"
+        <database name="mssql" fts-style="mssql-contains" fts-config="english" join-style="ansi" default-isolation-level="ReadCommitted" offset-style="fetch" from-lateral-style="apply"
                 default-test-query="SELECT 1" default-jdbc-driver="com.microsoft.sqlserver.jdbc.SQLServerDriver"
                 default-xa-ds-class="com.microsoft.sqlserver.jdbc.SQLServerXADataSource"
                 default-startup-add-missing="true" default-runtime-add-missing="false" never-nulls="true">
@@ -777,6 +780,7 @@
             <database-type type="text-intermediate" sql-type="NVARCHAR(1023)"/>
             <database-type type="text-long" sql-type="NVARCHAR(4000)"/>
             <database-type type="text-very-long" sql-type="TEXT"/>
+            <database-type type="text-fts" sql-type="TEXT"/>
 
             <database-type type="binary-very-long" sql-type="IMAGE"/>
 
@@ -796,7 +800,7 @@
                     jdbc-username="moqui" jdbc-password="moqui"/>
         </datasource>
         -->
-        <database name="mysql" join-style="ansi-no-parenthesis" offset-style="limit" never-nulls="true"
+        <database name="mysql" fts-style="mysql-fulltext" join-style="ansi-no-parenthesis" offset-style="limit" never-nulls="true"
                 table-engine="InnoDB" character-set="utf8" collate="utf8_general_ci" fk-style="name_fk"
                 constraint-name-clip-length="60"
                 default-isolation-level="ReadCommitted" default-test-query="SELECT 1"
@@ -821,6 +825,7 @@
             <database-type type="currency-precise" sql-type="DECIMAL(25,5)"/>
 
             <database-type type="text-very-long" sql-type="LONGTEXT"/>
+            <database-type type="text-fts" sql-type="LONGTEXT"/>
             <database-type type="binary-very-long" sql-type="LONGBLOB"/>
 
             <name-replace original="CONDITION" replace="THE_CONDITION"/>
@@ -830,7 +835,7 @@
                     pinGlobalTxToPhysicalConnection="true" autoReconnectForPools="true" useUnicode="true" encoding="UTF-8" useCursorFetch="true"
                     databaseName="${entity_ds_database}" user="${entity_ds_user}" password="${entity_ds_password}"/></inline-jdbc>
         </database>
-        <database name="mysql8" lb-name="mysql" join-style="ansi-no-parenthesis" offset-style="limit" from-lateral-style="lateral"
+        <database name="mysql8" fts-style="mysql-fulltext" lb-name="mysql" join-style="ansi-no-parenthesis" offset-style="limit" from-lateral-style="lateral"
                 never-nulls="true" table-engine="InnoDB" character-set="utf8" collate="utf8_general_ci" fk-style="name_fk"
                 constraint-name-clip-length="60"
                 default-isolation-level="ReadCommitted" default-test-query="SELECT 1"
@@ -857,6 +862,7 @@
             <database-type type="currency-precise" sql-type="DECIMAL(25,5)"/>
 
             <database-type type="text-very-long" sql-type="LONGTEXT"/>
+            <database-type type="text-fts" sql-type="LONGTEXT"/>
             <database-type type="binary-very-long" sql-type="LONGBLOB"/>
 
             <name-replace original="CONDITION" replace="THE_CONDITION"/>
@@ -876,7 +882,7 @@
             <inline-jdbc jdbc-uri="jdbc:oracle:thin:@127.0.0.1:1521:moqui" jdbc-username="moqui" jdbc-password="moqui"/>
         </datasource>
         -->
-        <database name="oracle" add-unique-as="true" join-style="ansi" from-lateral-style="apply" default-isolation-level="ReadCommitted"
+        <database name="oracle" fts-style="oracle-text" fts-config="english" add-unique-as="true" join-style="ansi" from-lateral-style="apply" default-isolation-level="ReadCommitted"
                 default-test-query="SELECT 1 FROM DUAL" default-jdbc-driver="oracle.jdbc.driver.OracleDriver"
                 default-xa-ds-class="oracle.jdbc.xa.client.OracleXADataSource"
                 default-startup-add-missing="true" default-runtime-add-missing="false">
@@ -896,6 +902,8 @@
             <database-type type="text-medium" sql-type="VARCHAR2(255)"/>
             <database-type type="text-intermediate" sql-type="VARCHAR2(1023)"/>
             <database-type type="text-long" sql-type="VARCHAR2(4000)"/>
+            <database-type type="text-very-long" sql-type="CLOB"/>
+            <database-type type="text-fts" sql-type="CLOB"/>
 
             <inline-jdbc><xa-properties user="${entity_ds_user}" password="${entity_ds_password}"
                     URL="jdbc:oracle:thin:@${entity_ds_host}:${entity_ds_port?:'1521'}:${entity_ds_database}"/></inline-jdbc>
@@ -917,7 +925,7 @@
             <inline-jdbc jdbc-uri="jdbc:postgresql://127.0.0.1/moqui" jdbc-username="moqui" jdbc-password="moqui"/>
         </datasource>
         -->
-        <database name="postgres" lb-name="postgresql" join-style="ansi" from-lateral-style="lateral" result-fetch-size="50"
+        <database name="postgres" fts-style="postgres-tsvector" fts-config="english" lb-name="postgresql" join-style="ansi" from-lateral-style="lateral" result-fetch-size="50"
                 never-try-insert="true" default-isolation-level="ReadCommitted" use-tm-join="true" default-test-query="SELECT 1"
                 constraint-name-clip-length="60"
                 default-jdbc-driver="org.postgresql.Driver" default-xa-ds-class="org.postgresql.xa.PGXADataSource"
@@ -929,6 +937,7 @@
             <database-type type="text-intermediate" sql-type="TEXT"/>
             <database-type type="text-long" sql-type="TEXT"/>
             <database-type type="text-very-long" sql-type="TEXT"/>
+            <database-type type="text-fts" sql-type="TEXT"/>
 
             <database-type type="binary-very-long" sql-type="BYTEA"/>
 

@@ -2312,7 +2312,7 @@ class EntityFacadeImpl implements EntityFacade {
 
     protected static final Map<String, Integer> fieldTypeIntMap = [
             "id":ENTITY_STRING, "id-long":ENTITY_STRING, "text-indicator":ENTITY_STRING, "text-short":ENTITY_STRING,
-            "text-medium":ENTITY_STRING, "text-intermediate":ENTITY_STRING, "text-long":ENTITY_STRING, "text-very-long":ENTITY_STRING,
+            "text-medium":ENTITY_STRING, "text-intermediate":ENTITY_STRING, "text-long":ENTITY_STRING, "text-very-long":ENTITY_STRING, "text-fts":ENTITY_STRING,
             "date-time":ENTITY_TIMESTAMP, "time":ENTITY_TIME, "date":ENTITY_DATE,
             "number-integer":ENTITY_LONG, "number-float":ENTITY_DOUBLE,
             "number-decimal":ENTITY_BIG_DECIMAL, "currency-amount":ENTITY_BIG_DECIMAL, "currency-precise":ENTITY_BIG_DECIMAL,
@@ -2320,7 +2320,7 @@ class EntityFacadeImpl implements EntityFacade {
     protected static final Map<String, String> fieldTypeJavaMap = [
             "id":"java.lang.String", "id-long":"java.lang.String",
             "text-indicator":"java.lang.String", "text-short":"java.lang.String", "text-medium":"java.lang.String",
-            "text-intermediate":"java.lang.String", "text-long":"java.lang.String", "text-very-long":"java.lang.String",
+            "text-intermediate":"java.lang.String", "text-long":"java.lang.String", "text-very-long":"java.lang.String", "text-fts":"java.lang.String",
             "date-time":"java.sql.Timestamp", "time":"java.sql.Time", "date":"java.sql.Date",
             "number-integer":"java.lang.Long", "number-float":"java.lang.Double",
             "number-decimal":"java.math.BigDecimal", "currency-amount":"java.math.BigDecimal", "currency-precise":"java.math.BigDecimal",
