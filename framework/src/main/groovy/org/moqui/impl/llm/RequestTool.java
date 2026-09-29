@@ -238,17 +238,17 @@ public class RequestTool implements LlmTool {
             if (ToolResultTrim.isSearchActionsPath(segments) || ScreenSearchHints.isMantleSearchActions(eci, segments))
                 json = ToolResultTrim.projectSearchActions(json);
             if (isHtmlDump(json, text, wfs.getHttpServletResponseStub().getContentType(), status)) {
-                return finish(result(400, null, HTML_ERROR, headers), eci);
+                return withSubmitted(finish(result(400, null, HTML_ERROR, headers), eci), body);
             }
-            return finish(result(status, json, json != null ? null : text, headers), eci);
+            return withSubmitted(finish(result(status, json, json != null ? null : text, headers), eci), body);
         } catch (ArtifactAuthorizationException e) {
-            return finish(result(403, null, e.getMessage(), null), ec);
+            return withSubmitted(finish(result(403, null, e.getMessage(), null), ec), body);
         } catch (ArtifactTarpitException e) {
-            return finish(result(429, null, e.getMessage(), null), ec);
+            return withSubmitted(finish(result(429, null, e.getMessage(), null), ec), body);
         } catch (AuthenticationRequiredException e) {
-            return finish(result(401, null, e.getMessage(), null), ec);
+            return withSubmitted(finish(result(401, null, e.getMessage(), null), ec), body);
         } catch (Throwable t) {
-            return finish(result(statusFrom(t), null, t.getMessage(), null), ec);
+            return withSubmitted(finish(result(statusFrom(t), null, t.getMessage(), null), ec), body);
         } finally {
             cs.pop();
             if (previous != null) eci.setWebFacade(previous);
@@ -336,6 +336,12 @@ public class RequestTool implements LlmTool {
         if (result.get("text") == null && snap != null && !snap.errors.isEmpty() && result.get("json") == null) {
             result.put("text", String.join("\n", snap.errors));
         }
+        return result;
+    }
+
+    /** Echo the submitted body so a redirect partyId stays tied to the call that created it. */
+    static Map<String, Object> withSubmitted(Map<String, Object> result, Map<String, Object> body) {
+        if (result != null && body != null && !body.isEmpty()) result.put("submitted", body);
         return result;
     }
 

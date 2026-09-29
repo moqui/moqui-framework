@@ -90,10 +90,19 @@ final class SkillRiskGate {
         return m;
     }
 
-    static Map<String, Object> deferred() {
+    static Map<String, Object> deferred(LlmToolCall call) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("error", DEFERRED);
         m.put("instruction", DEFERRED_INSTRUCTION);
+        Map<String, Object> args = call != null ? LlmJson.tryToMap(call.arguments) : null;
+        if (args != null) {
+            if (args.get("method") != null) m.put("method", args.get("method"));
+            if (args.get("path") != null) m.put("path", args.get("path"));
+            if (args.get("serviceName") != null) m.put("serviceName", args.get("serviceName"));
+            Object submitted = args.get("body");
+            if (!(submitted instanceof Map)) submitted = args.get("parameters");
+            if (submitted instanceof Map && !((Map<?, ?>) submitted).isEmpty()) m.put("submitted", submitted);
+        }
         return m;
     }
 

@@ -15,6 +15,7 @@ package org.moqui.impl.llm;
 
 import org.moqui.context.ArtifactAuthorizationException;
 import org.moqui.context.ArtifactTarpitException;
+import org.moqui.context.TransactionFacade;
 import org.moqui.entity.EntityValue;
 import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.llm.LlmException;
@@ -29,6 +30,11 @@ import org.moqui.llm.LlmTool;
 import org.moqui.llm.LlmToolCall;
 import org.moqui.llm.LlmToolResult;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import jakarta.transaction.Status;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -39,6 +45,7 @@ import java.util.Map;
  * Invalid JSON and unknown names become tool error results, not exceptions.
  */
 final class LlmAgentLoop {
+    private static final Logger logger = LoggerFactory.getLogger(LlmAgentLoop.class);
     static final String CLIENT_UNAVAILABLE = "client tool not available in this context";
     static final String UNKNOWN_TOOL = "unknown tool: ";
     static final String MALFORMED = "malformed arguments: ";
@@ -188,9 +195,9 @@ final class LlmAgentLoop {
                 SkillRiskGate.Decision decision = SkillRiskGate.decide(client, call);
                 if (decision.action == SkillRiskGate.Decision.YIELD) {
                     for (int rest = serverIndex + 1; rest < serverCalls.size(); rest++)
-                        recordServerResult(working, roundResults, serverCalls.get(rest), SkillRiskGate.deferred());
+                        recordServerResult(working, roundResults, serverCalls.get(rest), SkillRiskGate.deferred(serverCalls.get(rest)));
                     for (LlmToolCall later : clientCalls)
-                        recordServerResult(working, roundResults, later, SkillRiskGate.deferred());
+                        recordServerResult(working, roundResults, later, SkillRiskGate.deferred(later));
                     LlmToolCall pending = call.copy();
                     pending.confirm = Boolean.TRUE;
                     pending.risk = decision.risk;
@@ -379,7 +386,7 @@ final class LlmAgentLoop {
         return r;
     }
 
-    private Object executeOne(LlmToolCall call, boolean confirmed) {
+    Object executeOne(LlmToolCall call, boolean confirmed) {
         if (!SkillUseGate.allowed(client, call.name)) return SkillUseGate.refusal();
         if (!confirmed) {
             SkillRiskGate.Decision decision = SkillRiskGate.decide(client, call);
@@ -393,13 +400,49 @@ final class LlmAgentLoop {
         if (args == null) return errorMap(MALFORMED + call.arguments);
         LlmClientImpl prev = CURRENT_CLIENT.get();
         CURRENT_CLIENT.set(client);
+        TransactionFacade tf = client.ec != null ? client.ec.getTransaction() : null;
+        boolean suspended = false;
+        boolean failed = false;
         try {
-            return tool.execute(args, client.ec);
+            // The conversation transaction must not join the tool. A service that did not begin
+            // the current transaction only setRollbackOnly, which then blocks saving the tool result.
+            if (tf != null && tf.isTransactionInPlace()) suspended = tf.suspend();
+            try {
+                return tool.execute(args, client.ec);
+            } catch (Throwable t) {
+                failed = true;
+                return errorMap(t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName());
+            } finally {
+                closeToolTransaction(tf, failed);
+            }
         } catch (Throwable t) {
             return errorMap(t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName());
         } finally {
+            if (suspended && tf != null) {
+                try { tf.resume(); }
+                catch (Throwable t) { logger.error("Error resuming transaction after tool", t); }
+            }
             if (prev != null) CURRENT_CLIENT.set(prev);
             else CURRENT_CLIENT.remove();
+        }
+    }
+
+    /** Close a transaction the tool left open. A failure rolls it back. A success commits it. */
+    static void closeToolTransaction(TransactionFacade tf, boolean failed) {
+        if (tf == null) return;
+        try {
+            if (!tf.isTransactionInPlace()) return;
+            int status = tf.getStatus();
+            if (status == Status.STATUS_MARKED_ROLLBACK || failed) {
+                tf.rollback("tool transaction", null);
+            } else if (status == Status.STATUS_ACTIVE) {
+                tf.commit();
+            }
+        } catch (Throwable t) {
+            logger.error("Error closing tool transaction", t);
+            try {
+                if (tf.isTransactionInPlace()) tf.rollback("tool transaction close failed", t);
+            } catch (Throwable ignored) { }
         }
     }
 

@@ -250,6 +250,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         a2aFacade = new A2AFacadeImpl(this)
         logger.info("Llm Facade initialized")
 
+        // Subscribers see the factory only after init finishes. The appender must not call back into Moqui during static init.
+        MoquiLog4jAppender.bind(this)
         logger.info("Execution Context Factory initialized in ${(System.currentTimeMillis() - initStartTime)/1000} seconds")
     }
 
@@ -313,6 +315,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         a2aFacade = new A2AFacadeImpl(this)
         logger.info("Llm Facade initialized")
 
+        MoquiLog4jAppender.bind(this)
         logger.info("Execution Context Factory initialized in ${(System.currentTimeMillis() - initStartTime)/1000} seconds")
     }
 
@@ -911,6 +914,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         activeContext.remove()
 
+        MoquiLog4jAppender.unbind(this)
         // use System.out directly for this as logger may already be stopped
         System.out.println("Moqui ExecutionContextFactory Destroyed")
     }
