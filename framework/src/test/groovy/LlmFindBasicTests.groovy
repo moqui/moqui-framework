@@ -251,7 +251,10 @@ class LlmFindBasicTests extends Specification {
         SkillIndex.withoutWidgets(body) == "Do the thing."
         SkillIndex.widgetsSection(body).startsWith("## Widgets")
         injected.contains("Do the thing.")
-        !injected.contains("## Widgets")
+        injected.contains("omit `## Widgets`")
+        !injected.contains("\n## Widgets")
+        !injected.contains("Form `x` `y`.")
+        !injected.contains("- a text-line")
     }
 
     def "assist profile attaches find_basic and the default profile does not"() {
