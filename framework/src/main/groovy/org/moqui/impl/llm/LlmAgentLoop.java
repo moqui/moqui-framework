@@ -243,6 +243,25 @@ final class LlmAgentLoop {
                         Map<String, Object> enriched = tool.enrichForClient(args, client.ec);
                         if (enriched != null && WriteUiTool.NAME.equals(call.name))
                             enriched = WriteUiTool.applyWriteThrough(enriched, client.conversation);
+                        if (enriched != null && WriteUiTool.NAME.equals(call.name)) {
+                            List<String> unbound = WriteUiTool.unboundActionFields(enriched);
+                            if (!unbound.isEmpty()) {
+                                Map<String, Object> err = new LinkedHashMap<>();
+                                err.put("error", "unbound_fields");
+                                err.put("instruction", "These bodyFromFields names are not fields, so the click does not send them: "
+                                        + unbound + ". Add each as a field with defaultValue. A display field is not a parameter.");
+                                err.put("fields", unbound);
+                                LlmTrace.logToolCall(call.name, call.arguments);
+                                LlmTrace.logToolResult(call.name, err);
+                                if (listener != null) {
+                                    listener.onToolCall(copy, LlmTool.Execution.CLIENT);
+                                    listener.onToolResult(copy, err, LlmTool.Execution.CLIENT);
+                                }
+                                roundResults.add(new LlmToolResult(call.id, call.name, err));
+                                appendTool(working, call.id, call.name, err);
+                                continue;
+                            }
+                        }
                         if (enriched != null) copy.arguments = LlmJson.toJson(enriched);
                     }
                     pending.add(copy);

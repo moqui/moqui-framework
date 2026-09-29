@@ -504,6 +504,40 @@ public class WriteUiTool implements LlmTool {
         }
         return out;
     }
+
+    /** bodyFromFields and bind names that are not fields. The click sends only field values. */
+    static List<String> unboundActionFields(Map<String, Object> schema) {
+        List<String> missing = new ArrayList<>();
+        if (schema == null) return missing;
+        if (KIND_OPENUI.equals(str(schema.get("kind"))) && hasLang(schema)) return missing;
+        Set<String> names = new LinkedHashSet<>();
+        Object fieldsObj = schema.get("fields");
+        if (fieldsObj instanceof List) {
+            for (Object item : (List<?>) fieldsObj) {
+                if (!(item instanceof Map)) continue;
+                String name = str(((Map<?, ?>) item).get("name"));
+                if (name != null) names.add(name);
+            }
+        }
+        Object actionsObj = schema.get("actions");
+        if (!(actionsObj instanceof List)) return missing;
+        Set<String> seen = new LinkedHashSet<>();
+        for (Object item : (List<?>) actionsObj) {
+            if (!(item instanceof Map)) continue;
+            Map<?, ?> act = (Map<?, ?>) item;
+            for (String key : new String[] { "bodyFromFields", "bind" }) {
+                Object list = act.get(key);
+                if (!(list instanceof List)) continue;
+                for (Object n : (List<?>) list) {
+                    if (n == null) continue;
+                    String name = n.toString();
+                    if (name.isEmpty() || names.contains(name) || !seen.add(name)) continue;
+                    missing.add(name);
+                }
+            }
+        }
+        return missing;
+    }
     static List<String> cleanStringList(Object obj) {
         List<String> out = new ArrayList<>();
         if (!(obj instanceof List)) return out;
