@@ -115,6 +115,7 @@ class LlmServletTests extends Specification {
         LlmGateway.parseTools(null).isEmpty()
         LlmGateway.parseTools(["request", "write-ui"]) == ["request", "write_ui"]
         LlmGateway.parseTools(["browse", "run-service"]).containsAll(["browse", "run_service"])
+        LlmGateway.parseTools(["find_basic"]) == ["find_basic"]
         when:
         LlmGateway.parseTools(["request", "clean_llm"])
         then:

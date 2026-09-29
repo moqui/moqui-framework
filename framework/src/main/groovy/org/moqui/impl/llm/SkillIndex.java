@@ -237,6 +237,33 @@ public class SkillIndex {
         return doc != null && doc.name != null && doc.name.startsWith("marble-");
     }
 
+    /** Widget lines are kept on the stored body and on the selected skill, not in catalog inject. */
+    public static String withoutWidgets(String body) {
+        if (body == null) return null;
+        int i = widgetIndex(body);
+        if (i < 0) return body;
+        return body.substring(0, i).stripTrailing();
+    }
+    public static String widgetsSection(String body) {
+        if (body == null) return null;
+        int i = widgetIndex(body);
+        if (i < 0) return null;
+        String section = body.substring(i).trim();
+        return section.isEmpty() ? null : section;
+    }
+    public static String activeWidgetText(ExecutionContext ec, String skillName) {
+        if (skillName == null || skillName.isBlank() || ec == null) return null;
+        SkillDoc doc = getByName(ec, skillName);
+        if (doc == null) return null;
+        return widgetsSection(doc.body);
+    }
+    private static int widgetIndex(String body) {
+        int i = body.indexOf("\n## Widgets");
+        if (i >= 0) return i + 1;
+        if (body.startsWith("## Widgets")) return 0;
+        return -1;
+    }
+
     /**
      * Procedure skills fill the inject slots. Reference cards are a short gloss beside them,
      * not one of the three procedure slots.
@@ -253,7 +280,9 @@ public class SkillIndex {
                     m.put("name", d.name);
                     m.put("title", d.title);
                     m.put("description", d.description);
-                    String body = d.body != null ? d.body.trim() : "";
+                    String body = withoutWidgets(d.body);
+                    if (body == null) body = "";
+                    else body = body.trim();
                     if (body.length() > 400) body = body.substring(0, 400);
                     m.put("body", body);
                     references.add(m);
@@ -263,7 +292,7 @@ public class SkillIndex {
                     m.put("title", d.title);
                     m.put("description", d.description);
                     m.put("risk", d.risk);
-                    m.put("body", d.body);
+                    m.put("body", withoutWidgets(d.body));
                     m.put("lessons", lessonLines(ec, d.skillId));
                     skills.add(m);
                 }
@@ -307,7 +336,7 @@ public class SkillIndex {
                 m.put("title", d.title);
                 m.put("description", d.description);
                 m.put("risk", d.risk);
-                m.put("body", d.body);
+                m.put("body", withoutWidgets(d.body));
                 m.put("lessons", lessonLines(ec, d.skillId));
                 skills.add(m);
                 int approx = (d.body != null ? d.body.length() : 0) + 80;

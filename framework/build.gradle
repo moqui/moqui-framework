@@ -218,6 +218,7 @@ test {
     include '**/LlmSkillTests.class'
     include '**/LlmSkillAgentTests.class'
     include '**/LlmBrowseTests.class'
+    include '**/LlmFindBasicTests.class'
     include '**/LlmTraceTests.class'
     include '**/EntityFtsTests.class'
     include '**/A2A*Tests.class'

@@ -142,8 +142,9 @@ public final class LlmGateway {
     }
 
     /**
-     * Request tools may only subset {request, write_ui, browse, run_service}. write-ui is accepted as write_ui.
-     * Unknown names are 400, not silently ignored.
+     * Request tools may only subset {request, write_ui, browse, find_basic, run_service, find_skill, enter_sim, pin}.
+     * write-ui is accepted as write_ui. Unknown names are 400, not silently ignored.
+     * find_basic is a legal name here; attachServletTools adds the tool only when the profile has an allow list.
      */
     public static List<String> parseTools(Object tools) {
         List<String> names = new ArrayList<>();
@@ -157,7 +158,7 @@ public final class LlmGateway {
                 if (o != null && !o.toString().isBlank()) names.add(o.toString().trim());
             }
         } else {
-            throw new LlmException("tools must be a list of request/write_ui/browse/run_service/find_skill/enter_sim",
+            throw new LlmException("tools must be a list of request/write_ui/browse/find_basic/run_service/find_skill/enter_sim/pin",
                     null, LlmFinishReason.ERROR, 400, null, null);
         }
         Set<String> seen = new LinkedHashSet<>();
@@ -165,8 +166,9 @@ public final class LlmGateway {
             String n = "write-ui".equals(raw) ? "write_ui" : raw;
             if ("run-service".equals(n)) n = "run_service";
             if (!"request".equals(n) && !"write_ui".equals(n) && !"browse".equals(n) && !"run_service".equals(n)
-                    && !"find_skill".equals(n) && !"enter_sim".equals(n) && !"pin".equals(n))
-                throw new LlmException("tools may only subset {request, write_ui, browse, run_service, find_skill, enter_sim, pin}",
+                    && !"find_skill".equals(n) && !"enter_sim".equals(n) && !"pin".equals(n)
+                    && !FindBasicTool.NAME.equals(n))
+                throw new LlmException("tools may only subset {request, write_ui, browse, find_basic, run_service, find_skill, enter_sim, pin}",
                         null, LlmFinishReason.ERROR, 400, null, null);
             seen.add(n);
         }
@@ -201,6 +203,7 @@ public final class LlmGateway {
         boolean wantFindSkill = tools.contains("find_skill") || wantBrowse || wantRunService;
         boolean wantEnterSim = tools.contains("enter_sim");
         boolean wantPin = tools.contains("pin") || wantFindSkill;
+        boolean wantFindBasic = tools.contains(FindBasicTool.NAME);
         if (wantRequest) {
             boolean unprefixed = profile != null && profile.allowUnprefixedRequest;
             LlmTool rt = requestToolForServlet(profile != null ? profile.allowedPaths : null, unprefixed);
@@ -219,6 +222,9 @@ public final class LlmGateway {
         if (wantFindSkill) client.tool(LlmTool.findSkill());
         if (wantEnterSim && profile != null && profile.allowEnterSim) client.tool(LlmTool.enterSim());
         if (wantPin) client.tool(LlmTool.pin());
+        if (wantFindBasic && profile != null && profile.allowedBasicEntities != null
+                && !profile.allowedBasicEntities.isEmpty())
+            client.tool(new FindBasicTool(profile.allowedBasicEntities));
     }
 
     public static void requireLlmGateway(ExecutionContext ec) {
@@ -282,6 +288,7 @@ public final class LlmGateway {
         }
         refreshContext(impl, "session", session);
         refreshContext(impl, "pins", PinTool.text(impl));
+        refreshContext(impl, "skill-widgets", SkillIndex.activeWidgetText(impl.ec, impl.activeSkillName));
         String user = str(body.get("user"));
         if (user != null) {
             impl.user(user);

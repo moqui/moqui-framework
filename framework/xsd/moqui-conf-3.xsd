@@ -636,6 +636,16 @@ along with this software (see the LICENSE.md file). If not, see
                     <xs:element name="allowed-entity" minOccurs="0" maxOccurs="unbounded"><xs:complexType>
                         <xs:attribute name="name" type="xs:string" use="required"/>
                     </xs:complexType></xs:element>
+                    <xs:element name="allowed-basic-entity" minOccurs="0" maxOccurs="unbounded"><xs:complexType>
+                        <xs:annotation><xs:documentation>Allow-list for the find_basic tool. package and entity are
+                            full-string regexes (Java String.matches) against the entity package name and the short
+                            entity name. package "moqui.basic" matches that package only, not moqui.basic.email or
+                            moqui.basic.print. Omit entity to allow every entity in the matched package. An element
+                            with neither attribute allows nothing. find_basic reads these with artifact authz off.
+                        </xs:documentation></xs:annotation>
+                        <xs:attribute name="package" type="xs:string"/>
+                        <xs:attribute name="entity" type="xs:string"/>
+                    </xs:complexType></xs:element>
                 </xs:sequence>
                 <xs:attribute name="name" type="xs:string" use="required"/>
                 <xs:attribute name="protocol" type="xs:string" default="org.moqui.impl.llm.OpenAiCompatProtocol"/>

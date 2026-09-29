@@ -23,8 +23,22 @@ import spock.lang.Specification
 class LlmTraceTests extends Specification {
 
     def "unredacted dumps are off unless llm_trace_dump is true"() {
-        expect:
+        given:
+        String prev = System.getProperty("llm_trace_dump")
+
+        when:
+        System.clearProperty("llm_trace_dump")
+        then:
         !LlmTrace.isDumpEnabled()
+
+        when:
+        System.setProperty("llm_trace_dump", "true")
+        then:
+        LlmTrace.isDumpEnabled()
+
+        cleanup:
+        if (prev == null) System.clearProperty("llm_trace_dump")
+        else System.setProperty("llm_trace_dump", prev)
     }
 
     def "browse call shows path and match and omits default depth"() {

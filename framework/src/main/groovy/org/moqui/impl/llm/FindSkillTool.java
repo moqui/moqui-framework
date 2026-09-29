@@ -72,7 +72,7 @@ public class FindSkillTool implements LlmTool {
         List<Map<String, Object>> out = new ArrayList<>();
         if (!query.isEmpty()) {
             List<SkillIndex.SkillDoc> docs = SkillIndex.retrieve(ec, query, limit);
-            for (SkillIndex.SkillDoc d : docs) out.add(toMap(ec, d));
+            for (SkillIndex.SkillDoc d : docs) out.add(toMap(ec, d, false));
         }
         result.put("skills", out);
         if (!select.isEmpty()) {
@@ -85,7 +85,7 @@ public class FindSkillTool implements LlmTool {
                 return result;
             }
             SkillUseGate.activate(LlmAgentLoop.currentClient(), chosen.name);
-            result.put("selected", toMap(ec, chosen));
+            result.put("selected", toMap(ec, chosen, true));
             result.put("hint", "Skill " + chosen.name
                     + " is now the active skill. browse, GET request, and write_ui are allowed. "
                     + "run_service and other request methods run immediately only when risk is reversible; "
@@ -97,13 +97,16 @@ public class FindSkillTool implements LlmTool {
     }
 
     static Map<String, Object> toMap(ExecutionContext ec, SkillIndex.SkillDoc d) {
+        return toMap(ec, d, true);
+    }
+    static Map<String, Object> toMap(ExecutionContext ec, SkillIndex.SkillDoc d, boolean includeWidgets) {
         Map<String, Object> m = new LinkedHashMap<>();
         if (d == null) return m;
         m.put("name", d.name);
         m.put("title", d.title);
         m.put("description", d.description);
         m.put("risk", d.risk);
-        m.put("body", d.body);
+        m.put("body", includeWidgets ? d.body : SkillIndex.withoutWidgets(d.body));
         if (d.skillId != null) m.put("skillId", d.skillId);
         if (d.statusId != null) m.put("status", d.statusId);
         if (d.sourceLocation != null) m.put("sourceLocation", d.sourceLocation);
