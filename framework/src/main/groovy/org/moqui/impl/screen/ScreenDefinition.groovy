@@ -1053,8 +1053,13 @@ class ScreenDefinition {
                 // is it a form or tree?
                 ScreenForm form = parentScreen.formByName.get(partName)
                 if (form != null) {
-                    if (!form.hasDataPrep()) throw new BaseArtifactException("Found form ${partName} in screen ${parentScreen.getScreenName()} but it does not have its own data preparation")
                     ScreenForm.FormInstance formInstance = form.getFormInstance()
+                    if (!form.hasDataPrep()) {
+                        // Form-lists such as FindCustomer.CustomerListForm display a list the screen actions prepare.
+                        XmlAction screenActions = parentScreen.rootSection?.actions
+                        if (formInstance.isList() && screenActions != null) screenActions.run(ec)
+                        else throw new BaseArtifactException("Found form ${partName} in screen ${parentScreen.getScreenName()} but it does not have its own data preparation")
+                    }
                     if (formInstance.isList()) {
                         ScreenForm.FormListRenderInfo renderInfo = formInstance.makeFormListRenderInfo()
                         // old approach, raw data: Object listObj = renderInfo.getListObject(true)
