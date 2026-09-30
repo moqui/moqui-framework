@@ -123,6 +123,8 @@ public final class ToolResultTrim {
         String now = json(copy);
         if (now != null && now.length() > maxChars) {
             for (Map.Entry<String, Object> e : new ArrayList<>(copy.entrySet())) {
+                String key = String.valueOf(e.getKey());
+                if ("error".equals(key) || "instruction".equals(key) || "hint".equals(key)) continue;
                 if (e.getValue() instanceof String && ((String) e.getValue()).length() > 80)
                     copy.put(e.getKey(), ((String) e.getValue()).substring(0, 80) + "…");
             }

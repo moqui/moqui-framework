@@ -71,6 +71,7 @@ nb-configuration.xml
 
 # Local agent workspaces
 .opencode/
+opencode.json
 .claude/
 .pi/
 .codex/

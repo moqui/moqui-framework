@@ -43,7 +43,9 @@ public final class LlmTrace {
     public static final String TOREMOVE = "TOREMOVE";
     public static final int PREVIEW_CHARS = 60;
     static final int VALUE_MAX = 80;
+    static final int ERROR_MAX = 1000;
     static final int SUMMARY_MAX = 240;
+    static final int ERROR_SUMMARY_MAX = 2000;
     static final int MAX_GENERIC_KEYS = 6;
     private static final Pattern SENSITIVE = Pattern.compile(
             "password|secret|api[-_]?key|authorization|ssn|creditcard", Pattern.CASE_INSENSITIVE);
@@ -386,7 +388,10 @@ public final class LlmTrace {
             parts.add(cap(collapseWs(String.valueOf(content)), VALUE_MAX));
         }
         if (parts.isEmpty() && content != null) parts.add("ok");
-        return cap(String.join(" ", parts), SUMMARY_MAX);
+        String joined = String.join(" ", parts);
+        boolean hasError = false;
+        for (String p : parts) if (p.startsWith("error=")) { hasError = true; break; }
+        return cap(joined, hasError ? ERROR_SUMMARY_MAX : SUMMARY_MAX);
     }
 
     public static Preview preview(String text, int n) {
@@ -532,7 +537,7 @@ public final class LlmTrace {
         Object err = m.get("error");
         if (err == null) return;
         String s = collapseWs(String.valueOf(err));
-        if (!s.isEmpty()) parts.add("error=" + quote(cap(s, VALUE_MAX)));
+        if (!s.isEmpty()) parts.add("error=" + quote(cap(s, ERROR_MAX)));
     }
 
     @SuppressWarnings("unchecked")
