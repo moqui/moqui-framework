@@ -154,6 +154,7 @@ dependencies {
 
     // SubEtha SMTP, depends on jakarta.mail-api which is provided
     api("com.github.davidmoten:subethasmtp:7.2.2") { transitive = false }
+    api 'com.github.davidmoten:guava-mini:0.1.7' // Apache 2.0, used by subethasmtp (not transitive above)
 
     // Snake YAML
     api 'org.yaml:snakeyaml:2.7' // Apache 2.0
