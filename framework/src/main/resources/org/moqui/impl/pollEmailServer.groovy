@@ -32,6 +32,7 @@ import org.slf4j.LoggerFactory
 
 import org.moqui.entity.EntityValue
 import org.moqui.impl.context.ExecutionContextImpl
+import org.moqui.impl.util.MailUtil
 
 Logger logger = LoggerFactory.getLogger("org.moqui.impl.pollEmailServer")
 
@@ -41,12 +42,11 @@ EntityValue emailServer = ec.entity.find("moqui.basic.email.EmailServer").condit
 if (!emailServer) { ec.message.addError(ec.resource.expand('No EmailServer found for ID [${emailServerId}]','')); return }
 if (!emailServer.storeHost) { ec.message.addError(ec.resource.expand('EmailServer [${emailServerId}] has no storeHost','')) }
 if (!emailServer.mailUsername) { ec.message.addError(ec.resource.expand('EmailServer [${emailServerId}] has no mailUsername','')) }
-if (!emailServer.mailPassword) { ec.message.addError(ec.resource.expand('EmailServer [${emailServerId}] has no mailPassword','')) }
+if (!emailServer.mailPassword && !emailServer.oauthRefreshToken) { ec.message.addError(ec.resource.expand('EmailServer [${emailServerId}] has no mailPassword or oauthRefreshToken','')) }
 if (ec.message.hasError()) return
 
 String host = emailServer.storeHost
 String user = emailServer.mailUsername
-String password = emailServer.mailPassword
 String protocol = emailServer.storeProtocol ?: "imaps"
 int port = (emailServer.storePort ?: "993") as int
 String storeFolder = emailServer.storeFolder ?: "INBOX"
@@ -56,11 +56,11 @@ if (!org.moqui.util.WebUtilities.hostAllowedByConf(host, org.moqui.util.SystemBi
 }
 
 // def urlName = new URLName(protocol, host, port as int, "", user, password)
-Session session = Session.getInstance(System.getProperties())
+Session session = MailUtil.makeStoreSession(emailServer, protocol)
 logger.info("Polling Email from ${user}@${host}:${port}/${storeFolder}, properties ${session.getProperties()}")
 
 Store store = session.getStore(protocol)
-if (!store.isConnected()) store.connect(host, port, user, password)
+if (!store.isConnected()) store.connect(host, port, user, MailUtil.getPassword(emailServer))
 
 // open the folder
 Folder folder = store.getFolder(storeFolder)
