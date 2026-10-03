@@ -32,6 +32,21 @@ and clarifies security details that have been more scattered and less formal.
     Codec/IO/Logging/Validator/Collections4, commons-fileupload2 M5, and
     JUnit 6.1.3
 
+### Email: Jakarta Mail directly, OAuth2 (XOAUTH2) for SMTP and IMAP
+
+- Apache Commons Email (`commons-email2-jakarta` 2.0.0-M1) is removed. `send#EmailTemplate`,
+  `send#EmailMessage` and `poll#EmailServer` use Jakarta Mail (Eclipse Angus Mail, already a
+  dependency) through the new `org.moqui.impl.util.MailUtil`. Messages keep the same structure
+  (`multipart/mixed` with a text/HTML `multipart/alternative` and attachments). Code that imported
+  `org.apache.commons.mail2.*` from the framework classpath must add that dependency itself
+  (incompatible change). Angus Mail checks the server identity on SSL/STARTTLS connections.
+- New `EmailServer` fields `oauthTokenUrl`, `oauthClientId`, `oauthClientSecret` (encrypted),
+  `oauthRefreshToken` (encrypted) and `oauthScope`. When `oauthRefreshToken` is set, SMTP and the
+  mail store authenticate with OAuth2 (SASL `XOAUTH2`), as Gmail and Microsoft 365 require, instead
+  of `mailPassword`. The access token comes from the refresh_token grant against `oauthTokenUrl`
+  (Google when empty), is cached until shortly before it expires and is refreshed once when the
+  server rejects it. The token URL must be https and its host must pass `email_allowed_hosts`.
+
 ### XML Screen transition authorization
 
 - Added `transition.@authz-action` (`view`, `create`, `update`, `delete`, `all`).
