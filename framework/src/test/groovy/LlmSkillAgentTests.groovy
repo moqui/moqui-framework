@@ -68,11 +68,14 @@ class LlmSkillAgentTests extends Specification {
     def setup() {
         if (ec.transaction.isTransactionInPlace()) ec.transaction.commit()
         ec.artifactExecution.disableAuthz()
+        // One worker, one hit cache: the suite exceeds the 30/60s LlmProfiles tarpit on profile default.
+        ec.artifactExecution.disableTarpit()
     }
     def cleanup() {
         if (ec.entity.isTxCacheActive()) ec.entity.stopTxCache()
         if (ec.transaction.isTransactionInPlace()) ec.transaction.commit()
         ec.artifactExecution.enableAuthz()
+        ec.artifactExecution.enableTarpit()
     }
 
     def "matching skill does not enter sim"() {

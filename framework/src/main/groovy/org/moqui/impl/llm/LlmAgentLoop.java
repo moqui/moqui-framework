@@ -171,6 +171,7 @@ final class LlmAgentLoop {
                 r.toolResults = roundResults;
                 r.yielded = false;
                 if (listener != null) listener.onComplete(r);
+                maybeSummarize();
                 return r;
             }
 
@@ -203,7 +204,6 @@ final class LlmAgentLoop {
                     pending.risk = decision.risk;
                     pending.execution = LlmTool.Execution.SERVER;
                     LlmTrace.logToolCall(pending.name, pending.arguments);
-                    if (listener != null) listener.onToolCall(pending, LlmTool.Execution.SERVER);
                     return yieldPending(result, start, roundResults, pending);
                 }
                 LlmTrace.logToolCall(call.name, call.arguments);
@@ -248,11 +248,20 @@ final class LlmAgentLoop {
                     }
                     if (tool != null) {
                         Map<String, Object> enriched = tool.enrichForClient(args, client.ec);
+                        Map<String, Object> previousCanvas = null;
+                        boolean canvasTouched = false;
+                        if (enriched != null && WriteUiTool.NAME.equals(call.name)
+                                && client.conversation instanceof LlmConversationImpl) {
+                            previousCanvas = ((LlmConversationImpl) client.conversation).getCanvasMap();
+                            canvasTouched = true;
+                        }
                         if (enriched != null && WriteUiTool.NAME.equals(call.name))
                             enriched = WriteUiTool.applyWriteThrough(enriched, client.conversation);
                         if (enriched != null && WriteUiTool.NAME.equals(call.name)) {
                             List<String> unbound = WriteUiTool.unboundActionFields(enriched);
                             if (!unbound.isEmpty()) {
+                                if (canvasTouched)
+                                    ((LlmConversationImpl) client.conversation).setCanvasMap(previousCanvas);
                                 Map<String, Object> err = new LinkedHashMap<>();
                                 err.put("error", "unbound_fields");
                                 err.put("instruction", "These bodyFromFields names are not fields, so the click does not send them: "
@@ -274,10 +283,7 @@ final class LlmAgentLoop {
                     pending.add(copy);
                 }
                 if (pending.isEmpty()) continue;
-                for (LlmToolCall copy : pending) {
-                    LlmTrace.logToolCall(copy.name, copy.arguments);
-                    if (listener != null) listener.onToolCall(copy, LlmTool.Execution.CLIENT);
-                }
+                for (LlmToolCall copy : pending) LlmTrace.logToolCall(copy.name, copy.arguments);
                 return yieldPending(result, start, roundResults, pending);
             }
         }
@@ -304,7 +310,7 @@ final class LlmAgentLoop {
             }
             ProtocolResult[] box = new ProtocolResult[1];
             Throwable[] fail = new Throwable[1];
-            req.onStreamOpen = client::registerInFlight;
+            client.bindUpstreamOpen(req, listener);
             try {
                 client.profile.protocol.chatStream(req, new ProtocolStreamListener() {
                     @Override public void onDelta(String textDelta) {
@@ -369,6 +375,7 @@ final class LlmAgentLoop {
         }
         if (client.conversation != null) {
             client.conversation.persistIsolated(() -> {
+                client.conversation.syncYieldedToolCalls(pending);
                 client.conversation.setPendingToolCallsInternal(pending);
                 client.conversation.setStatusInternal(LlmConversationImpl.STATUS_YIELDED);
             });
@@ -380,10 +387,23 @@ final class LlmAgentLoop {
         r.pendingToolCalls = pending;
         r.toolResults = roundResults;
         if (listener != null) {
+            for (LlmToolCall call : pending) {
+                LlmTool.Execution execution = call.execution != null ? call.execution : LlmTool.Execution.CLIENT;
+                listener.onToolCall(call, execution);
+            }
             listener.onYield(pending);
             listener.onComplete(r);
         }
+        maybeSummarize();
         return r;
+    }
+
+    private void maybeSummarize() {
+        try {
+            ConversationSummary.maybe(client);
+        } catch (Throwable t) {
+            logger.warn("Conversation summary failed: " + t.getMessage());
+        }
     }
 
     Object executeOne(LlmToolCall call, boolean confirmed) {

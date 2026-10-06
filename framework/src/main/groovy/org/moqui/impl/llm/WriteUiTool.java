@@ -359,20 +359,18 @@ public class WriteUiTool implements LlmTool {
 
     /**
      * Merge a new write_ui payload onto the conversation's last canvas when writeThrough is true.
-     * Persists lastWriteUi on the conversation attributes.
+     * Updates the in-memory canvas only. The yield commit writes canvasJson.
      */
     @SuppressWarnings("unchecked")
     static Map<String, Object> applyWriteThrough(Map<String, Object> incoming, LlmConversation conversation) {
         Map<String, Object> next = incoming != null ? incoming : new LinkedHashMap<>();
         Map<String, Object> last = null;
-        if (conversation != null && conversation.getAttributes() != null) {
-            Object raw = conversation.getAttributes().get(ATTR_LAST_WRITE_UI);
-            if (raw instanceof Map) last = (Map<String, Object>) raw;
-        }
+        LlmConversationImpl impl = conversation instanceof LlmConversationImpl ? (LlmConversationImpl) conversation : null;
+        if (impl != null) last = impl.getCanvasMap();
         boolean writeThrough = Boolean.TRUE.equals(next.get("writeThrough")) && last != null;
         Map<String, Object> merged = writeThrough ? mergeCanvas(last, next) : next;
         merged.put("schemaVersion", SCHEMA_VERSION);
-        if (conversation != null) conversation.setAttribute(ATTR_LAST_WRITE_UI, deepCopy(merged));
+        if (impl != null) impl.setCanvasMap(deepCopy(merged));
         return merged;
     }
 

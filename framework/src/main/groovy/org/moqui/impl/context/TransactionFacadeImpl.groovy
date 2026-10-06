@@ -123,6 +123,13 @@ class TransactionFacadeImpl implements TransactionFacade {
             if (numSuspended > 0) logger.warn("Cleaned up [" + numSuspended + "] suspended transactions.")
         }
 
+        // Record locks live in the global map until the stack that registered them is cleared.
+        // If the JTA transaction is already gone, commit() above did not run, so clear them
+        // before dropping the thread state.
+        if (!isTransactionInPlace() && txStackInfoList) {
+            for (TxStackInfo txStackInfo in new ArrayList<TxStackInfo>(txStackInfoList)) txStackInfo.clearCurrent()
+        }
+
         txStackInfoCurThread.remove()
         txStackInfoListThread.remove()
     }
@@ -168,8 +175,10 @@ class TransactionFacadeImpl implements TransactionFacade {
     }
     protected void popTxStackInfo() {
         LinkedList<TxStackInfo> list = getTxStackInfoList()
-        list.removeFirst()
+        TxStackInfo popped = list.removeFirst()
         txStackInfoCurThread.set(list.getFirst())
+        // The inner stack is discarded. Locks registered on it belong to the inner transaction, not the resumed one.
+        if (popped != null) popped.clearCurrent()
     }
 
 
@@ -716,7 +725,11 @@ class TransactionFacadeImpl implements TransactionFacade {
 
     void registerRecordLock(EntityRecordLock erl) {
         if (!useLockTrack) return
-        erl.register(recordLockByEntityPk, getTxStackInfo())
+        TxStackInfo txStackInfo = getTxStackInfo()
+        // Same rule as stashTxConnection: if this facade did not begin the TX, commit/rollback
+        // will not clear the lock, and it stays in the conflict map after the request ends.
+        if (txStackInfo.transactionBeginStartTime == null) return
+        erl.register(recordLockByEntityPk, txStackInfo)
     }
 
 

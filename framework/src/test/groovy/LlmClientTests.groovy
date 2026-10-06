@@ -1127,7 +1127,8 @@ class LlmClientTests extends Specification {
         merged.fields[0].name == "qty"
         merged.fields[0].defaultValue == "12"
         merged.actions[0].label == "Place order"
-        conv.attributes.lastWriteUi != null
+        conv.canvasMap != null
+        conv.canvasMap.fields.size() == 1
     }
 
     def "write_ui enricher keeps list columns and drops html action paths"() {

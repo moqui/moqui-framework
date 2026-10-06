@@ -61,6 +61,8 @@ class A2AJsonRpcTests extends Specification {
 
     def setup() {
         ec.artifactExecution.disableAuthz()
+        // SendStreamingMessage pushes AT_LLM; the suite shares one hit cache with the 30/60s LlmProfiles tarpit.
+        ec.artifactExecution.disableTarpit()
         if (!ec.user.userId) assert ec.user.loginUser('john.doe', 'moqui')
         if (ec.transaction.isTransactionInPlace()) ec.transaction.commit()
         clearA2AData()
@@ -75,6 +77,7 @@ class A2AJsonRpcTests extends Specification {
         if (ec.transaction.isTransactionInPlace()) ec.transaction.rollback('A2A JSON-RPC test cleanup', null)
         clearA2AData()
         ec.artifactExecution.enableAuthz()
+        ec.artifactExecution.enableTarpit()
     }
 
     def 'envelope and version errors use JSON-RPC and A2A codes'() {

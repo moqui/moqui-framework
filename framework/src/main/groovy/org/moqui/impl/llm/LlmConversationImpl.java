@@ -62,11 +62,20 @@ public class LlmConversationImpl implements LlmConversation {
     private String visitId;
     private String statusId = STATUS_ACTIVE;
     private String title;
+    private Timestamp createdDate;
+    private String purpose;
+    private String summary;
+    private String searchText;
+    private String hasCanvas;
+    private String summaryFromLlm;
+    private String canvasJson;
     private String systemText;
     private WindowPolicy windowPolicy = new WindowPolicy();
     private final List<LlmToolCall> pendingToolCalls = new ArrayList<>();
     private final Map<String, Object> attributes = new LinkedHashMap<>();
     private Timestamp lastMessageDate;
+    /** Token from {@link LlmFacadeImpl#claimTurn}. Zero means this instance does not hold the claim. */
+    private long turnToken = 0L;
     private final List<LlmMessage> messages = new ArrayList<>();
 
     LlmConversationImpl(ExecutionContext ec, String conversationId) {
@@ -82,8 +91,13 @@ public class LlmConversationImpl implements LlmConversation {
             conv.userId = ec.getUser().getUserId();
             conv.visitId = ec.getUser().getVisitId();
         }
-        if (attributes != null) conv.attributes.putAll(attributes);
+        if (attributes != null) {
+            conv.attributes.putAll(attributes);
+            Object purpose = attributes.get("purpose");
+            if (purpose != null && !purpose.toString().isBlank()) conv.purpose = purpose.toString().trim();
+        }
         conv.lastMessageDate = now(ec);
+        conv.createdDate = conv.lastMessageDate;
         persistIsolated(ec, () -> {
             if (hasEntity(ec)) {
                 EntityValue ev = ec.getEntity().makeValue("moqui.llm.LlmConversation");
@@ -196,6 +210,92 @@ public class LlmConversationImpl implements LlmConversation {
     @Override public String getUserId() { return userId; }
     @Override public String getStatus() { return statusId; }
     @Override public String getTitle() { return title; }
+    public String getSummary() { return summary; }
+    public boolean isSummaryFromLlm() { return "Y".equals(summaryFromLlm); }
+    public Timestamp getCreatedDate() { return createdDate; }
+    public Timestamp getLastMessageDate() { return lastMessageDate; }
+    public String getCanvasJson() { return canvasJson; }
+    public boolean hasCanvas() { return "Y".equals(hasCanvas); }
+
+    /** Parsed canvas, or null. A new map each call. */
+    public Map<String, Object> getCanvasMap() {
+        if (canvasJson == null || canvasJson.isBlank()) return null;
+        return LlmJson.tryToMap(canvasJson);
+    }
+
+    /** In memory only. The yield commit writes the header. */
+    void setCanvasMap(Map<String, Object> canvas) {
+        if (canvas == null || canvas.isEmpty()) {
+            canvasJson = null;
+            hasCanvas = "N";
+            return;
+        }
+        canvasJson = LlmJson.toJson(canvas);
+        hasCanvas = "Y";
+    }
+
+    void assignSummary(String summary, String searchText, boolean fromLlm) {
+        this.summary = summary;
+        this.searchText = searchText;
+        if (fromLlm) this.summaryFromLlm = "Y";
+        else if (this.summaryFromLlm == null) this.summaryFromLlm = "N";
+    }
+
+    void markSummaryAttempted() { this.summaryFromLlm = "Y"; }
+
+    String firstUserContent() {
+        for (LlmMessage m : messages) {
+            if (m != null && m.role == LlmMessage.Role.USER && m.content != null && !m.content.isBlank())
+                return m.content;
+        }
+        return null;
+    }
+
+    /** Point the latest assistant tool calls at the enriched yield payload and write that row. */
+    void syncYieldedToolCalls(List<LlmToolCall> pending) {
+        if (pending == null || pending.isEmpty()) return;
+        Map<String, LlmToolCall> byId = new LinkedHashMap<>();
+        for (LlmToolCall call : pending) {
+            if (call != null && call.id != null) byId.put(call.id, call);
+        }
+        if (byId.isEmpty()) return;
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            LlmMessage message = messages.get(i);
+            if (message == null || message.role != LlmMessage.Role.ASSISTANT || message.toolCalls == null) continue;
+            boolean changed = false;
+            List<LlmToolCall> next = new ArrayList<>();
+            for (LlmToolCall call : message.toolCalls) {
+                LlmToolCall repl = call != null ? byId.get(call.id) : null;
+                if (repl != null) {
+                    next.add(repl.copy());
+                    changed = true;
+                } else {
+                    next.add(call);
+                }
+            }
+            if (changed) {
+                message.toolCalls = next;
+                writeMessage(message, false);
+            }
+            return;
+        }
+    }
+
+    void deleteStored() {
+        persistIsolated(() -> {
+            if (!hasEntity(ec) || conversationId == null) return;
+            String id = conversationId;
+            ec.getEntity().find("moqui.llm.LlmSkillUse").condition("conversationId", id).deleteAll();
+            ec.getEntity().find("moqui.llm.LlmCallLog").condition("conversationId", id).deleteAll();
+            ec.getEntity().find("moqui.llm.LlmMessage").condition("conversationId", id).deleteAll();
+            EntityValue ev = ec.getEntity().find("moqui.llm.LlmConversation")
+                    .condition("conversationId", id).one();
+            if (ev != null) ev.delete();
+            messages.clear();
+            pendingToolCalls.clear();
+            statusId = null;
+        });
+    }
 
     @Override
     public void setTitle(String title) {
@@ -421,9 +521,10 @@ public class LlmConversationImpl implements LlmConversation {
     }
 
     /**
-     * Single-flight CAS inside the isolated TX: re-read (FOR UPDATE) and only Active|Complete|Failed|Cancelled
-     * may become Streaming. Yielded is 409 on a new turn; resume (Yielded → Streaming) is allowed when
-     * {@code resumeFromYielded} is true.
+     * Single-flight inside the isolated TX: re-read (FOR UPDATE). Yielded is 409 on a new turn;
+     * resume (Yielded to Streaming) is allowed when {@code resumeFromYielded} is true.
+     * Streaming is 409 only while this JVM still has the turn claimed. A Streaming row with no
+     * claim is a turn that already ended, and this call continues it.
      */
     void beginTurnStreaming() { beginTurnStreaming(false); }
     void beginTurnStreaming(boolean resumeFromYielded) {
@@ -433,11 +534,20 @@ public class LlmConversationImpl implements LlmConversation {
                     .condition("conversationId", conversationId).forUpdate(true).useCache(false).one();
             if (ev == null) throw new LlmException("Conversation not found: " + conversationId);
             String dbStatus = ev.getString("statusId");
-            if (STATUS_STREAMING.equals(dbStatus)
-                    || (STATUS_YIELDED.equals(dbStatus) && !resumeFromYielded)) {
+            if (STATUS_YIELDED.equals(dbStatus) && !resumeFromYielded) {
                 throw new LlmException("Conversation is " + dbStatus + " (single-flight)",
                         null, LlmFinishReason.ERROR, 409, profileName, conversationId);
             }
+            // Streaming with a live claim is the real single-flight. A Streaming row and no claim
+            // means the turn that set it already left this JVM (request ended, or the process restarted).
+            if (STATUS_STREAMING.equals(dbStatus) && turnClaimed()) {
+                throw new LlmException("Conversation is " + dbStatus + " (single-flight)",
+                        null, LlmFinishReason.ERROR, 409, profileName, conversationId);
+            }
+            if (STATUS_STREAMING.equals(dbStatus))
+                logger.warn("Conversation " + conversationId
+                        + " was LlmcsStreaming with no in-flight turn; continuing");
+            claimTurn();
             statusId = STATUS_STREAMING;
             writeHeader(ev, false);
         } else {
@@ -448,6 +558,28 @@ public class LlmConversationImpl implements LlmConversation {
             }
             statusId = STATUS_STREAMING;
         }
+    }
+
+    /** Package-visible for the gateway's early 409, before it rewrites context messages. */
+    static boolean turnInFlight(ExecutionContext ec, String conversationId) {
+        if (ec == null || conversationId == null || !(ec.getLlm() instanceof LlmFacadeImpl)) return false;
+        return ((LlmFacadeImpl) ec.getLlm()).turnClaimed(conversationId);
+    }
+    private boolean turnClaimed() {
+        // No facade means we cannot tell a live turn from a leftover row, so keep the strict 409.
+        if (ec == null || !(ec.getLlm() instanceof LlmFacadeImpl)) return true;
+        return ((LlmFacadeImpl) ec.getLlm()).turnClaimed(conversationId);
+    }
+    private void claimTurn() {
+        if (ec == null || !(ec.getLlm() instanceof LlmFacadeImpl)) return;
+        long token = ((LlmFacadeImpl) ec.getLlm()).claimTurn(conversationId);
+        if (token > 0L) turnToken = token;
+    }
+    void releaseTurnClaim() {
+        long token = turnToken;
+        turnToken = 0L;
+        if (token <= 0L || ec == null || !(ec.getLlm() instanceof LlmFacadeImpl)) return;
+        ((LlmFacadeImpl) ec.getLlm()).releaseTurn(conversationId, token);
     }
 
     void setPendingToolCallsInternal(List<LlmToolCall> calls) {
@@ -512,6 +644,7 @@ public class LlmConversationImpl implements LlmConversation {
         if (message.messageId == null && !hasEntity(ec)) message.messageId = newInMemoryId();
         messages.add(message);
         if (message.role == LlmMessage.Role.SYSTEM) systemText = message.content;
+        if (message.role == LlmMessage.Role.USER) ConversationSummary.noteFirstUser(this, message.content);
         lastMessageDate = message.sentDate;
         writeMessage(message, true);
         updateHeader();
@@ -606,6 +739,13 @@ public class LlmConversationImpl implements LlmConversation {
         s.visitId = visitId;
         s.statusId = statusId;
         s.title = title;
+        s.createdDate = createdDate;
+        s.purpose = purpose;
+        s.summary = summary;
+        s.searchText = searchText;
+        s.hasCanvas = hasCanvas;
+        s.summaryFromLlm = summaryFromLlm;
+        s.canvasJson = canvasJson;
         s.systemText = systemText;
         s.windowPolicy = windowPolicy != null ? windowPolicy.copy() : new WindowPolicy();
         s.pendingToolCalls.addAll(pendingToolCalls);
@@ -622,6 +762,13 @@ public class LlmConversationImpl implements LlmConversation {
         visitId = s.visitId;
         statusId = s.statusId;
         title = s.title;
+        createdDate = s.createdDate;
+        purpose = s.purpose;
+        summary = s.summary;
+        searchText = s.searchText;
+        hasCanvas = s.hasCanvas;
+        summaryFromLlm = s.summaryFromLlm;
+        canvasJson = s.canvasJson;
         systemText = s.systemText;
         windowPolicy = s.windowPolicy != null ? s.windowPolicy : new WindowPolicy();
         pendingToolCalls.clear();
@@ -635,6 +782,8 @@ public class LlmConversationImpl implements LlmConversation {
 
     private static final class Snapshot {
         String conversationId, profileName, userId, visitId, statusId, title, systemText;
+        String purpose, summary, searchText, hasCanvas, summaryFromLlm, canvasJson;
+        Timestamp createdDate;
         WindowPolicy windowPolicy;
         final List<LlmToolCall> pendingToolCalls = new ArrayList<>();
         final Map<String, Object> attributes = new LinkedHashMap<>();
@@ -654,6 +803,13 @@ public class LlmConversationImpl implements LlmConversation {
         visitId = header.getString("visitId");
         statusId = header.getString("statusId");
         title = header.getString("title");
+        createdDate = header.getTimestamp("createdDate");
+        purpose = header.getString("purpose");
+        summary = header.getString("summary");
+        searchText = header.getString("searchText");
+        hasCanvas = header.getString("hasCanvas");
+        summaryFromLlm = header.getString("summaryFromLlm");
+        canvasJson = header.getString("canvasJson");
         systemText = header.getString("systemText");
         windowPolicy = WindowPolicy.fromMap(LlmJson.toMap(header.getString("windowPolicyJson")));
         pendingToolCalls.clear();
@@ -661,12 +817,21 @@ public class LlmConversationImpl implements LlmConversation {
         attributes.clear();
         Map<String, Object> attrs = LlmJson.toMap(header.getString("attributesJson"));
         if (attrs != null) attributes.putAll(attrs);
+        boolean migratedCanvas = false;
+        if ((canvasJson == null || canvasJson.isBlank()) && attrs != null
+                && attrs.get(WriteUiTool.ATTR_LAST_WRITE_UI) instanceof Map) {
+            canvasJson = LlmJson.toJson(attrs.get(WriteUiTool.ATTR_LAST_WRITE_UI));
+            hasCanvas = "Y";
+            attributes.remove(WriteUiTool.ATTR_LAST_WRITE_UI);
+            migratedCanvas = true;
+        }
         lastMessageDate = header.getTimestamp("lastMessageDate");
         messages.clear();
         EntityList list = ec.getEntity().find("moqui.llm.LlmMessage")
                 .condition("conversationId", conversationId).orderBy("ordinal").list();
         int size = list.size();
         for (int i = 0; i < size; i++) messages.add(fromEntity(list.get(i)));
+        if (migratedCanvas) updateHeader();
     }
 
     private void writeHeader(EntityValue ev, boolean create) {
@@ -675,17 +840,36 @@ public class LlmConversationImpl implements LlmConversation {
         ev.set("visitId", visitId);
         ev.set("statusId", statusId != null ? statusId : STATUS_ACTIVE);
         ev.set("title", title);
+        ev.set("createdDate", createdDate);
+        ev.set("purpose", purpose);
+        ev.set("summary", summary);
+        ev.set("searchText", searchText);
+        ev.set("hasCanvas", hasCanvas);
+        ev.set("summaryFromLlm", summaryFromLlm);
+        ev.set("canvasJson", canvasJson);
         ev.set("systemText", systemText);
         ev.set("windowPolicyJson", LlmJson.toJson(windowPolicy.toMap()));
         ev.set("pendingToolCallsJson", pendingToolCalls.isEmpty() ? null : LlmJson.toJson(pendingToolCalls));
         ev.set("attributesJson", attributes.isEmpty() ? null : LlmJson.toJson(attributes));
         ev.set("lastMessageDate", lastMessageDate);
-        ev.set("messageCount", messages.size());
+        ev.set("messageCount", visibleMessageCount(messages));
         if (create) ev.create();
         else ev.update();
     }
 
-    private void updateHeader() {
+    /** Rows the chat shows. System and context stay in the transcript but are not counted in the list. */
+    private static int visibleMessageCount(List<LlmMessage> messages) {
+        int count = 0;
+        if (messages == null) return 0;
+        for (LlmMessage message : messages) {
+            if (message == null || message.role == null) continue;
+            if (message.role == LlmMessage.Role.SYSTEM || message.role == LlmMessage.Role.CONTEXT) continue;
+            count++;
+        }
+        return count;
+    }
+
+    void updateHeader() {
         if (!hasEntity(ec) || conversationId == null) return;
         EntityValue ev = ec.getEntity().find("moqui.llm.LlmConversation")
                 .condition("conversationId", conversationId).one();

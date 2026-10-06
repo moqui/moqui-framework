@@ -97,18 +97,22 @@ class LlmServlet extends HttpServlet {
             return
         }
 
-        LlmGateway.Route route = LlmGateway.parseRoute(request.getPathInfo())
+        String method = request.getMethod() != null ? request.getMethod().toUpperCase() : ""
+        LlmGateway.Route route = LlmGateway.parseRoute(request.getPathInfo(), method)
         if (route == null) {
             sendJsonError(response, HttpServletResponse.SC_NOT_FOUND, "Unknown LLM path")
             return
         }
-        String method = request.getMethod() != null ? request.getMethod().toUpperCase() : ""
         if (route.isGet() && method != "GET") {
             sendJsonError(response, HttpServletResponse.SC_METHOD_NOT_ALLOWED, "GET required")
             return
         }
         if (route.isPost() && method != "POST") {
             sendJsonError(response, HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required")
+            return
+        }
+        if (route.isDelete() && method != "DELETE") {
+            sendJsonError(response, HttpServletResponse.SC_METHOD_NOT_ALLOWED, "DELETE required")
             return
         }
 
@@ -125,11 +129,24 @@ class LlmServlet extends HttpServlet {
                     sendJson(response, 200, [profiles: LlmGateway.listProfiles(ec)])
                     return
                 case LlmGateway.Route.Op.LIST_CONVERSATIONS:
-                    sendJson(response, 200, [conversations: LlmGateway.listConversations(ec,
-                            request.getParameter("profile"), request.getParameter("purpose"))])
+                    int pageIndex = 0
+                    String pageRaw = request.getParameter("pageIndex")
+                    if (pageRaw != null && !pageRaw.isBlank()) {
+                        try { pageIndex = Integer.parseInt(pageRaw.trim()) }
+                        catch (NumberFormatException ignored) { pageIndex = 0 }
+                    }
+                    sendJson(response, 200, LlmGateway.listConversations(ec,
+                            request.getParameter("profile"), request.getParameter("purpose"),
+                            request.getParameter("search"), pageIndex))
                     return
                 case LlmGateway.Route.Op.GET_CONVERSATION:
                     sendJson(response, 200, LlmGateway.getConversationMap(ec, route.conversationId))
+                    return
+                case LlmGateway.Route.Op.DELETE_CONVERSATION:
+                    Map<String, Object> deleted = LlmGateway.deleteConversation(ec, route.conversationId)
+                    int dst = deleted.get("httpStatus") instanceof Number ?
+                            ((Number) deleted.get("httpStatus")).intValue() : 200
+                    sendJson(response, dst, deleted)
                     return
                 case LlmGateway.Route.Op.CANCEL:
                     Map<String, Object> cancelled = LlmGateway.cancel(ec, route.conversationId)
@@ -286,6 +303,9 @@ class ServletStreamListener implements LlmStreamListener {
     }
     @Override void onConversation(String conversationId) {
         emit("conversation", [conversationId: conversationId] as Map<String, Object>)
+    }
+    @Override void onUpstreamOpen() {
+        emit("llm", [connected: true] as Map<String, Object>)
     }
     @Override void onDelta(String textDelta) {
         emit("delta", [content: textDelta] as Map<String, Object>)

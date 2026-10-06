@@ -17,6 +17,8 @@ import java.util.List;
 
 public interface LlmStreamListener {
     default void onConversation(String conversationId) { }
+    /** Provider response headers arrived. Tokens may still be pending. */
+    default void onUpstreamOpen() { }
     default void onDelta(String textDelta) { }
     /** Partial write_ui (or other client tool) arguments while the model is still streaming. */
     default void onToolCallDelta(String name, String argumentsSoFar) { }

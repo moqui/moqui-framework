@@ -57,6 +57,7 @@ class FakeLlmProtocol implements LlmProtocol {
         if (listener == null) throw new IllegalArgumentException("ProtocolStreamListener is required")
         chatStreamCount++
         lastRequest = request
+        if (request?.onStreamOpen != null) request.onStreamOpen.accept(null)
         if (streamFailure != null) {
             if (streamDeltas != null) {
                 for (String d : streamDeltas) if (d) listener.onDelta(d)

@@ -28,6 +28,17 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="visitId" type="id"/>
         <field name="statusId" type="id"/>
         <field name="title" type="text-medium"/>
+        <field name="createdDate" type="date-time"/>
+        <field name="purpose" type="text-short">
+            <description>Copied from create attributes.purpose so conversation lists can filter without reading attributesJson.</description></field>
+        <field name="summary" type="text-medium">
+            <description>One line shown in the conversation list, at most 100 characters.</description></field>
+        <field name="searchText" type="text-fts">
+            <description>First user message plus the summary. The only text-fts column on this entity.</description></field>
+        <field name="hasCanvas" type="text-indicator"/>
+        <field name="summaryFromLlm" type="text-indicator"/>
+        <field name="canvasJson" type="text-very-long">
+            <description>Merged write_ui schema. Written in the same commit as a yielded write_ui, not in attributesJson.</description></field>
         <field name="systemText" type="text-very-long">
             <description>Denormalized copy of the current SYSTEM message for listing/search. Source of truth for
                 replaceSystem / buildWindow is the Role.SYSTEM LlmMessage row (there is at most one).
@@ -44,6 +55,7 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="statusId"/></relationship>
         <index name="LLMCONV_CONTEXT"><index-field name="contextId"/></index>
         <index name="LLMCONV_USER"><index-field name="userId"/></index>
+        <index name="LLMCONV_USER_DATE"><index-field name="userId"/><index-field name="lastMessageDate"/></index>
         <index name="LLMCONV_STATUS"><index-field name="statusId"/></index>
         <seed-data>
             <moqui.basic.EnumerationType description="LLM Conversation Status" enumTypeId="LlmConversationStatus"/>

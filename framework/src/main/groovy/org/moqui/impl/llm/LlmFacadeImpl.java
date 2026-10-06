@@ -47,6 +47,9 @@ public class LlmFacadeImpl implements LlmFacade {
     private final Map<String, LlmTool.Factory> clientToolTypes = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, RestClient.RestStream> inFlight = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Boolean> cancelledIds = new ConcurrentHashMap<>();
+    /** Conversation ids with a turn running in this JVM. The value is the claim token. */
+    private final ConcurrentHashMap<String, Long> activeTurns = new ConcurrentHashMap<>();
+    private static final java.util.concurrent.atomic.AtomicLong activeTurnSeq = new java.util.concurrent.atomic.AtomicLong();
     private final boolean enabledFlag;
     private final String defaultProfileName;
     private boolean anyUrl = false;
@@ -177,6 +180,21 @@ public class LlmFacadeImpl implements LlmFacade {
     public boolean isCancelled(String conversationId) {
         return conversationId != null && cancelledIds.containsKey(conversationId);
     }
+    /** True while a turn in this JVM has claimed the conversation and not released it. */
+    public boolean turnClaimed(String conversationId) {
+        return conversationId != null && activeTurns.containsKey(conversationId);
+    }
+    /** Replace any claim. The token is what {@link #releaseTurn} must pass so a 409 cannot drop another turn's claim. */
+    public long claimTurn(String conversationId) {
+        if (conversationId == null || conversationId.isBlank()) return 0L;
+        long token = activeTurnSeq.incrementAndGet();
+        activeTurns.put(conversationId, token);
+        return token;
+    }
+    public void releaseTurn(String conversationId, long token) {
+        if (conversationId == null || token <= 0L) return;
+        activeTurns.remove(conversationId, token);
+    }
     public void clearCancelled(String conversationId) {
         if (conversationId != null) cancelledIds.remove(conversationId);
     }
@@ -266,6 +284,7 @@ public class LlmFacadeImpl implements LlmFacade {
         public final boolean allowUnprefixedRequest;
         public final boolean allowEnterSim;
         public final boolean allowVueSfc;
+        public final boolean summarizeConversation;
         public final List<BasicEntityAllow> allowedBasicEntities;
 
         ProfileState(String name, MNode confNode, String url, String path, String endpointUrl, String apiKey,
@@ -278,7 +297,8 @@ public class LlmFacadeImpl implements LlmFacade {
                 Set<String> allowedEntities, List<AllowedPath> allowedPaths,
                 boolean allowWriteUi, int ssePingSeconds, String systemLocation, boolean allowClientSystem,
                 boolean allowBrowse, boolean allowRunService, boolean allowUnprefixedRequest,
-                boolean allowEnterSim, boolean allowVueSfc, List<BasicEntityAllow> allowedBasicEntities) {
+                boolean allowEnterSim, boolean allowVueSfc, boolean summarizeConversation,
+                List<BasicEntityAllow> allowedBasicEntities) {
             this.name = name;
             this.confNode = confNode;
             this.url = url;
@@ -314,6 +334,7 @@ public class LlmFacadeImpl implements LlmFacade {
             this.allowUnprefixedRequest = allowUnprefixedRequest;
             this.allowEnterSim = allowEnterSim;
             this.allowVueSfc = allowVueSfc;
+            this.summarizeConversation = summarizeConversation;
             this.allowedBasicEntities = allowedBasicEntities != null ? allowedBasicEntities : Collections.emptyList();
         }
 
@@ -355,6 +376,7 @@ public class LlmFacadeImpl implements LlmFacade {
             boolean allowUnprefixedRequest = parseBoolean(node.attribute("allow-unprefixed-request"), false);
             boolean allowEnterSim = parseBoolean(node.attribute("allow-enter-sim"), false);
             boolean allowVueSfc = parseBoolean(node.attribute("allow-vue-sfc"), false);
+            boolean summarizeConversation = parseBoolean(node.attribute("summarize-conversation"), false);
 
             Map<String, String> extraHeaders = new LinkedHashMap<>();
             for (MNode header : node.children("header")) {
@@ -415,7 +437,7 @@ public class LlmFacadeImpl implements LlmFacade {
                     rf, protocol, Collections.unmodifiableSet(allowedEntities),
                     Collections.unmodifiableList(allowedPaths), allowWriteUi, ssePingSeconds,
                     systemLocation, allowClientSystem, allowBrowse, allowRunService, allowUnprefixedRequest,
-                    allowEnterSim, allowVueSfc, Collections.unmodifiableList(allowedBasic));
+                    allowEnterSim, allowVueSfc, summarizeConversation, Collections.unmodifiableList(allowedBasic));
         }
 
         /** Test helper: no HTTP pool. */
@@ -436,7 +458,7 @@ public class LlmFacadeImpl implements LlmFacade {
                     Collections.emptyMap(), Collections.emptyMap(), null, protocol,
                     Collections.emptySet(),
                     allowedPaths != null ? allowedPaths : Collections.emptyList(),
-                    allowWriteUi, 15, null, true, false, false, false, false, false,
+                    allowWriteUi, 15, null, true, false, false, false, false, false, false,
                     Collections.emptyList());
         }
         public static ProfileState forTest(String name, LlmProtocol protocol, String model,
@@ -458,6 +480,15 @@ public class LlmFacadeImpl implements LlmFacade {
                 boolean allowTxOverHttp, int emptyRetries, float retryInitialSeconds, int retryMax,
                 List<AllowedPath> allowedPaths, boolean allowWriteUi, boolean allowUnprefixedRequest,
                 boolean allowBrowse, boolean allowRunService, boolean allowClientSystem, boolean allowEnterSim) {
+            return forTest(name, protocol, model, allowTxOverHttp, emptyRetries, retryInitialSeconds, retryMax,
+                    allowedPaths, allowWriteUi, allowUnprefixedRequest, allowBrowse, allowRunService,
+                    allowClientSystem, allowEnterSim, false);
+        }
+        public static ProfileState forTest(String name, LlmProtocol protocol, String model,
+                boolean allowTxOverHttp, int emptyRetries, float retryInitialSeconds, int retryMax,
+                List<AllowedPath> allowedPaths, boolean allowWriteUi, boolean allowUnprefixedRequest,
+                boolean allowBrowse, boolean allowRunService, boolean allowClientSystem, boolean allowEnterSim,
+                boolean summarizeConversation) {
             if (protocol == null) protocol = new OpenAiCompatProtocol();
             return new ProfileState(name, null, "http://127.0.0.1", OpenAiCompatProtocol.DEFAULT_PATH,
                     "http://127.0.0.1/v1/chat/completions", "", "Authorization", null,
@@ -468,7 +499,7 @@ public class LlmFacadeImpl implements LlmFacade {
                     Collections.emptySet(),
                     allowedPaths != null ? allowedPaths : Collections.emptyList(),
                     allowWriteUi, 15, null, allowClientSystem, allowBrowse, allowRunService, allowUnprefixedRequest,
-                    allowEnterSim, false, Collections.emptyList());
+                    allowEnterSim, false, summarizeConversation, Collections.emptyList());
         }
     }
 
