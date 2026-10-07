@@ -864,6 +864,7 @@ public final class LlmGateway {
         m.put("usage", r != null ? usageToMap(r.usage) : null);
         m.put("yielded", r != null && r.yielded);
         m.put("durationMs", r != null ? r.durationMs : 0L);
+        m.put("model", r != null ? r.model : null);
         return m;
     }
     public static Map<String, Object> yieldData(List<LlmToolCall> pending) {
