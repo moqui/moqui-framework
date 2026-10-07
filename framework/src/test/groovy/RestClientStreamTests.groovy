@@ -138,6 +138,8 @@ class RestClientStreamTests extends Specification {
         then:
         stream.getStatusCode() == 200
         stream.getContentType() == "text/event-stream"
+        stream.headers().get("Permissions-Policy") == [
+                'payment=(self "https://checkout.stripe.com" "https://js.stripe.com")']
         events == ["chunk-1"]
         !moreEvents
         handlerFinished
@@ -260,6 +262,9 @@ class RestClientStreamTests extends Specification {
             response.setStatus(200)
             response.getHeaders().put(HttpHeader.CONTENT_TYPE, "text/event-stream; charset=UTF-8")
             response.getHeaders().put(HttpHeader.CACHE_CONTROL, "no-cache")
+            // Structured field syntax, not comma-separated HTTP quoted-CSV.
+            response.getHeaders().put("Permissions-Policy",
+                    'payment=(self "https://checkout.stripe.com" "https://js.stripe.com")')
         }
 
         private static void writeChunk(Response response, String text, boolean last) throws IOException {
