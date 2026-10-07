@@ -631,7 +631,10 @@ public class RestClient {
                     curList = new ArrayList<>();
                     headers.put(name, curList);
                 }
-                curList.addAll(Arrays.asList(hdr.getValues()));
+                // Preserve each received field line. HttpField.getValues() applies generic quoted-CSV
+                // parsing, which is invalid for structured headers such as Permissions-Policy and CSP.
+                String value = hdr.getValue();
+                if (value != null) curList.add(value);
             }
 
             // get the response body
@@ -775,7 +778,9 @@ public class RestClient {
                     curList = new ArrayList<>();
                     headers.put(name, curList);
                 }
-                curList.addAll(Arrays.asList(hdr.getValues()));
+                // Preserve each received field line; do not apply CSV parsing to arbitrary headers.
+                String value = hdr.getValue();
+                if (value != null) curList.add(value);
             }
         }
 
