@@ -54,6 +54,7 @@ import org.eclipse.jetty.client.StringRequestContent;
 import org.eclipse.jetty.client.ValidatingConnectionPool;
 import org.eclipse.jetty.client.transport.HttpClientTransportDynamic;
 import org.eclipse.jetty.client.transport.HttpClientTransportOverHTTP;
+import org.eclipse.jetty.http.HttpCompliance;
 import org.eclipse.jetty.http.HttpCookieStore;
 import org.eclipse.jetty.http.HttpField;
 import org.eclipse.jetty.http.HttpFields;
@@ -725,6 +726,10 @@ public class RestClient {
             if (disableCookieManagement) httpClient.setHttpCookieStore(new HttpCookieStore.Empty());
             // use a default idle timeout of 15 seconds, should be lower than server idle timeouts which will vary by server but 30 seconds seems to be common
             httpClient.setIdleTimeout(15000);
+            // Allow HTTP compliance to be tuned without code changes.
+            // Example: -Dmoqui.http.client.compliance=RFC7230 to accept BAD_QUOTES_IN_TOKEN in responses (e.g. Shopify).
+            String complianceProp = System.getProperty("moqui.http.client.compliance");
+            if (complianceProp != null && !complianceProp.isEmpty()) httpClient.setHttpCompliance(HttpCompliance.valueOf(complianceProp));
             try { httpClient.start(); } catch (Exception e) { throw new BaseException("Error starting HTTP client", e); }
         }
 

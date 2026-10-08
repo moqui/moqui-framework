@@ -16,7 +16,7 @@ along with this software (see the LICENSE.md file). If not, see
 
     <!-- ========== Instance Interfaces ========== -->
 
-    <service verb="init" noun="Instance" type="interface">
+    <service verb="init" noun="Instance" type="interface" authz-action="all">
         <in-parameters><parameter name="appInstanceId" required="true"/></in-parameters>
         <out-parameters>
             <parameter name="connectSuccess" type="Boolean"/>
@@ -26,21 +26,21 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="warnings"/>
         </out-parameters>
     </service>
-    <service verb="start" noun="Instance" type="interface">
+    <service verb="start" noun="Instance" type="interface" authz-action="all">
         <in-parameters><parameter name="appInstanceId" required="true"/></in-parameters>
         <out-parameters>
             <parameter name="instanceStarted" type="Boolean"/>
             <parameter name="instanceRunning" type="Boolean"/>
         </out-parameters>
     </service>
-    <service verb="stop" noun="Instance" type="interface">
+    <service verb="stop" noun="Instance" type="interface" authz-action="all">
         <in-parameters><parameter name="appInstanceId" required="true"/></in-parameters>
         <out-parameters>
             <parameter name="instanceStopped" type="Boolean"/>
             <parameter name="instanceRunning" type="Boolean"/>
         </out-parameters>
     </service>
-    <service verb="remove" noun="Instance" type="interface">
+    <service verb="remove" noun="Instance" type="interface" authz-action="all">
         <in-parameters><parameter name="appInstanceId" required="true"/></in-parameters>
         <out-parameters>
             <parameter name="instanceRemoved" type="Boolean"/>
@@ -129,7 +129,7 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <service verb="provision" noun="AppInstance">
+    <service verb="provision" noun="AppInstance" authz-action="all">
         <in-parameters><parameter name="appInstanceId"/></in-parameters>
         <out-parameters>
             <parameter name="databaseCreated" type="Boolean"/>

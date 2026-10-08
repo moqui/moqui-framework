@@ -305,16 +305,21 @@ class ScreenUrlInfo {
             artifactExecutionInfoStack.addFirst(aeii)
         }
 
-        // see if the transition is permitted
-        if (!allowedByScreenDefinition && transitionItem != null) {
-            ScreenDefinition lastScreenDef = (ScreenDefinition) screenPathDefList.get(screenPathDefList.size() - 1)
-            ArtifactExecutionInfoImpl aeii = new ArtifactExecutionInfoImpl("${lastScreenDef.location}/${transitionItem.name}",
-                    ArtifactExecutionInfo.AT_XML_SCREEN_TRANS, ArtifactExecutionInfo.AUTHZA_VIEW, null)
-            ArtifactExecutionInfoImpl lastAeii = (ArtifactExecutionInfoImpl) artifactExecutionInfoStack.peekFirst()
-            if (!aefi.isPermitted(aeii, lastAeii, true, false, false, artifactExecutionInfoStack)) {
-                // logger.warn("TOREMOVE user ${username} is NOT allowed to view screen at path ${this.fullPathNameList} because of screen at ${screenDef.location}")
-                if (permittedCacheKey != null) aefi.screenPermittedCache.put(permittedCacheKey, false)
-                return false
+        // see if the transition is permitted (use the transition's authz-action, not always VIEW)
+        if (transitionItem != null) {
+            AuthzAction transAction = transitionItem.getAuthzAction()
+            boolean transAllowedByScreen = allowedByScreenDefinitionAll ||
+                    (transAction == ArtifactExecutionInfo.AUTHZA_VIEW && (allowedByScreenDefinitionView || allowedByScreenDefinitionAll))
+            if (!transAllowedByScreen) {
+                ScreenDefinition lastScreenDef = (ScreenDefinition) screenPathDefList.get(screenPathDefList.size() - 1)
+                ArtifactExecutionInfoImpl aeii = new ArtifactExecutionInfoImpl("${lastScreenDef.location}/${transitionItem.name}",
+                        ArtifactExecutionInfo.AT_XML_SCREEN_TRANS, transAction, null)
+                ArtifactExecutionInfoImpl lastAeii = (ArtifactExecutionInfoImpl) artifactExecutionInfoStack.peekFirst()
+                if (!aefi.isPermitted(aeii, lastAeii, true, false, false, artifactExecutionInfoStack)) {
+                    // logger.warn("TOREMOVE user ${username} is NOT allowed to view screen at path ${this.fullPathNameList} because of screen at ${screenDef.location}")
+                    if (permittedCacheKey != null) aefi.screenPermittedCache.put(permittedCacheKey, false)
+                    return false
+                }
             }
         }
 

@@ -166,6 +166,7 @@ along with this software (see the LICENSE.md file). If not, see
                 edl.transactionTimeout(timeout)
                 edl.dummyFks(dummyFks)
                 edl.useTryInsert(useTryInsert)
+                edl.restrictSensitiveEntities(true)
                 recordsStored = edl.load()
             ]]></script>
         </actions>
