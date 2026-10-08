@@ -56,7 +56,7 @@ class TransactionFacadeImpl implements TransactionFacade {
     private ThreadLocal<TxStackInfo> txStackInfoCurThread = new ThreadLocal<TxStackInfo>()
     private ThreadLocal<LinkedList<TxStackInfo>> txStackInfoListThread = new ThreadLocal<LinkedList<TxStackInfo>>()
 
-    protected final ConcurrentHashMap<String, ArrayList<EntityRecordLock>> recordLockByEntityPk = new ConcurrentHashMap<>()
+    protected final ConcurrentHashMap<String, ContextJavaUtil.ErlListEntry> recordLockByEntityPk = new ConcurrentHashMap<>()
 
     TransactionFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
@@ -202,7 +202,7 @@ class TransactionFacadeImpl implements TransactionFacade {
             Throwable threadThrown = null
 
             try {
-                txThread = Thread.start('RequireNewTx', {
+                txThread = Thread.ofVirtual().name('RequireNewTx').start({
                     if (threadReuseEci) ecfi.useExecutionContextInThread(eci)
                     try {
                         if (beginTx) {

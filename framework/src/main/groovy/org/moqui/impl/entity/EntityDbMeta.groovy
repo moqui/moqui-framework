@@ -38,6 +38,7 @@ class EntityDbMeta {
     protected final static Logger logger = LoggerFactory.getLogger(EntityDbMeta.class)
 
     static final boolean useTxForMetaData = false
+    private final ReentrantLock metaCheckLock = new ReentrantLock()
 
     // this keeps track of when tables are checked and found to exist or are created
     protected HashMap<String, Timestamp> entityTablesChecked = new HashMap<>()
@@ -392,7 +393,12 @@ class EntityDbMeta {
         }
     }
 
-    synchronized boolean internalCheckTable(EntityDefinition ed, boolean startup) {
+    boolean internalCheckTable(EntityDefinition ed, boolean startup) {
+        metaCheckLock.lock()
+        try { return internalCheckTableLocked(ed, startup) }
+        finally { metaCheckLock.unlock() }
+    }
+    private boolean internalCheckTableLocked(EntityDefinition ed, boolean startup) {
         // if it's in this table we've already checked it
         if (entityTablesChecked.containsKey(ed.getFullEntityName())) return false
 
@@ -436,7 +442,12 @@ class EntityDbMeta {
 
         return tableExistsInternal(ed)
     }
-    synchronized boolean tableExistsInternal(EntityDefinition ed) {
+    boolean tableExistsInternal(EntityDefinition ed) {
+        metaCheckLock.lock()
+        try { return tableExistsInternalLocked(ed) }
+        finally { metaCheckLock.unlock() }
+    }
+    private boolean tableExistsInternalLocked(EntityDefinition ed) {
         Boolean exists = entityTablesExist.get(ed.getFullEntityName())
         if (exists != null) return exists.booleanValue()
 

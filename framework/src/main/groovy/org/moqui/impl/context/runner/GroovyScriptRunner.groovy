@@ -23,11 +23,13 @@ import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.util.StringUtilities
 
 import javax.cache.Cache
+import java.util.concurrent.locks.ReentrantLock
 
 @CompileStatic
 class GroovyScriptRunner implements ScriptRunner {
     private ExecutionContextFactoryImpl ecfi
     private Cache<String, Class> scriptGroovyLocationCache
+    private final ReentrantLock loadGroovyLock = new ReentrantLock()
 
     GroovyScriptRunner() { }
 
@@ -58,13 +60,16 @@ class GroovyScriptRunner implements ScriptRunner {
         if (gc == null) gc = loadGroovy(location)
         return gc
     }
-    private synchronized Class loadGroovy(String location) {
-        Class gc = (Class) scriptGroovyLocationCache.get(location)
-        if (gc == null) {
-            String groovyText = ecfi.resourceFacade.getLocationText(location, false)
-            gc = ecfi.compileGroovy(groovyText, StringUtilities.cleanStringForJavaName(location))
-            scriptGroovyLocationCache.put(location, gc)
-        }
-        return gc
+    private Class loadGroovy(String location) {
+        loadGroovyLock.lock()
+        try {
+            Class gc = (Class) scriptGroovyLocationCache.get(location)
+            if (gc == null) {
+                String groovyText = ecfi.resourceFacade.getLocationText(location, false)
+                gc = ecfi.compileGroovy(groovyText, StringUtilities.cleanStringForJavaName(location))
+                scriptGroovyLocationCache.put(location, gc)
+            }
+            return gc
+        } finally { loadGroovyLock.unlock() }
     }
 }
