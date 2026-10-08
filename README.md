@@ -16,11 +16,11 @@
 
 For information about community infrastructure for code, discussions, support, etc see the Community Guide:
 
-<https://www.moqui.org/docs/moqui/Community+Guide>
+<https://moqui.org/docs/moqui/Community+Guide>
 
 For details about running and deploying Moqui see:
 
-<https://www.moqui.org/docs/framework/Run+and+Deploy>
+<https://moqui.org/docs/framework/Run+and+Deploy>
 
 Note that a runtime directory is required for Moqui Framework to run, but is not included in the source repository. The
 Gradle get component, load, and run tasks will automatically add the default runtime (from the moqui-runtime repository).
@@ -30,12 +30,20 @@ see the [ReleaseNotes.md](https://github.com/moqui/moqui-framework/blob/master/R
 
 For an overview of features see:
 
-<https://www.moqui.org/docs/framework/Framework+Features>
+<https://moqui.org/docs/framework/Framework+Features>
 
 Get started with Moqui development quickly using the Tutorial at:
 
-<https://www.moqui.org/docs/framework/Quick+Tutorial>
+<https://moqui.org/docs/framework/Quick+Tutorial>
 
-For comprehensive documentation of Moqui Framework see the wiki based documentation on moqui.org (*running on Moqui HiveMind*):
- 
-<https://www.moqui.org/m/docs/framework>
+For comprehensive documentation of Moqui Framework see moqui.org, or the moqui-site repository where documentation is maintained:
+
+<https://moqui.org/docs/framework>
+
+<https://github.com/moqui/moqui-site/tree/master/docs/md/framework>
+
+**AI/LLM Policy**
+
+LLMs are considered tools used by people. The person using the tool is just as responsible as with a text editor and keyboard. LLMs are the functional and moral equivalent of a hammer: they do not shake themselves, and are not a substitute or replacement for a responsible party.
+
+Don't trust, verify. Use AI to help verify, but remember who is responsible, and who is a who.
