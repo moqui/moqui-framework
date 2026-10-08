@@ -93,6 +93,10 @@ public interface EntityDataLoader {
     EntityDataLoader disableFkCreate(boolean disable);
     EntityDataLoader disableDataFeed(boolean disable);
 
+    /** If true, skip identity-admin and secret-config entities (UserLoginKey, UserGroupMember, EmailServer, ...).
+     * Default false so seed/install data still loads. Used by put#EntitySyncData and Tools Data Import. */
+    EntityDataLoader restrictSensitiveEntities(boolean restrict);
+
     EntityDataLoader csvDelimiter(char delimiter);
     EntityDataLoader csvCommentStart(char commentStart);
     EntityDataLoader csvQuoteChar(char quoteChar);
