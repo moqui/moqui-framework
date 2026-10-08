@@ -117,6 +117,9 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.security.UserPermission userPermissionId="ElasticRemote" description="ElasticSearch Remote Access"/>
     <moqui.security.UserGroupPermission userGroupId="ADMIN" userPermissionId="ElasticRemote" fromDate="0"/>
 
+    <moqui.security.UserPermission userPermissionId="REST_SCHEMA" description="REST schema dumps"/>
+    <moqui.security.UserGroupPermission userGroupId="ADMIN" userPermissionId="REST_SCHEMA" fromDate="0"/>
+
     <moqui.security.UserPermission userPermissionId="KibanaRemote" description="Kibana Remote Access"/>
     <moqui.security.UserGroupPermission userGroupId="ADMIN" userPermissionId="KibanaRemote" fromDate="0"/>
 

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<eecas xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-eca-3.xsd">
+    <eeca id="UserGroupMemberPrivileged" entity="moqui.security.UserGroupMember"
+            on-create="true" on-update="true" on-delete="true" run-before="true">
+        <actions><script>org.moqui.impl.util.UserSecurityChecks.assertPrivilegedGroupMembership(ec, userGroupId as String)</script></actions>
+    </eeca>
+    <eeca id="UserGroupPermissionSealed" entity="moqui.security.UserGroupPermission"
+            on-create="true" on-update="true" on-delete="true" run-before="true">
+        <actions><script>org.moqui.impl.util.UserSecurityChecks.assertSealedPermissionGrant(ec, userPermissionId as String)</script></actions>
+    </eeca>
+</eecas>

@@ -821,6 +821,7 @@ class ScreenDefinition {
         protected boolean beginTransaction = true
         protected boolean readOnly = false
         protected boolean requireSessionToken = true
+        protected ArtifactExecutionInfo.AuthzAction authzAction = ArtifactExecutionInfo.AUTHZA_VIEW
 
         protected TransitionItem(ScreenDefinition parentScreen) { this.parentScreen = parentScreen }
 
@@ -864,6 +865,7 @@ class ScreenDefinition {
             }
 
             readOnly = (actions == null && serviceActions == null) || transitionNode.attribute("read-only") == "true"
+            authzAction = resolveAuthzAction()
 
             // conditional-response*
             for (MNode condResponseNode in transitionNode.children("conditional-response"))
@@ -884,6 +886,25 @@ class ScreenDefinition {
         boolean getBeginTransaction() { return beginTransaction }
         boolean isReadOnly() { return readOnly }
         boolean getRequireSessionToken() { return requireSessionToken }
+        ArtifactExecutionInfo.AuthzAction getAuthzAction() { return authzAction }
+
+        protected ArtifactExecutionInfo.AuthzAction resolveAuthzAction() {
+            String attr = transitionNode != null ? transitionNode.attribute("authz-action") : null
+            if (attr) {
+                ArtifactExecutionInfo.AuthzAction fromAttr = ArtifactExecutionInfo.authzActionByName.get(attr)
+                if (fromAttr != null) return fromAttr
+            }
+            if (singleServiceName) {
+                ServiceDefinition sd = parentScreen.sfi.ecfi.serviceFacade.getServiceDefinition(singleServiceName)
+                if (sd != null) return sd.authzAction
+                String verb = ServiceDefinition.getVerbFromName(singleServiceName)
+                ArtifactExecutionInfo.AuthzAction fromVerb = ServiceDefinition.verbAuthzActionEnumMap.get(verb)
+                return fromVerb != null ? fromVerb : ArtifactExecutionInfo.AUTHZA_ALL
+            }
+            if (readOnly) return ArtifactExecutionInfo.AUTHZA_VIEW
+            if (actions != null || serviceActions != null) return ArtifactExecutionInfo.AUTHZA_UPDATE
+            return ArtifactExecutionInfo.AUTHZA_VIEW
+        }
 
         boolean checkCondition(ExecutionContextImpl ec) { return condition ? condition.checkCondition(ec) : true }
 
@@ -923,11 +944,9 @@ class ScreenDefinition {
             ExecutionContextImpl ec = sri.ec
 
             // NOTE: if parent screen of transition does not require auth, don't require authz
-            // NOTE: use the View authz action to leave it open, ie require minimal authz; restrictions are often more
-            //    in the services/etc if/when needed, or specific transitions can have authz settings
             String requireAuthentication = (String) parentScreen.screenNode.attribute('require-authentication')
             ArtifactExecutionInfoImpl aei = new ArtifactExecutionInfoImpl("${parentScreen.location}/${name}",
-                    ArtifactExecutionInfo.AT_XML_SCREEN_TRANS, ArtifactExecutionInfo.AUTHZA_VIEW, sri.outputContentType)
+                    ArtifactExecutionInfo.AT_XML_SCREEN_TRANS, authzAction, sri.outputContentType)
             ec.artifactExecutionFacade.pushInternal(aei, (!requireAuthentication || "true".equals(requireAuthentication)), true)
 
             boolean loggedInAnonymous = false
