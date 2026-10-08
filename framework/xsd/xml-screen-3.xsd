@@ -348,6 +348,24 @@ along with this software (see the LICENSE.md file). If not, see
         <xs:attribute name="require-session-token" default="true" type="boolean"><xs:annotation><xs:documentation>
             If not false (default true) moquiSessionToken (from ec.web.sessionToken) must be passed to this
             transition for all requests in a session after the first.</xs:documentation></xs:annotation></xs:attribute>
+        <xs:attribute name="authz-action">
+            <xs:annotation><xs:documentation>
+                Artifact authz action used when running this transition and when checking whether a link to it is
+                permitted. If not specified: a transition-level service-call uses that service's authz-action (or
+                verb); read-only transitions default to view; other transitions with actions default to update;
+                redirect-only transitions default to view. read-only is about insecure URL parameters, not authz —
+                privileged read-only transitions (data export, file manager commands, etc) should set this explicitly.
+            </xs:documentation></xs:annotation>
+            <xs:simpleType>
+                <xs:restriction base="xs:token">
+                    <xs:enumeration value="view"/>
+                    <xs:enumeration value="create"/>
+                    <xs:enumeration value="update"/>
+                    <xs:enumeration value="delete"/>
+                    <xs:enumeration value="all"/>
+                </xs:restriction>
+            </xs:simpleType>
+        </xs:attribute>
     </xs:complexType></xs:element>
     <xs:element name="path-parameter"><xs:complexType>
         <xs:attribute name="name" type="name-parameter" use="required"/>
