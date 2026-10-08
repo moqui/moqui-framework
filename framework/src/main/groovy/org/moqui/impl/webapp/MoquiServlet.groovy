@@ -282,10 +282,14 @@ class MoquiServlet extends HttpServlet {
         MNode errorScreenNode = acceptHtml ? ecfi.getWebappInfo(moquiWebappName)?.getErrorScreenNode(errorType) : null
         if (errorScreenNode != null) {
             try {
+                boolean production = "production".equals(System.getProperty("instance_purpose"))
+                boolean showErrorDetail = !production && ec.user.userId
                 ec.context.put("errorCode", errorCode)
                 ec.context.put("errorType", errorType)
-                ec.context.put("errorMessage", message)
+                ec.context.put("errorMessage", (production && errorCode == HttpServletResponse.SC_INTERNAL_SERVER_ERROR) ?
+                        "An internal error occurred" : message)
                 ec.context.put("errorThrowable", origThrowable)
+                ec.context.put("showErrorDetail", showErrorDetail)
                 String screenPathAttr = errorScreenNode.attribute("screen-path")
                 // NOTE 20180228: this seems to be working fine now and Jetty (at least) is returning the 404/etc responses with the custom HTML body unlike before
                 response.setStatus(errorCode)

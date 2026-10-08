@@ -232,6 +232,9 @@ public class ExecutionContextImpl implements ExecutionContext {
         ecfi.transactionFacade.destroyAllInThread();
         // clean up resources, like JCR session
         ecfi.resourceFacade.destroyAllInThread();
+        // Drop user state on this object so a leaked ECI cannot carry a login. Do not Shiro-logout
+        // (that would invalidate a still-valid HTTP session).
+        userFacade.resetToAnonymous();
         // clear out the ECFI's reference to this as well
         ecfi.activeContext.remove();
         ecfi.activeContextMap.remove(Thread.currentThread().threadId());

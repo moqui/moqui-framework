@@ -23,6 +23,7 @@ import jakarta.servlet.ServletContext
 import jakarta.servlet.ServletContextEvent
 import jakarta.servlet.ServletContextListener
 import jakarta.servlet.ServletRegistration
+import jakarta.servlet.SessionCookieConfig
 
 import jakarta.websocket.HandshakeResponse
 import jakarta.websocket.server.HandshakeRequest
@@ -37,6 +38,9 @@ import org.moqui.util.MNode
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+
+import java.util.List
+import java.util.Map
 
 @CompileStatic
 class MoquiContextListener implements ServletContextListener {
@@ -153,6 +157,15 @@ class MoquiContextListener implements ServletContextListener {
             }
 
             // NOTE: webapp.session-config.@timeout handled in MoquiSessionListener
+            // Jetty 12 ignores the old web.xml comment __SAME_SITE_LAX__; Servlet 6 SessionCookieConfig.setAttribute works.
+            try {
+                SessionCookieConfig scc = sc.getSessionCookieConfig()
+                scc.setHttpOnly(true)
+                scc.setAttribute("SameSite", "Lax")
+                logger.info("Session cookie HttpOnly=true SameSite=Lax")
+            } catch (Exception e) {
+                logger.warn("Could not set session cookie SameSite=Lax", e)
+            }
 
             // WebSocket Endpoint Setup
             ServerContainer wsServer = ecfi.getServerContainer()
@@ -169,7 +182,7 @@ class MoquiContextListener implements ServletContextListener {
                         String endpointPath = endpointNode.attribute("path")
                         if (!endpointPath.startsWith("/")) endpointPath = "/" + endpointPath
 
-                        MoquiServerEndpointConfigurator configurator = new MoquiServerEndpointConfigurator(ecfi, endpointNode.attribute("timeout"))
+                        MoquiServerEndpointConfigurator configurator = new MoquiServerEndpointConfigurator(ecfi, endpointNode.attribute("timeout"), moquiWebappName)
                         ServerEndpointConfig sec = ServerEndpointConfig.Builder.create(endpointClass, endpointPath)
                                 .configurator(configurator).build()
                         wsServer.addEndpoint(sec)
@@ -225,24 +238,47 @@ class MoquiContextListener implements ServletContextListener {
         // for a good explanation of javax.websocket details related to this see:
         // http://stackoverflow.com/questions/17936440/accessing-httpsession-from-httpservletrequest-in-a-web-socket-serverendpoint
         ExecutionContextFactoryImpl ecfi
+        String webappName
         Long maxIdleTimeout = null
-        MoquiServerEndpointConfigurator(ExecutionContextFactoryImpl ecfi, String timeoutStr) {
+        MoquiServerEndpointConfigurator(ExecutionContextFactoryImpl ecfi, String timeoutStr, String webappName) {
             this.ecfi = ecfi
+            this.webappName = webappName
             if (timeoutStr) maxIdleTimeout = Long.valueOf(timeoutStr)
         }
         @Override
         boolean checkOrigin(String originHeaderValue) {
-            // logger.info("New ServerEndpoint Origin: ${originHeaderValue}")
-            // TODO: check this against what? will be something like 'http://localhost:8080'
-            return super.checkOrigin(originHeaderValue)
+            // Real check is in modifyHandshake (needs Host). Empty Origin is allowed here.
+            return true
         }
 
         @Override
         void modifyHandshake(ServerEndpointConfig config, HandshakeRequest request, HandshakeResponse response) {
+            if (!originAllowed(request)) {
+                throw new IllegalStateException("WebSocket Origin not allowed")
+            }
             config.getUserProperties().put("handshakeRequest", request)
             config.getUserProperties().put("httpSession", request.getHttpSession())
             config.getUserProperties().put("executionContextFactory", ecfi)
             if (maxIdleTimeout != null) config.getUserProperties().put("maxIdleTimeout", maxIdleTimeout)
+        }
+
+        boolean originAllowed(HandshakeRequest request) {
+            WebappInfo wi = ecfi.getWebappInfo(webappName)
+            String origin = firstHeader(request, "Origin")
+            String host = firstHeader(request, "Host")
+            return org.moqui.util.WebUtilities.webSocketOriginAllowed(origin, host,
+                    wi?.allowOriginSet, wi?.httpHost, wi?.httpsHost)
+        }
+
+        static String firstHeader(HandshakeRequest request, String name) {
+            if (request == null) return null
+            Map headers = request.getHeaders()
+            if (headers == null) return null
+            Object v = headers.get(name)
+            if (v == null) v = headers.get(name.toLowerCase())
+            if (v instanceof List && ((List) v).size() > 0) return ((List) v).get(0)?.toString()
+            if (v instanceof CharSequence) return v.toString()
+            return null
         }
     }
 }
