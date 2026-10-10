@@ -611,7 +611,7 @@ public class SkillIndex {
         }
     }
 
-    static List<String> lessonLines(ExecutionContext ec, String skillId) {
+    public static List<String> lessonLines(ExecutionContext ec, String skillId) {
         if (ec == null || skillId == null || skillId.isBlank()) return Collections.emptyList();
         try {
             return withAuthzDisabled(ec, () -> {

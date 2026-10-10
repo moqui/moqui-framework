@@ -18,6 +18,7 @@ import org.moqui.context.ExecutionContext;
 import org.moqui.context.TransactionFacade;
 import org.moqui.entity.EntityList;
 import org.moqui.entity.EntityValue;
+import org.moqui.impl.llm.tools.WriteUiTool;
 import org.moqui.llm.LlmConversation;
 import org.moqui.llm.LlmException;
 import org.moqui.llm.LlmFinishReason;
@@ -224,7 +225,7 @@ public class LlmConversationImpl implements LlmConversation {
     }
 
     /** In memory only. The yield commit writes the header. */
-    void setCanvasMap(Map<String, Object> canvas) {
+    public void setCanvasMap(Map<String, Object> canvas) {
         if (canvas == null || canvas.isEmpty()) {
             canvasJson = null;
             hasCanvas = "N";

@@ -11,7 +11,7 @@
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
-package org.moqui.impl.llm;
+package org.moqui.impl.llm.tools;
 
 import org.moqui.context.ExecutionContext;
 import org.moqui.entity.EntityCondition;
@@ -22,6 +22,7 @@ import org.moqui.entity.EntityValue;
 import org.moqui.impl.context.ExecutionContextImpl;
 import org.moqui.impl.entity.EntityDefinition;
 import org.moqui.impl.entity.EntityFacadeImpl;
+import org.moqui.impl.llm.LlmClientImpl;
 import org.moqui.impl.llm.LlmFacadeImpl.BasicEntityAllow;
 import org.moqui.llm.LlmTool;
 
@@ -40,7 +41,7 @@ import java.util.regex.Pattern;
  * Returns key and text only.
  */
 public class FindBasicTool implements LlmTool {
-    static final String NAME = "find_basic";
+    public static final String NAME = "find_basic";
     static final int DEFAULT_LIMIT = 50;
     static final int MAX_LIMIT = 200;
     static final String USAGE = "find_basic reads allow-listed configuration entities with artifact authz off. "
@@ -141,7 +142,7 @@ public class FindBasicTool implements LlmTool {
 
     private List<BasicEntityAllow> rules(ExecutionContext ec) {
         if (allows != null) return allows;
-        LlmClientImpl client = LlmAgentLoop.currentClient();
+        LlmClientImpl client = LlmClientImpl.currentClient();
         if (client != null && client.profile != null && client.profile.allowedBasicEntities != null)
             return client.profile.allowedBasicEntities;
         return Collections.emptyList();

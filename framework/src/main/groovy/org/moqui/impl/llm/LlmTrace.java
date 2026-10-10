@@ -14,6 +14,7 @@
 package org.moqui.impl.llm;
 
 import org.moqui.impl.context.ExecutionContextImpl;
+import org.moqui.impl.llm.tools.ServiceCallTool;
 import org.moqui.llm.LlmMessage;
 import org.moqui.llm.LlmProtocol.ProtocolRequest;
 import org.moqui.llm.LlmProtocol.ProtocolResult;

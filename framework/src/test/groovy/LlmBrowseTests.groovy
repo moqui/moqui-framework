@@ -15,13 +15,13 @@
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
 import org.moqui.entity.EntityValue
-import org.moqui.impl.llm.BrowseTool
 import org.moqui.impl.llm.LlmGateway
-import org.moqui.impl.llm.ScreenUseTool
 import org.moqui.impl.llm.ScreenSearchHints
 import org.moqui.impl.llm.SessionFacts
 import org.moqui.impl.llm.SkillIndex
 import org.moqui.impl.llm.ToolResultTrim
+import org.moqui.impl.llm.tools.BrowseTool
+import org.moqui.impl.llm.tools.ScreenUseTool
 import spock.lang.IgnoreIf
 import spock.lang.Shared
 import spock.lang.Specification

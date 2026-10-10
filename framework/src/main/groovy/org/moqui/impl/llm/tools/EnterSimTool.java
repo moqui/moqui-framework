@@ -11,11 +11,15 @@
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
-package org.moqui.impl.llm;
+package org.moqui.impl.llm.tools;
 
 import org.moqui.context.ExecutionContext;
 import org.moqui.entity.EntityValue;
 import org.moqui.impl.context.ExecutionContextImpl;
+import org.moqui.impl.llm.LlmClientImpl;
+import org.moqui.impl.llm.LlmGateway;
+import org.moqui.impl.llm.LlmTrace;
+import org.moqui.impl.llm.SkillIndex;
 import org.moqui.llm.LlmClient;
 import org.moqui.llm.LlmResponse;
 import org.moqui.llm.LlmTool;
@@ -31,7 +35,7 @@ import java.util.Map;
  */
 public class EnterSimTool implements LlmTool {
     private static final Logger logger = LoggerFactory.getLogger(EnterSimTool.class);
-    static final String NAME = "enter_sim";
+    public static final String NAME = "enter_sim";
     private static final Map<String, Object> SCHEMA;
     static {
         Map<String, Object> props = new LinkedHashMap<>();
@@ -74,7 +78,7 @@ public class EnterSimTool implements LlmTool {
         if (maxObj instanceof Number) maxIter = Math.max(32, Math.min(64, ((Number) maxObj).intValue()));
 
         ExecutionContextImpl eci = (ExecutionContextImpl) ec;
-        LlmClientImpl parent = LlmAgentLoop.currentClient();
+        LlmClientImpl parent = LlmClientImpl.currentClient();
         String convId = parent != null ? parent.convId() : null;
         if (eci.simSession) {
             Map<String, Object> already = new LinkedHashMap<>();

@@ -11,7 +11,7 @@
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
-package org.moqui.impl.llm;
+package org.moqui.impl.llm.tools;
 
 import org.moqui.context.ArtifactAuthorizationException;
 import org.moqui.context.ArtifactTarpitException;
@@ -19,6 +19,10 @@ import org.moqui.context.AuthenticationRequiredException;
 import org.moqui.context.ExecutionContext;
 import org.moqui.context.WebFacade;
 import org.moqui.impl.context.ExecutionContextImpl;
+import org.moqui.impl.llm.LlmFacadeImpl;
+import org.moqui.impl.llm.MessageCapture;
+import org.moqui.impl.llm.ScreenSearchHints;
+import org.moqui.impl.llm.ToolResultTrim;
 import org.moqui.impl.screen.WebFacadeStub;
 import org.moqui.llm.LlmTool;
 import org.moqui.screen.ScreenRender;
@@ -41,7 +45,7 @@ import java.util.Set;
  * with authz and tarpit ON (ScreenTestImpl.renderInternal pattern, no extra thread).
  */
 public class RequestTool implements LlmTool {
-    static final String NAME = "request";
+    public static final String NAME = "request";
     static final String HTML_ERROR = "HTML screens are not valid tool results. " +
             "Use /apps (not /qapps). GET {screen}/actions for screen JSON, GET {screen}/actions/{formListName} " +
             "for form-list rows (browse jsonPath), or POST {screen}/{transitionName} for a named transition " +

@@ -11,11 +11,12 @@
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
-package org.moqui.impl.llm;
+package org.moqui.impl.llm.tools;
 
 import org.moqui.context.ArtifactAuthorizationException;
 import org.moqui.context.ArtifactTarpitException;
 import org.moqui.context.ExecutionContext;
+import org.moqui.impl.llm.MessageCapture;
 import org.moqui.impl.service.ServiceDefinition;
 import org.moqui.impl.service.ServiceFacadeImpl;
 import org.moqui.llm.LlmTool;
@@ -29,7 +30,7 @@ import java.util.Map;
  * Not the typed {@code LlmTool.service(name)} wrapper. Off by default on the servlet.
  */
 public class RunServiceTool implements LlmTool {
-    static final String NAME = "run_service";
+    public static final String NAME = "run_service";
     private static final Map<String, Object> SCHEMA;
     static {
         Map<String, Object> props = new LinkedHashMap<>();

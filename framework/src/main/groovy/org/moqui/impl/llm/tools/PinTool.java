@@ -11,9 +11,10 @@
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
-package org.moqui.impl.llm;
+package org.moqui.impl.llm.tools;
 
 import org.moqui.context.ExecutionContext;
+import org.moqui.impl.llm.LlmClientImpl;
 import org.moqui.llm.LlmTool;
 
 import java.util.Collections;
@@ -25,7 +26,7 @@ import java.util.Set;
  * Remember ids a screen response already returned. Does not load those records.
  */
 public class PinTool implements LlmTool {
-    static final String NAME = "pin";
+    public static final String NAME = "pin";
     static final String ATTR = "pins";
     static final Set<String> FIELDS = Set.of(
             "partyId", "orderId", "workEffortId", "invoiceId", "shipmentId");
@@ -55,7 +56,7 @@ public class PinTool implements LlmTool {
 
     @Override
     public Object execute(Map<String, Object> arguments, ExecutionContext ec) {
-        LlmClientImpl client = LlmAgentLoop.currentClient();
+        LlmClientImpl client = LlmClientImpl.currentClient();
         if (client == null || client.conversation == null) {
             Map<String, Object> err = new LinkedHashMap<>();
             err.put("error", "no conversation");

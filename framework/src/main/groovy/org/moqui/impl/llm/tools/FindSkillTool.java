@@ -11,9 +11,12 @@
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
-package org.moqui.impl.llm;
+package org.moqui.impl.llm.tools;
 
 import org.moqui.context.ExecutionContext;
+import org.moqui.impl.llm.LlmClientImpl;
+import org.moqui.impl.llm.SkillIndex;
+import org.moqui.impl.llm.SkillUseGate;
 import org.moqui.llm.LlmTool;
 
 import java.util.ArrayList;
@@ -23,7 +26,7 @@ import java.util.List;
 import java.util.Map;
 
 public class FindSkillTool implements LlmTool {
-    static final String NAME = "find_skill";
+    public static final String NAME = "find_skill";
     private static final Map<String, Object> SCHEMA;
     static {
         Map<String, Object> props = new LinkedHashMap<>();
@@ -90,7 +93,7 @@ public class FindSkillTool implements LlmTool {
                         + "The active skill was not changed.");
                 return result;
             }
-            SkillUseGate.activate(LlmAgentLoop.currentClient(), chosen.name);
+            SkillUseGate.activate(LlmClientImpl.currentClient(), chosen.name);
             String scored = query.isEmpty() ? select : query;
             result.put("selected", toMap(ec, chosen, true, SkillIndex.scoreDetail(chosen, scored), false)); // select: full body
             result.put("hint", "Skill " + chosen.name

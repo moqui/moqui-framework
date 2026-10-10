@@ -14,6 +14,8 @@
 package org.moqui.impl.llm;
 
 import org.moqui.impl.context.ExecutionContextImpl;
+import org.moqui.impl.llm.tools.RequestTool;
+import org.moqui.impl.llm.tools.RunServiceTool;
 import org.moqui.llm.LlmToolCall;
 
 import java.util.LinkedHashMap;

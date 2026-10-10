@@ -15,6 +15,7 @@ package org.moqui.impl.llm;
 
 import org.moqui.context.ExecutionContext;
 import org.moqui.impl.context.ExecutionContextImpl;
+import org.moqui.impl.llm.tools.BrowseTool;
 import org.moqui.impl.screen.ScreenDefinition;
 import org.moqui.impl.screen.ScreenDefinition.SubscreensItem;
 import org.moqui.impl.screen.ScreenFacadeImpl;

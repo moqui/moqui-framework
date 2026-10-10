@@ -18,8 +18,8 @@ import org.moqui.context.WebFacade
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.UserFacadeImpl
 import org.moqui.impl.llm.MessageCapture
-import org.moqui.impl.llm.RequestTool
-import org.moqui.impl.llm.ServiceCallTool
+import org.moqui.impl.llm.tools.RequestTool
+import org.moqui.impl.llm.tools.ServiceCallTool
 import org.moqui.impl.screen.WebFacadeStub
 import org.moqui.llm.LlmTool
 import spock.lang.IgnoreIf

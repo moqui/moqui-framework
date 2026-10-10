@@ -16,7 +16,7 @@ import groovy.json.JsonSlurper
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
 import org.moqui.entity.EntityValue
-import org.moqui.impl.llm.EnterSimTool
+import org.moqui.impl.llm.tools.EnterSimTool
 import org.moqui.impl.llm.LlmClientImpl
 import org.moqui.impl.llm.LlmFacadeImpl
 import org.moqui.impl.llm.LlmGateway

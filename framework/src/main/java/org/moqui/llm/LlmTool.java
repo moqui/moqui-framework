@@ -35,25 +35,25 @@ public interface LlmTool {
         LlmTool create();
     }
 
-    static LlmTool request() { return create("org.moqui.impl.llm.RequestTool"); }
-    static LlmTool writeUi() { return create("org.moqui.impl.llm.WriteUiTool"); }
-    static LlmTool screenUse() { return create("org.moqui.impl.llm.ScreenUseTool"); }
-    static LlmTool browse() { return create("org.moqui.impl.llm.BrowseTool"); }
-    static LlmTool runService() { return create("org.moqui.impl.llm.RunServiceTool"); }
-    static LlmTool findSkill() { return create("org.moqui.impl.llm.FindSkillTool"); }
-    static LlmTool enterSim() { return create("org.moqui.impl.llm.EnterSimTool"); }
-    static LlmTool pin() { return create("org.moqui.impl.llm.PinTool"); }
-    static LlmTool findBasic() { return create("org.moqui.impl.llm.FindBasicTool"); }
+    static LlmTool request() { return create("org.moqui.impl.llm.tools.RequestTool"); }
+    static LlmTool writeUi() { return create("org.moqui.impl.llm.tools.WriteUiTool"); }
+    static LlmTool screenUse() { return create("org.moqui.impl.llm.tools.ScreenUseTool"); }
+    static LlmTool browse() { return create("org.moqui.impl.llm.tools.BrowseTool"); }
+    static LlmTool runService() { return create("org.moqui.impl.llm.tools.RunServiceTool"); }
+    static LlmTool findSkill() { return create("org.moqui.impl.llm.tools.FindSkillTool"); }
+    static LlmTool enterSim() { return create("org.moqui.impl.llm.tools.EnterSimTool"); }
+    static LlmTool pin() { return create("org.moqui.impl.llm.tools.PinTool"); }
+    static LlmTool findBasic() { return create("org.moqui.impl.llm.tools.FindBasicTool"); }
     static LlmTool service(String serviceName) {
-        return create("org.moqui.impl.llm.ServiceCallTool", new Class<?>[] { String.class, String.class },
+        return create("org.moqui.impl.llm.tools.ServiceCallTool", new Class<?>[] { String.class, String.class },
                 serviceName, null);
     }
     static LlmTool service(String serviceName, String functionName) {
-        return create("org.moqui.impl.llm.ServiceCallTool", new Class<?>[] { String.class, String.class },
+        return create("org.moqui.impl.llm.tools.ServiceCallTool", new Class<?>[] { String.class, String.class },
                 serviceName, functionName);
     }
     static LlmTool client(String name, String description, Map<String, Object> jsonSchema) {
-        return create("org.moqui.impl.llm.ClientPassThroughTool",
+        return create("org.moqui.impl.llm.tools.ClientPassThroughTool",
                 new Class<?>[] { String.class, String.class, Map.class }, name, description, jsonSchema);
     }
 

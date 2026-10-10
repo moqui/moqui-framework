@@ -11,13 +11,14 @@
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
-package org.moqui.impl.llm;
+package org.moqui.impl.llm.tools;
 
 import org.jsoup.Jsoup;
 import org.jsoup.parser.Parser;
 import org.jsoup.safety.Safelist;
 import org.moqui.context.ExecutionContext;
 import org.moqui.entity.EntityValue;
+import org.moqui.impl.llm.LlmConversationImpl;
 import org.moqui.llm.LlmConversation;
 import org.moqui.llm.LlmTool;
 
@@ -48,9 +49,9 @@ import java.util.regex.Pattern;
  * Client-passthrough UI tool (form spec or Vue SFC). Server may sanitize and prefill; it never submits.
  */
 public class WriteUiTool implements LlmTool {
-    static final String NAME = "write_ui";
+    public static final String NAME = "write_ui";
     /** 4: kind=openui | vue-sfc | form. openui is OpenUI Lang; vue-sfc is escape-hatch SFC; form is legacy widgets. */
-    static final int SCHEMA_VERSION = 4;
+    public static final int SCHEMA_VERSION = 4;
     static final String KIND_FORM = "form";
     static final String KIND_VUE_SFC = "vue-sfc";
     static final String KIND_OPENUI = "openui";
@@ -84,7 +85,7 @@ public class WriteUiTool implements LlmTool {
     static final Set<String> ACTION_KEYS = new LinkedHashSet<>(Arrays.asList(
             "id", "label", "method", "path", "primary", "bodyFromFields", "queryFromFields",
             "bind", "dependsOn"));
-    static final String ATTR_LAST_WRITE_UI = "lastWriteUi";
+    public static final String ATTR_LAST_WRITE_UI = "lastWriteUi";
     static final Set<String> PREFILL_KEYS = new LinkedHashSet<>(Arrays.asList(
             "entityName", "pk", "fromConversation"));
     static final Map<String, Object> SCHEMA;
@@ -362,7 +363,7 @@ public class WriteUiTool implements LlmTool {
      * Updates the in-memory canvas only. The yield commit writes canvasJson.
      */
     @SuppressWarnings("unchecked")
-    static Map<String, Object> applyWriteThrough(Map<String, Object> incoming, LlmConversation conversation) {
+    public static Map<String, Object> applyWriteThrough(Map<String, Object> incoming, LlmConversation conversation) {
         Map<String, Object> next = incoming != null ? incoming : new LinkedHashMap<>();
         Map<String, Object> last = null;
         LlmConversationImpl impl = conversation instanceof LlmConversationImpl ? (LlmConversationImpl) conversation : null;
@@ -504,7 +505,7 @@ public class WriteUiTool implements LlmTool {
     }
 
     /** bodyFromFields and bind names that are not fields. The click sends only field values. */
-    static List<String> unboundActionFields(Map<String, Object> schema) {
+    public static List<String> unboundActionFields(Map<String, Object> schema) {
         List<String> missing = new ArrayList<>();
         if (schema == null) return missing;
         if (KIND_OPENUI.equals(str(schema.get("kind"))) && hasLang(schema)) return missing;

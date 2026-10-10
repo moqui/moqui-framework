@@ -20,6 +20,11 @@ import org.moqui.context.ArtifactTarpitException;
 import org.moqui.context.ExecutionContext;
 import org.moqui.context.LlmFacade;
 import org.moqui.context.TransactionFacade;
+import org.moqui.impl.llm.tools.FindBasicTool;
+import org.moqui.impl.llm.tools.PinTool;
+import org.moqui.impl.llm.tools.RequestTool;
+import org.moqui.impl.llm.tools.ScreenUseTool;
+import org.moqui.impl.llm.tools.WriteUiTool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.moqui.llm.LlmClient;
@@ -499,7 +504,7 @@ public final class LlmGateway {
      * Render an LLM prompt template via ResourceFacade (FTL compile cache).
      * extraContext is pushed for the render only.
      */
-    static String renderPrompt(ExecutionContext ec, String location, Map<String, Object> extraContext) {
+    public static String renderPrompt(ExecutionContext ec, String location, Map<String, Object> extraContext) {
         if (location == null || location.isBlank() || ec == null || ec.getResource() == null) return null;
         ContextStack cs = ec.getContext();
         boolean pushed = false;

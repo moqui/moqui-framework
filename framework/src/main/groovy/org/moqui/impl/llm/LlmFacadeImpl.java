@@ -16,6 +16,7 @@ package org.moqui.impl.llm;
 import org.moqui.context.ExecutionContext;
 import org.moqui.context.LlmFacade;
 import org.moqui.impl.context.ExecutionContextFactoryImpl;
+import org.moqui.impl.llm.tools.WriteUiTool;
 import org.moqui.llm.LlmClient;
 import org.moqui.llm.LlmConversation;
 import org.moqui.llm.LlmException;

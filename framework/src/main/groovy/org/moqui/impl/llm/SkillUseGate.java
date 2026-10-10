@@ -14,6 +14,9 @@
 package org.moqui.impl.llm;
 
 import org.moqui.impl.context.ExecutionContextImpl;
+import org.moqui.impl.llm.tools.EnterSimTool;
+import org.moqui.impl.llm.tools.FindSkillTool;
+import org.moqui.impl.llm.tools.PinTool;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -22,7 +25,7 @@ import java.util.Map;
  * Opt-in Assist gate: refuse tools other than find_skill / enter_sim until a skill is
  * selected or the nested sim is active. Does not auto-enter sim.
  */
-final class SkillUseGate {
+public final class SkillUseGate {
     static final String ERROR = "skill_required";
     static final String INSTRUCTION =
             "No skill is selected and you are not in sim. Call find_skill (use select to activate a matching skill) "
@@ -50,7 +53,7 @@ final class SkillUseGate {
         return m;
     }
 
-    static void activate(LlmClientImpl client, String skillName) {
+    public static void activate(LlmClientImpl client, String skillName) {
         if (client == null || skillName == null || skillName.isBlank()) return;
         client.activeSkillName = skillName;
         if (client.conversation != null) client.conversation.setAttribute("activeSkillName", skillName);

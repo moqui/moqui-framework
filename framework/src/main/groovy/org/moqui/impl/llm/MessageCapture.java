@@ -31,7 +31,7 @@ public final class MessageCapture {
     private MessageCapture() { }
 
     public static final class Snap {
-        final List<String> errors;
+        public final List<String> errors;
         final List<Map<String, String>> validationErrors;
         final List<Map<String, String>> messages;
         final List<Map<String, String>> publicMessages;
@@ -110,7 +110,7 @@ public final class MessageCapture {
         }
     }
 
-    static void attach(Map<String, Object> result, Snap snap) {
+    public static void attach(Map<String, Object> result, Snap snap) {
         if (result == null || snap == null || snap.isEmpty()) return;
         result.put("messages", snap.toMap());
     }

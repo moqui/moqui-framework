@@ -18,7 +18,8 @@ import org.moqui.impl.llm.LlmClientImpl
 import org.moqui.impl.llm.LlmConversationImpl
 import org.moqui.impl.llm.LlmFacadeImpl
 import org.moqui.impl.llm.LlmGateway
-import org.moqui.impl.llm.ScreenUseTool
+import org.moqui.impl.llm.tools.BrowseTool
+import org.moqui.impl.llm.tools.ScreenUseTool
 import org.moqui.impl.webapp.SseSink
 import org.moqui.impl.webapp.ServletStreamListener
 import org.moqui.llm.LlmException
@@ -253,7 +254,7 @@ class LlmServletTests extends Specification {
 
     def "browse roots work without ExecutionContext"() {
         when:
-        def out = (Map) new org.moqui.impl.llm.BrowseTool().execute([path: "/"], null)
+        def out = (Map) new BrowseTool().execute([path: "/"], null)
         then:
         out.path == "/"
         out.children.find { it.name == "qapps" }
@@ -264,7 +265,7 @@ class LlmServletTests extends Specification {
 
     def "browse invalid regex is a tool error not an exception"() {
         when:
-        def out = (Map) new org.moqui.impl.llm.BrowseTool().execute([path: "/", match: "("], null)
+        def out = (Map) new BrowseTool().execute([path: "/", match: "("], null)
         then:
         out.error
         out.error.toString().toLowerCase().contains("regex")

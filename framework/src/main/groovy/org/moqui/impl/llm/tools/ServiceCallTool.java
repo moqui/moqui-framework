@@ -11,7 +11,7 @@
  * along with this software (see the LICENSE.md file). If not, see
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
-package org.moqui.impl.llm;
+package org.moqui.impl.llm.tools;
 
 import org.moqui.Moqui;
 import org.moqui.context.ExecutionContext;
@@ -170,7 +170,7 @@ public class ServiceCallTool implements LlmTool {
         return out;
     }
 
-    static boolean isSkipKey(String key) {
+    public static boolean isSkipKey(String key) {
         if (key == null || key.isEmpty()) return false;
         if (SKIP_FIELDS.contains(key)) return true;
         return SKIP_FIELDS_CI.contains(key.toLowerCase(Locale.ROOT));

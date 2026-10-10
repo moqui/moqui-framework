@@ -18,6 +18,11 @@ import org.moqui.context.ArtifactExecutionFacade;
 import org.moqui.context.ArtifactExecutionInfo;
 import org.moqui.context.ArtifactTarpitException;
 import org.moqui.context.ExecutionContext;
+import org.moqui.impl.llm.tools.EnterSimTool;
+import org.moqui.impl.llm.tools.FindSkillTool;
+import org.moqui.impl.llm.tools.PinTool;
+import org.moqui.impl.llm.tools.RequestTool;
+import org.moqui.impl.llm.tools.WriteUiTool;
 import org.moqui.llm.LlmClient;
 import org.moqui.llm.LlmConversation;
 import org.moqui.llm.LlmException;
@@ -51,7 +56,7 @@ public class LlmClientImpl implements LlmClient {
     static final int DEFAULT_TOOL_RESULT_MAX_CHARS = 65536;
 
     final ExecutionContext ec;
-    final LlmFacadeImpl.ProfileState profile;
+    public final LlmFacadeImpl.ProfileState profile;
     private final BooleanSupplier transactionInPlace;
 
     String systemContent = null;
@@ -64,7 +69,7 @@ public class LlmClientImpl implements LlmClient {
     private Map<String, Object> extraBody = null;
     /** low, medium, or high once resolved for this client. Null until ensureStoredReasoning. */
     private String reasoningLevel = null;
-    LlmConversationImpl conversation = null;
+    public LlmConversationImpl conversation = null;
     private WindowPolicy windowPolicy = null;
     final List<LlmTool> tools = new ArrayList<>();
     final List<LlmToolResult> resumeToolResults = new ArrayList<>();
@@ -799,8 +804,10 @@ public class LlmClientImpl implements LlmClient {
         return DEFAULT_MAX_ITERATIONS;
     }
 
+    public static LlmClientImpl currentClient() { return LlmAgentLoop.currentClient(); }
+
     /** Nested sim agent: same profile/protocol and parent tools except write_ui / enter_sim / find_skill / pin. */
-    LlmClientImpl nestForSim(int maxIter) {
+    public LlmClientImpl nestForSim(int maxIter) {
         LlmClientImpl nested = new LlmClientImpl(ec, profile, transactionInPlace);
         nested.maxIterations(maxIter > 0 ? maxIter : 32);
         nested.activeSkillName = activeSkillName;

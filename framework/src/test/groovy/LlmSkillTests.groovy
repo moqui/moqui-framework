@@ -12,7 +12,7 @@
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
 
-import org.moqui.impl.llm.FindSkillTool
+import org.moqui.impl.llm.tools.FindSkillTool
 import org.moqui.impl.llm.SkillIndex
 import spock.lang.Specification
 

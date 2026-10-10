@@ -36,9 +36,9 @@ import org.moqui.llm.LlmToolCall
 import org.moqui.llm.LlmToolResult
 import org.moqui.llm.WindowPolicy
 import org.moqui.impl.llm.LlmGateway
-import org.moqui.impl.llm.RequestTool
-import org.moqui.impl.llm.ServiceCallTool
-import org.moqui.impl.llm.WriteUiTool
+import org.moqui.impl.llm.tools.RequestTool
+import org.moqui.impl.llm.tools.ServiceCallTool
+import org.moqui.impl.llm.tools.WriteUiTool
 import org.moqui.llm.test.FakeLlmProtocol
 import org.moqui.util.MNode
 import org.moqui.util.RestClient

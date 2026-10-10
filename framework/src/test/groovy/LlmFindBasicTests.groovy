@@ -15,7 +15,7 @@
 import org.moqui.Moqui
 import org.moqui.context.ArtifactAuthorizationException
 import org.moqui.context.ExecutionContext
-import org.moqui.impl.llm.FindBasicTool
+import org.moqui.impl.llm.tools.FindBasicTool
 import org.moqui.impl.llm.LlmClientImpl
 import org.moqui.impl.llm.LlmFacadeImpl
 import org.moqui.impl.llm.LlmGateway
