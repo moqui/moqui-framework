@@ -119,6 +119,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="name" type="text-medium"/>
         <field name="title" type="text-medium"/>
         <field name="description" type="text-fts"/>
+        <field name="summary" type="text-very-long"/>
         <field name="body" type="text-fts"/>
         <field name="riskId" type="id"/>
         <field name="statusId" type="id"/>

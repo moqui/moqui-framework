@@ -77,7 +77,7 @@ public class FindSkillTool implements LlmTool {
             for (SkillIndex.SkillDoc d : docs) {
                 SkillIndex.ScoreDetail sd = SkillIndex.scoreDetail(d, query);
                 if (sd.strong) anyStrong = true;
-                out.add(toMap(ec, d, false, sd, true));
+                out.add(toMap(ec, d, false, sd, true)); // query: summary, or the full body when summary is empty
             }
         }
         result.put("skills", out);
@@ -92,7 +92,7 @@ public class FindSkillTool implements LlmTool {
             }
             SkillUseGate.activate(LlmAgentLoop.currentClient(), chosen.name);
             String scored = query.isEmpty() ? select : query;
-            result.put("selected", toMap(ec, chosen, true, SkillIndex.scoreDetail(chosen, scored), false));
+            result.put("selected", toMap(ec, chosen, true, SkillIndex.scoreDetail(chosen, scored), false)); // select: full body
             result.put("hint", "Skill " + chosen.name
                     + " is now the active skill. browse, GET request, and write_ui are allowed. "
                     + "run_service and other request methods run immediately only when risk is reversible; "
@@ -113,10 +113,11 @@ public class FindSkillTool implements LlmTool {
     static Map<String, Object> toMap(ExecutionContext ec, SkillIndex.SkillDoc d) {
         return toMap(ec, d, true, null, false);
     }
-    static Map<String, Object> toMap(ExecutionContext ec, SkillIndex.SkillDoc d, boolean includeWidgets) {
-        return toMap(ec, d, includeWidgets, null, false);
+    static Map<String, Object> toMap(ExecutionContext ec, SkillIndex.SkillDoc d, boolean fullBody) {
+        return toMap(ec, d, fullBody, null, false);
     }
-    static Map<String, Object> toMap(ExecutionContext ec, SkillIndex.SkillDoc d, boolean includeWidgets,
+    /** fullBody true is the selected skill. false is the summary, or the full text when no summary is set. */
+    static Map<String, Object> toMap(ExecutionContext ec, SkillIndex.SkillDoc d, boolean fullBody,
             SkillIndex.ScoreDetail score, boolean dropWeakBody) {
         Map<String, Object> m = new LinkedHashMap<>();
         if (d == null) return m;
@@ -125,7 +126,7 @@ public class FindSkillTool implements LlmTool {
         m.put("description", d.description);
         m.put("risk", d.risk);
         boolean drop = dropWeakBody && score != null && !score.strong;
-        if (!drop) m.put("body", includeWidgets ? d.body : SkillIndex.withoutWidgets(d.body));
+        if (!drop) m.put("body", fullBody ? d.body : SkillIndex.summaryText(d));
         if (score != null) {
             m.put("score", score.score);
             m.put("match", score.strong ? "strong" : "weak");

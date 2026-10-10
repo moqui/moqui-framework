@@ -202,7 +202,9 @@ class LlmFindBasicTests extends Specification {
         for (Map.Entry<String, List<String>> e : bySkill.entrySet()) {
             int start = xml.indexOf('name="' + e.key + '"')
             assert start > 0
-            int cdata = xml.indexOf("<![CDATA[", start)
+            int bodyTag = xml.indexOf("<body>", start)
+            assert bodyTag > 0
+            int cdata = xml.indexOf("<![CDATA[", bodyTag)
             int end = xml.indexOf("]]>", cdata)
             String body = xml.substring(cdata, end)
             for (String section : e.value) assert body.contains(section)
@@ -236,25 +238,41 @@ class LlmFindBasicTests extends Specification {
         account.contains("min-length 2")
     }
 
-    def "catalog inject omits the widgets section"() {
+    def "catalog inject uses the summary and otherwise the full skill text"() {
         when:
         String body = "Do the thing.\n\n## Widgets\nForm `x` `y`.\n- a text-line"
-        SkillIndex.SkillDoc doc = new SkillIndex.SkillDoc()
-        doc.name = "widget-tip-test"
-        doc.title = "Widget tip test"
-        doc.description = "test"
-        doc.risk = "confirm"
-        doc.body = body
-        String injected = SkillIndex.formatInject(ec, [doc])
+        SkillIndex.SkillDoc summarized = new SkillIndex.SkillDoc()
+        summarized.name = "widget-tip-test"
+        summarized.title = "Widget tip test"
+        summarized.description = "test"
+        summarized.risk = "confirm"
+        summarized.summary = "  Short summary of the thing.  "
+        summarized.body = body
+        SkillIndex.SkillDoc full = new SkillIndex.SkillDoc()
+        full.name = "widget-tip-full"
+        full.title = "Widget tip full"
+        full.description = "test"
+        full.risk = "confirm"
+        full.body = body
+        String withSummary = SkillIndex.formatInject(ec, [summarized])
+        String withoutSummary = SkillIndex.formatInject(ec, [full])
 
         then:
-        SkillIndex.withoutWidgets(body) == "Do the thing."
-        SkillIndex.widgetsSection(body).startsWith("## Widgets")
-        injected.contains("Do the thing.")
-        injected.contains("omit `## Widgets`")
-        !injected.contains("\n## Widgets")
-        !injected.contains("Form `x` `y`.")
-        !injected.contains("- a text-line")
+        SkillIndex.summaryText(summarized) == "Short summary of the thing."
+        SkillIndex.summaryText(full) == body
+        SkillIndex.summaryText(null) == null
+        SkillIndex.activeDetailText(summarized) == body
+        SkillIndex.activeDetailText(full) == null
+        SkillIndex.activeDetailText(null) == null
+        withSummary.contains("Short summary of the thing.")
+        withSummary.contains("the skill summary when one is set")
+        !withSummary.contains("Do the thing.")
+        !withSummary.contains("Form `x` `y`.")
+        !withSummary.contains("- a text-line")
+        withoutSummary.contains("Do the thing.")
+        withoutSummary.contains("\n## Widgets")
+        withoutSummary.contains("Form `x` `y`.")
+        withoutSummary.contains("- a text-line")
     }
 
     def "assist profile attaches find_basic and the default profile does not"() {

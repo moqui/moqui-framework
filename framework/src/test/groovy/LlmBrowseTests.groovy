@@ -601,6 +601,7 @@ class LlmBrowseTests extends Specification {
         proc.title = "Create user"
         proc.risk = "confirm"
         proc.description = "Create a UserAccount"
+        proc.summary = "Create the account with create#UserAccount."
         proc.body = "Call run_service create#UserAccount\n## Widgets\nwidget line"
         SkillIndex.SkillDoc card = new SkillIndex.SkillDoc()
         card.name = "marble-party-roles"
@@ -616,11 +617,12 @@ class LlmBrowseTests extends Specification {
         then:
         mixed.indexOf("create-user-account") < mixed.indexOf("marble-party-roles")
         mixed.contains("These are candidates")
-        mixed.contains("create#UserAccount")
+        mixed.contains("Create the account with create#UserAccount.")
+        !mixed.contains("widget line")
         mixed.contains("(reference card, not a procedure)")
         mixed.contains("CARD-END")
         mixed.contains(cardBody)
-        !mixed.contains("widget hidden")
+        mixed.contains("widget hidden")
         !mixed.contains("No procedure skill matched")
         only.contains("No procedure skill matched")
         only.contains("marble-party-roles")

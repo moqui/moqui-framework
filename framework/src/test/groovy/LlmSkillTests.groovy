@@ -101,7 +101,7 @@ Open Find Order
         f.text.contains("enter_sim")
         f.text.contains("shared word is not a match")
         !f.text.contains("Follow a matching skill before browse")
-        f.text.contains("omit `## Widgets`")
+        f.text.contains("the skill summary when one is set")
     }
 
     def "shipped create-user-account skill file parses"() {
@@ -112,6 +112,8 @@ Open Find Order
         then:
         f.exists()
         doc.name == "create-user-account"
+        doc.summary == null
         doc.body.contains("create#UserAccount")
+        SkillIndex.parseMarkdown("---\nname: n\nsummary: short text\n---\nbody", null).summary == "short text"
     }
 }

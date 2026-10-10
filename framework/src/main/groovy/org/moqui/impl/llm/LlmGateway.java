@@ -307,7 +307,7 @@ public final class LlmGateway {
         }
         refreshContext(impl, "session", session);
         refreshContext(impl, "pins", PinTool.text(impl));
-        refreshContext(impl, "skill-widgets", SkillIndex.activeWidgetText(impl.ec, impl.activeSkillName));
+        refreshContext(impl, "skill-widgets", SkillIndex.activeDetailText(impl.ec, impl.activeSkillName));
         refreshContext(impl, "screen", ScreenUseTool.contextText(body.get("screen")));
         String user = str(body.get("user"));
         if (user != null) {

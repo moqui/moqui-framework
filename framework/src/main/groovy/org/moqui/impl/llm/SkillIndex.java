@@ -53,7 +53,7 @@ public class SkillIndex {
             "show", "list", "find", "get", "what", "the", "for", "my", "a", "an", "open"));
 
     public static class SkillDoc {
-        public String name, title, description, body, risk, sourceLocation, skillId, statusId, provenanceId;
+        public String name, title, description, summary, body, risk, sourceLocation, skillId, statusId, provenanceId;
         public Map<String, String> frontMatter = new LinkedHashMap<>();
     }
 
@@ -93,6 +93,8 @@ public class SkillIndex {
         doc.title = nz(doc.frontMatter.get("title"));
         if (doc.title.isEmpty()) doc.title = doc.name;
         doc.description = nz(doc.frontMatter.get("description"));
+        String summary = nz(doc.frontMatter.get("summary"));
+        doc.summary = summary.isEmpty() ? null : summary;
         doc.risk = nz(doc.frontMatter.get("risk"));
         if (doc.risk.isEmpty()) doc.risk = "confirm";
         doc.statusId = "LsksActive";
@@ -245,31 +247,27 @@ public class SkillIndex {
         return doc != null && doc.name != null && doc.name.startsWith("marble-");
     }
 
-    /** Widget lines are kept on the stored body and on the selected skill, not in catalog inject. */
-    public static String withoutWidgets(String body) {
-        if (body == null) return null;
-        int i = widgetIndex(body);
-        if (i < 0) return body;
-        return body.substring(0, i).stripTrailing();
-    }
-    public static String widgetsSection(String body) {
-        if (body == null) return null;
-        int i = widgetIndex(body);
-        if (i < 0) return null;
-        String section = body.substring(i).trim();
-        return section.isEmpty() ? null : section;
-    }
-    public static String activeWidgetText(ExecutionContext ec, String skillName) {
-        if (skillName == null || skillName.isBlank() || ec == null) return null;
-        SkillDoc doc = getByName(ec, skillName);
+    /**
+     * Catalog and query text. A summary when one is set, otherwise the full skill text.
+     * No heading is stripped.
+     */
+    public static String summaryText(SkillDoc doc) {
         if (doc == null) return null;
-        return widgetsSection(doc.body);
+        if (doc.summary != null && !doc.summary.isBlank()) return doc.summary.trim();
+        return doc.body;
     }
-    private static int widgetIndex(String body) {
-        int i = body.indexOf("\n## Widgets");
-        if (i >= 0) return i + 1;
-        if (body.startsWith("## Widgets")) return 0;
-        return -1;
+
+    /**
+     * Full skill text for the active-skill context block, only when a summary is set.
+     * With no summary the catalog already carries the full text, so the block stays empty.
+     */
+    public static String activeDetailText(SkillDoc doc) {
+        if (doc == null || doc.summary == null || doc.summary.isBlank()) return null;
+        return doc.body;
+    }
+    public static String activeDetailText(ExecutionContext ec, String skillName) {
+        if (skillName == null || skillName.isBlank() || ec == null) return null;
+        return activeDetailText(getByName(ec, skillName));
     }
 
     /**
@@ -296,7 +294,7 @@ public class SkillIndex {
                     m.put("title", d.title);
                     m.put("description", d.description);
                     m.put("risk", d.risk);
-                    m.put("body", withoutWidgets(d.body));
+                    m.put("body", injectBody(d));
                     m.put("lessons", lessonLines(ec, d.skillId));
                     skills.add(m);
                 }
@@ -313,12 +311,17 @@ public class SkillIndex {
         m.put("title", d.title);
         m.put("description", d.description);
         m.put("reference", Boolean.TRUE);
-        String body = withoutWidgets(d.body);
+        m.put("body", injectBody(d));
+        return m;
+    }
+
+    /** Summary when set, otherwise the full body. Logged when large, always sent whole. */
+    private static String injectBody(SkillDoc d) {
+        String body = summaryText(d);
         if (body == null) body = "";
         else body = body.trim();
-        warnIfLarge(d.name, body);
-        m.put("body", body);
-        return m;
+        warnIfLarge(d != null ? d.name : null, body);
+        return body;
     }
 
     private static void warnIfLarge(String name, String body) {
@@ -354,7 +357,7 @@ public class SkillIndex {
                 m.put("title", d.title);
                 m.put("description", d.description);
                 m.put("risk", d.risk);
-                m.put("body", withoutWidgets(d.body));
+                m.put("body", injectBody(d));
                 m.put("lessons", lessonLines(ec, d.skillId));
                 skills.add(m);
             }
@@ -470,6 +473,7 @@ public class SkillIndex {
         d.name = ev.getString("name");
         d.title = ev.getString("title");
         d.description = ev.getString("description");
+        d.summary = ev.getString("summary");
         d.body = ev.getString("body");
         d.sourceLocation = ev.getString("sourceLocation");
         d.statusId = ev.getString("statusId");
@@ -492,6 +496,7 @@ public class SkillIndex {
                     .set("name", doc.name)
                     .set("title", doc.title)
                     .set("description", doc.description)
+                    .set("summary", doc.summary != null && !doc.summary.isBlank() ? doc.summary.trim() : null)
                     .set("body", doc.body != null && !doc.body.isEmpty() ? doc.body : rawBody)
                     .set("riskId", riskId(doc.risk))
                     .set("statusId", "LsksProposed")
