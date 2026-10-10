@@ -21,7 +21,6 @@ import org.moqui.llm.LlmConversation;
 import org.moqui.llm.LlmException;
 import org.moqui.llm.LlmProtocol;
 import org.moqui.llm.LlmTool;
-import org.moqui.llm.WindowPolicy;
 import org.moqui.util.MNode;
 import org.moqui.util.RestClient;
 import org.slf4j.Logger;
@@ -265,7 +264,6 @@ public class LlmFacadeImpl implements LlmFacade {
         public final int retryMax;
         public final boolean timeoutRetry;
         public final int emptyRetries;
-        public final WindowPolicy.ContextLimitPolicy contextLimitPolicy;
         public final Integer maxTokens;
         public final Double temperature;
         public final boolean logContent;
@@ -290,7 +288,7 @@ public class LlmFacadeImpl implements LlmFacade {
         ProfileState(String name, MNode confNode, String url, String path, String endpointUrl, String apiKey,
                 String authHeaderName, String authHeaderValue, String model, String maxTokensParameter,
                 boolean allowTxOverHttp, int timeoutSeconds, float retryInitialSeconds, int retryMax,
-                boolean timeoutRetry, int emptyRetries, WindowPolicy.ContextLimitPolicy contextLimitPolicy,
+                boolean timeoutRetry, int emptyRetries,
                 Integer maxTokens, Double temperature, boolean logContent,
                 Map<String, String> extraHeaders, Map<String, String> extraQuery,
                 RestClient.PooledRequestFactory requestFactory, LlmProtocol protocol,
@@ -315,7 +313,6 @@ public class LlmFacadeImpl implements LlmFacade {
             this.retryMax = retryMax;
             this.timeoutRetry = timeoutRetry;
             this.emptyRetries = emptyRetries;
-            this.contextLimitPolicy = contextLimitPolicy;
             this.maxTokens = maxTokens;
             this.temperature = temperature;
             this.logContent = logContent;
@@ -357,10 +354,6 @@ public class LlmFacadeImpl implements LlmFacade {
             int retryMax = parseInt(node.attribute("retry-max"), 5);
             boolean timeoutRetry = parseBoolean(node.attribute("timeout-retry"), true);
             int emptyRetries = parseInt(node.attribute("empty-retries"), 2);
-            String clp = nvl(node.attribute("context-limit-policy"), "fail");
-            WindowPolicy.ContextLimitPolicy contextLimitPolicy = "trim-once".equalsIgnoreCase(clp)
-                    ? WindowPolicy.ContextLimitPolicy.TRIM_AND_RETRY_ONCE
-                    : WindowPolicy.ContextLimitPolicy.FAIL;
             Integer maxTokens = parseInteger(node.attribute("max-tokens"));
             Double temperature = parseDouble(node.attribute("temperature"));
             boolean logContent = parseBoolean(node.attribute("log-content"), false);
@@ -432,7 +425,7 @@ public class LlmFacadeImpl implements LlmFacade {
 
             return new ProfileState(name, node, url, path, endpointUrl, apiKey, authHeaderName, authHeaderValue,
                     model, maxTokensParameter, allowTxOverHttp, timeoutSeconds, retryInitialSeconds, retryMax,
-                    timeoutRetry, emptyRetries, contextLimitPolicy, maxTokens, temperature, logContent,
+                    timeoutRetry, emptyRetries, maxTokens, temperature, logContent,
                     Collections.unmodifiableMap(extraHeaders), Collections.unmodifiableMap(extraQuery),
                     rf, protocol, Collections.unmodifiableSet(allowedEntities),
                     Collections.unmodifiableList(allowedPaths), allowWriteUi, ssePingSeconds,
@@ -454,7 +447,7 @@ public class LlmFacadeImpl implements LlmFacade {
                     "http://127.0.0.1/v1/chat/completions", "", "Authorization", null,
                     model != null ? model : "", "max_tokens", allowTxOverHttp, 120,
                     retryInitialSeconds, retryMax, true, emptyRetries,
-                    WindowPolicy.ContextLimitPolicy.FAIL, null, null, false,
+                    null, null, false,
                     Collections.emptyMap(), Collections.emptyMap(), null, protocol,
                     Collections.emptySet(),
                     allowedPaths != null ? allowedPaths : Collections.emptyList(),
@@ -494,7 +487,7 @@ public class LlmFacadeImpl implements LlmFacade {
                     "http://127.0.0.1/v1/chat/completions", "", "Authorization", null,
                     model != null ? model : "", "max_tokens", allowTxOverHttp, 120,
                     retryInitialSeconds, retryMax, true, emptyRetries,
-                    WindowPolicy.ContextLimitPolicy.FAIL, null, null, false,
+                    null, null, false,
                     Collections.emptyMap(), Collections.emptyMap(), null, protocol,
                     Collections.emptySet(),
                     allowedPaths != null ? allowedPaths : Collections.emptyList(),

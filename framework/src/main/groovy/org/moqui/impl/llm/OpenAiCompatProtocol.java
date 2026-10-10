@@ -273,7 +273,7 @@ public class OpenAiCompatProtocol implements LlmProtocol {
                     if (msg.metadata != null && msg.metadata.get("source") != null)
                         source = msg.metadata.get("source").toString();
                     m.put("content", "<untrusted-context source=\"" + escapeAttr(source) + "\">"
-                            + (msg.content != null ? msg.content : "") + "</untrusted-context>");
+                            + elideContextMarkers(msg.content) + "</untrusted-context>");
                     break;
                 default:
                     continue;
@@ -355,6 +355,15 @@ public class OpenAiCompatProtocol implements LlmProtocol {
         } catch (UnsupportedEncodingException e) {
             return s;
         }
+    }
+
+    static final String CONTEXT_ELIDED = "[elided-context-marker]";
+
+    /** Replace wrapper markers inside a context body so the payload cannot close the wrapper early. */
+    static String elideContextMarkers(String text) {
+        if (text == null || text.isEmpty()) return "";
+        return text.replace("</untrusted-context>", CONTEXT_ELIDED)
+                .replace("<untrusted-context", CONTEXT_ELIDED);
     }
 
     static String escapeAttr(String s) {

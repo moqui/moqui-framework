@@ -46,6 +46,8 @@ public class SkillIndex {
     public static final int DEFAULT_LIMIT = 5;
     /** Catalog inject budget. Over this, drop whole skills from the end. Never cut inside a skill. */
     public static final int INJECT_CHARS = 32000;
+    /** Log signal only. A body at or over this length is still sent whole. */
+    public static final int BODY_WARN_CHARS = 4000;
     /** Intent words. Kept for an exact name or title phrase, ignored as loose tokens. */
     private static final Set<String> QUERY_STOP = new HashSet<>(Arrays.asList(
             "show", "list", "find", "get", "what", "the", "for", "my", "a", "an", "open"));
@@ -271,28 +273,23 @@ public class SkillIndex {
     }
 
     /**
-     * Procedure skills fill the inject slots. Reference cards are a short gloss beside them,
+     * Procedure skills fill the inject slots. Reference cards are a gloss beside them,
      * not one of the three procedure slots. A procedure is injected only on a real match.
      * A blank query keeps the first procedures.
      */
     public static String formatInjectForQuery(ExecutionContext ec, String query) {
-        List<SkillDoc> found = retrieve(ec, query, 15);
+        return formatInjectForDocs(ec, retrieve(ec, query, 15), query);
+    }
+
+    /** Inject for an already chosen list, in that order. Reference cards stay out of the procedure slots. */
+    public static String formatInjectForDocs(ExecutionContext ec, List<SkillDoc> found, String query) {
         List<Map<String, Object>> skills = new ArrayList<>();
-        List<Map<String, Object>> references = new ArrayList<>();
+        List<Map<String, Object>> cards = new ArrayList<>();
         if (found != null) {
             for (SkillDoc d : found) {
                 if (isReference(d)) {
-                    if (references.size() >= 2) continue;
-                    Map<String, Object> m = new LinkedHashMap<>();
-                    m.put("name", d.name);
-                    m.put("title", d.title);
-                    m.put("description", d.description);
-                    String body = withoutWidgets(d.body);
-                    if (body == null) body = "";
-                    else body = body.trim();
-                    if (body.length() > 400) body = body.substring(0, 400);
-                    m.put("body", body);
-                    references.add(m);
+                    if (cards.size() >= 2) continue;
+                    cards.add(referenceMap(d));
                 } else if (skills.size() < 3 && includeProcedure(d, query)) {
                     Map<String, Object> m = new LinkedHashMap<>();
                     m.put("name", d.name);
@@ -305,7 +302,28 @@ public class SkillIndex {
                 }
             }
         }
-        return fitInject(ec, skills, references);
+        boolean hasProcedure = !skills.isEmpty();
+        skills.addAll(cards);
+        return fitInject(ec, skills, hasProcedure);
+    }
+
+    private static Map<String, Object> referenceMap(SkillDoc d) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("name", d.name);
+        m.put("title", d.title);
+        m.put("description", d.description);
+        m.put("reference", Boolean.TRUE);
+        String body = withoutWidgets(d.body);
+        if (body == null) body = "";
+        else body = body.trim();
+        warnIfLarge(d.name, body);
+        m.put("body", body);
+        return m;
+    }
+
+    private static void warnIfLarge(String name, String body) {
+        if (body != null && body.length() >= BODY_WARN_CHARS)
+            logger.warn("LLM text {} is {} characters. It is sent whole.", name, body.length());
     }
 
     /** Active rows for a query. A non-empty query is an entity find, not a full table load. */
@@ -345,21 +363,20 @@ public class SkillIndex {
     }
 
     /** Over the budget, drop whole skills from the end. One skill that is still over is returned whole. */
-    private static String fitInject(ExecutionContext ec, List<Map<String, Object>> skills,
-            List<Map<String, Object>> references) {
-        String text = renderInject(ec, skills, references);
+    private static String fitInject(ExecutionContext ec, List<Map<String, Object>> skills, Boolean hasProcedure) {
+        String text = renderInject(ec, skills, hasProcedure);
         while (text.length() > INJECT_CHARS && skills.size() > 1) {
-            skills.remove(skills.size() - 1);
-            text = renderInject(ec, skills, references);
+            Map<String, Object> dropped = skills.remove(skills.size() - 1);
+            logger.warn("Skill inject over {} characters, dropped skill {}", INJECT_CHARS, dropped.get("name"));
+            text = renderInject(ec, skills, hasProcedure);
         }
         return text;
     }
 
-    private static String renderInject(ExecutionContext ec, List<Map<String, Object>> skills,
-            List<Map<String, Object>> references) {
+    private static String renderInject(ExecutionContext ec, List<Map<String, Object>> skills, Boolean hasProcedure) {
         Map<String, Object> ctx = new LinkedHashMap<>();
         ctx.put("skills", skills);
-        if (references != null) ctx.put("references", references);
+        if (hasProcedure != null) ctx.put("hasProcedure", hasProcedure);
         String text = LlmGateway.renderPrompt(ec, LlmGateway.PROMPT_SKILL_INJECT, ctx);
         return text == null ? "" : text;
     }
@@ -559,7 +576,7 @@ public class SkillIndex {
                     EntityValue lesson = ec.getEntity().makeValue("moqui.llm.LlmLesson")
                             .set("skillId", sk.get("skillId"))
                             .set("title", title)
-                            .set("body", cap(lessonBody, 800))
+                            .set("body", lessonBody.trim())
                             .set("provenanceId", "sim".equals(contact) ? "LskpSim" : "LskpWorld")
                             .set("statusId", "LsksActive")
                             .set("createdDate", ec.getUser().getNowTimestamp());
@@ -600,7 +617,11 @@ public class SkillIndex {
                 int size = list.size();
                 for (int i = 0; i < size; i++) {
                     String body = list.get(i).getString("body");
-                    if (body != null && !body.isBlank()) lines.add(cap(body.trim(), 400));
+                    if (body != null && !body.isBlank()) {
+                        String text = body.trim();
+                        warnIfLarge("lesson " + skillId, text);
+                        lines.add(text);
+                    }
                 }
                 return lines;
             });

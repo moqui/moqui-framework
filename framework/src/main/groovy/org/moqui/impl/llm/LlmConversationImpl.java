@@ -328,12 +328,62 @@ public class LlmConversationImpl implements LlmConversation {
                 rest.add(m);
             }
         }
+        List<LlmMessage> fullRest = rest;
         rest = trimRest(rest, policy, charsOf(system) + charsOfAll(context));
+        int droppedCount = fullRest.size() - rest.size();
         List<LlmMessage> window = new ArrayList<>();
         if (policy.keepSystemFirst && system != null) window.add(system);
         window.addAll(context);
+        if (droppedCount > 0) window.add(omissionNote(fullRest.subList(0, droppedCount)));
         window.addAll(rest);
         return window;
+    }
+
+    /**
+     * Describes a prefix trimRest left out of the prompt. Not stored. Does not quote a message body.
+     * Included even when includeContext is false, because it describes omitted history.
+     */
+    private LlmMessage omissionNote(List<LlmMessage> dropped) {
+        int user = 0;
+        int assistant = 0;
+        int tool = 0;
+        int other = 0;
+        LlmMessage oldestUser = null;
+        for (LlmMessage m : dropped) {
+            if (m.role == LlmMessage.Role.USER) {
+                user++;
+                if (oldestUser == null) oldestUser = m;
+            } else if (m.role == LlmMessage.Role.ASSISTANT) {
+                assistant++;
+            } else if (m.role == LlmMessage.Role.TOOL) {
+                tool++;
+            } else {
+                other++;
+            }
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("Earlier messages omitted from this prompt: ").append(dropped.size());
+        sb.append(" (").append(roleCounts(user, assistant, tool, other)).append(").");
+        if (oldestUser != null)
+            sb.append("\nOldest user message: ordinal ").append(oldestUser.ordinal).append(".");
+        logger.warn("LLM window omitted {} messages for conversation {} (user {}, assistant {}, tool {})",
+                dropped.size(), conversationId, user, assistant, tool);
+        return LlmMessage.context("omitted", sb.toString());
+    }
+
+    private static String roleCounts(int user, int assistant, int tool, int other) {
+        StringBuilder sb = new StringBuilder();
+        addCount(sb, "user", user);
+        addCount(sb, "assistant", assistant);
+        addCount(sb, "tool", tool);
+        addCount(sb, "other", other);
+        return sb.toString();
+    }
+
+    private static void addCount(StringBuilder sb, String label, int n) {
+        if (n <= 0) return;
+        if (sb.length() > 0) sb.append(", ");
+        sb.append(label).append(' ').append(n);
     }
 
     @Override

@@ -14,6 +14,7 @@
 
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
+import org.moqui.entity.EntityValue
 import org.moqui.impl.llm.BrowseTool
 import org.moqui.impl.llm.LlmGateway
 import org.moqui.impl.llm.ScreenUseTool
@@ -577,7 +578,10 @@ class LlmBrowseTests extends Specification {
 
         when:
         String one = SkillIndex.formatInject(ec, [first])
-        String both = SkillIndex.formatInject(ec, [first, second])
+        String both = null
+        List<String> dropWarns = WarnCapture.of(SkillIndex.class) {
+            both = SkillIndex.formatInject(ec, [first, second])
+        }
 
         then:
         one.contains("BEGIN-FIRST")
@@ -587,5 +591,111 @@ class LlmBrowseTests extends Specification {
         both.contains("END-FIRST")
         !both.contains("second-skill")
         !both.contains("END-SECOND")
+        dropWarns.any { it.contains("dropped skill") && it.contains("second-skill") }
+    }
+
+    def "reference cards render beside procedures and are not sliced"() {
+        given:
+        SkillIndex.SkillDoc proc = new SkillIndex.SkillDoc()
+        proc.name = "create-user-account"
+        proc.title = "Create user"
+        proc.risk = "confirm"
+        proc.description = "Create a UserAccount"
+        proc.body = "Call run_service create#UserAccount\n## Widgets\nwidget line"
+        SkillIndex.SkillDoc card = new SkillIndex.SkillDoc()
+        card.name = "marble-party-roles"
+        card.title = "Party roles"
+        card.description = "How parties relate"
+        String cardBody = "CARD-START " + ("c" * 500) + " CARD-END"
+        card.body = cardBody + "\n## Widgets\nwidget hidden"
+
+        when:
+        String mixed = SkillIndex.formatInjectForDocs(ec, [card, proc], "create user account")
+        String only = SkillIndex.formatInjectForDocs(ec, [card], "party roles")
+
+        then:
+        mixed.indexOf("create-user-account") < mixed.indexOf("marble-party-roles")
+        mixed.contains("These are candidates")
+        mixed.contains("create#UserAccount")
+        mixed.contains("(reference card, not a procedure)")
+        mixed.contains("CARD-END")
+        mixed.contains(cardBody)
+        !mixed.contains("widget hidden")
+        !mixed.contains("No procedure skill matched")
+        only.contains("No procedure skill matched")
+        only.contains("marble-party-roles")
+        only.contains("CARD-END")
+        !only.contains("No matching skill")
+    }
+
+    def "a long reference card is sent whole and logged"() {
+        given:
+        SkillIndex.SkillDoc card = new SkillIndex.SkillDoc()
+        card.name = "marble-long-card"
+        card.title = "Long card"
+        card.body = "LONG-START " + ("d" * SkillIndex.BODY_WARN_CHARS) + " LONG-END"
+
+        when:
+        String text = null
+        List<String> warns = WarnCapture.of(SkillIndex.class) {
+            text = SkillIndex.formatInjectForDocs(ec, [card], "long card")
+        }
+
+        then:
+        text.contains("LONG-START")
+        text.contains("LONG-END")
+        warns.any { it.contains("marble-long-card") && it.contains("sent whole") }
+    }
+
+    def "a long lesson is injected whole"() {
+        given:
+        String stamp = Long.toString(System.currentTimeMillis())
+        String skillName = "long-lesson-" + stamp
+        String lessonBody = "LESSON-START " + ("q" * 500) + " LESSON-END"
+        EntityValue sk = ec.entity.makeValue("moqui.llm.LlmSkill")
+                .set("name", skillName)
+                .set("title", "Long lesson")
+                .set("body", "POST create")
+                .set("riskId", "LskConfirm")
+                .set("statusId", "LsksActive")
+                .set("provenanceId", "LskpHuman")
+                .set("version", 1)
+        sk.setSequencedIdPrimary()
+        sk.create()
+        EntityValue lesson = ec.entity.makeValue("moqui.llm.LlmLesson")
+                .set("skillId", sk.skillId)
+                .set("title", "long failure")
+                .set("body", lessonBody)
+                .set("statusId", "LsksActive")
+                .set("provenanceId", "LskpWorld")
+        lesson.setSequencedIdPrimary()
+        lesson.create()
+        SkillIndex.SkillDoc doc = new SkillIndex.SkillDoc()
+        doc.name = skillName
+        doc.skillId = sk.skillId
+        doc.risk = "confirm"
+        doc.body = "POST create"
+
+        when:
+        String injected = SkillIndex.formatInject(ec, [doc])
+
+        then:
+        injected.contains("LESSON-START")
+        injected.contains("LESSON-END")
+        injected.contains(lessonBody)
+
+        cleanup:
+        boolean d = ec.artifactExecution.disableAuthz()
+        boolean b = ec.transaction.begin(null)
+        try {
+            ec.entity.find("moqui.llm.LlmLesson").condition("skillId", sk.skillId).deleteAll()
+            ec.entity.find("moqui.llm.LlmSkill").condition("skillId", sk.skillId).deleteAll()
+            if (b) ec.transaction.commit()
+        } catch (Throwable t) {
+            if (b) ec.transaction.rollback("long lesson cleanup", t)
+            throw t
+        } finally {
+            if (!d) ec.artifactExecution.enableAuthz()
+        }
     }
 }

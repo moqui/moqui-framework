@@ -22,10 +22,6 @@ public final class WindowPolicy {
     public boolean keepSystemFirst = true;
     public boolean keepToolPairs = true;
     public boolean includeContext = true;
-    /** Applies only to input overflow (context_length_exceeded), not output finish_reason=length. */
-    public ContextLimitPolicy onInputOverflow = ContextLimitPolicy.FAIL;
-
-    public enum ContextLimitPolicy { FAIL, TRIM_AND_RETRY_ONCE }
 
     public WindowPolicy copy() {
         WindowPolicy c = new WindowPolicy();
@@ -34,7 +30,6 @@ public final class WindowPolicy {
         c.keepSystemFirst = keepSystemFirst;
         c.keepToolPairs = keepToolPairs;
         c.includeContext = includeContext;
-        c.onInputOverflow = onInputOverflow;
         return c;
     }
 
@@ -45,11 +40,9 @@ public final class WindowPolicy {
         m.put("keepSystemFirst", keepSystemFirst);
         m.put("keepToolPairs", keepToolPairs);
         m.put("includeContext", includeContext);
-        m.put("onInputOverflow", onInputOverflow != null ? onInputOverflow.name() : ContextLimitPolicy.FAIL.name());
         return m;
     }
 
-    @SuppressWarnings("unchecked")
     public static WindowPolicy fromMap(Map<String, Object> map) {
         WindowPolicy p = new WindowPolicy();
         if (map == null) return p;
@@ -59,14 +52,6 @@ public final class WindowPolicy {
         if ((v = map.get("keepSystemFirst")) instanceof Boolean) p.keepSystemFirst = (Boolean) v;
         if ((v = map.get("keepToolPairs")) instanceof Boolean) p.keepToolPairs = (Boolean) v;
         if ((v = map.get("includeContext")) instanceof Boolean) p.includeContext = (Boolean) v;
-        v = map.get("onInputOverflow");
-        if (v != null) {
-            try {
-                p.onInputOverflow = ContextLimitPolicy.valueOf(v.toString());
-            } catch (IllegalArgumentException ignored) {
-                p.onInputOverflow = ContextLimitPolicy.FAIL;
-            }
-        }
         return p;
     }
 }
