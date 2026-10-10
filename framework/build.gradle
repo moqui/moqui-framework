@@ -220,6 +220,7 @@ test {
     include '**/LlmSkillAgentTests.class'
     include '**/LlmBrowseTests.class'
     include '**/LlmFindBasicTests.class'
+    include '**/ToolResultTrimTests.class'
     include '**/LlmTraceTests.class'
     include '**/EntityFtsTests.class'
     include '**/A2A*Tests.class'

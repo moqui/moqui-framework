@@ -48,7 +48,7 @@ import java.util.function.BooleanSupplier;
 public class LlmClientImpl implements LlmClient {
     private static final Logger logger = LoggerFactory.getLogger(LlmClientImpl.class);
     static final int DEFAULT_MAX_ITERATIONS = 8;
-    static final int DEFAULT_TOOL_RESULT_MAX_CHARS = 8000;
+    static final int DEFAULT_TOOL_RESULT_MAX_CHARS = 65536;
 
     final ExecutionContext ec;
     final LlmFacadeImpl.ProfileState profile;

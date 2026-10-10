@@ -26,6 +26,7 @@ import org.moqui.impl.screen.ScreenDefinition.SubscreensItem
 import org.moqui.impl.screen.ScreenDefinition.TransitionItem
 import org.moqui.impl.screen.ScreenFacadeImpl
 import org.moqui.impl.screen.ScreenForm
+import org.moqui.impl.screen.ScreenUrlInfo
 import org.moqui.impl.service.RestApi
 import org.moqui.impl.service.RestApi.PathNode
 import org.moqui.impl.service.RestApi.ResourceNode
@@ -37,6 +38,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 import java.util.Arrays
+import java.util.concurrent.ConcurrentHashMap
 import java.util.regex.Pattern
 
 /**
@@ -51,19 +53,28 @@ class BrowseTool implements LlmTool {
     static final int MAX_DEPTH = 6
     static final int MAX_MATCH_LEN = 200
     static final int MAX_FORM_FIELDS = 50
+    static final int MAX_HITS = 12
+    /** Structural screen index, dropped when the screen tree or a screen's load time changes. */
+    private static final ConcurrentHashMap<Integer, Map<String, Object>> SCREEN_INDEX = new ConcurrentHashMap<>()
     static final Set<String> SKIP_TRANSITIONS = new HashSet<>(
             Arrays.asList("actions", "formSelectColumns", "formSaveFind", "screenDoc"))
     private static final Map<String, Object> SCHEMA
     static {
         Map<String, Object> props = new LinkedHashMap<>()
+        props.put("q", [type:"string", description:
+                "Plain text (not a regex) to find a screen the user can open. Preferred over path+match. " +
+                "Ranks menu title above screen name above field title above field name above service. " +
+                "At most 12 hits: path, title, and form name plus type under /qapps. No field lists. " +
+                "Ignores path, match, depth, and detail."] as Map)
         props.put("path", [type:"string", description:
-                "Virtual catalog path. Empty or / lists roots: /qapps, /apps, /rest, /services, /entities"] as Map)
+                "Virtual catalog path. Empty or / lists roots: /qapps, /apps, /rest, /services, /entities. " +
+                "Use for a directory listing or a form-list jsonPath, not to find a screen by words."] as Map)
         props.put("match", [type:"string", description:
                 "Optional case-insensitive regex on child name, title, screen/form/form-list/transition parameter names, form fields, entityName, and transition serviceName"] as Map)
         props.put("depth", [type:"integer", description:
                 "1 = this directory only (default). 2-6 search descendants. Cap 6"] as Map)
         props.put("detail", [type:"boolean", description:
-                "If path is a leaf, return screen parameters, forms, transition serviceName/inParameters, or entity/service fields"] as Map)
+                "On one screen, service, or entity path, add that leaf: forms and findFields, transition inParameters, or entity/service fields. A search or directory stays a summary."] as Map)
         Map<String, Object> schema = new LinkedHashMap<>()
         schema.put("type", "object")
         schema.put("properties", props)
@@ -72,17 +83,20 @@ class BrowseTool implements LlmTool {
 
     @Override String getName() { return NAME }
     @Override String getDescription() {
-        return "Browse screens, REST, services, and entities the current user is authorized to view. " +
-                "Directory listing, 1 level deep by default. Roots: /qapps (prefer), /apps, /rest (s1/e1/m1), " +
-                "/services (package.verb#noun), /entities (package; slashes not dots). Screen listings include " +
-                "parameters and forms. form-list children with data prep include jsonPath " +
-                "({screen}/actions/{formName}) — request GET that path with findFields as query (option keys " +
-                "exactly; requireParameters means empty query returns 0 rows). JSON is {rows,totalCount}. Transitions " +
-                "include method, parameters, form fields, and serviceName when the transition is a single " +
-                "service-call — request POST that path. Search screens exhaustively before /rest/s1, then " +
-                "run_service, then /rest/e1 last. Entity rows include createService (create#EntityName). " +
-                "match searches name, title, serviceName, form-list entity/fields, and form fields. " +
-                "Use depth 3-6 with match to find descendants. Set detail=true on a leaf."
+        return "Find a screen with q (plain text). Hits are a short list of screens this user may view, " +
+                "ranked, at most 12, path under /qapps: path, title, name, and form name plus type. No fields. " +
+                "Use q before path. Open the screen with screen_use; snapshot is the field list. " +
+                "Directory listing is path, match, and depth, 1 level deep by default, and omits screens and " +
+                "transitions this user may not view. Those rows are names and paths. A form-list row has jsonPath " +
+                "({screen}/actions/{formName}) and method GET. A transition row has method, readOnly, and " +
+                "serviceName when it is one service-call. detail=true on that one screen path, not the jsonPath, " +
+                "adds forms, findFields, and transition inParameters. request GET jsonPath only when no screen " +
+                "fits, with findFields as query (option keys exactly; requireParameters means an empty query " +
+                "returns 0 rows). JSON is {rows,totalCount}. Roots: /qapps (prefer), /apps, /rest (s1/e1/m1), " +
+                "/services (package.verb#noun), /entities (package; slashes not dots). Search screens before " +
+                "/rest/s1, then run_service, then /rest/e1 last. Entity rows include createService " +
+                "(create#EntityName). match searches name, title, serviceName, and form fields on the server. " +
+                "Use depth 3-6 with match to find descendants. q ignores path, match, depth, and detail."
     }
     @Override Map<String, Object> getParametersSchema() { return SCHEMA }
     @Override Execution getExecution() { return Execution.SERVER }
@@ -90,6 +104,11 @@ class BrowseTool implements LlmTool {
     @Override
     Object execute(Map<String, Object> arguments, ExecutionContext ec) {
         Map<String, Object> args = arguments != null ? arguments : Collections.emptyMap()
+        String q = str(args.get("q"))
+        if (q != null && !q.isBlank()) {
+            if (q.length() > MAX_MATCH_LEN) return error("q exceeds ${MAX_MATCH_LEN} characters")
+            return searchScreens(ec, q.trim())
+        }
         String path = str(args.get("path"))
         if (path == null || path.isBlank()) path = "/"
         path = normalizePath(path)
@@ -159,6 +178,8 @@ class BrowseTool implements LlmTool {
                 // maybe a transition leaf
                 TransitionItem ti = cur.getTransitionItem(seg, "any")
                 if (ti == null) return error("not found: " + pathB.toString() + "/" + seg)
+                if (!screenViewPermitted(eci, pathB.toString())) return errorStatus(403, "not authorized")
+                if (!transitionPermitted(eci, pathB.toString(), ti)) return errorStatus(403, "not authorized")
                 return screenTransitionDetail(pathB.toString() + "/" + seg, cur, ti, eci.serviceFacade)
             }
             // Isolated AT_XML_SCREEN checks miss inheritAuthz from parent apps (System/Tools).
@@ -168,8 +189,9 @@ class BrowseTool implements LlmTool {
             pathB.append('/').append(seg)
             cur = next
         }
+        if (!screenViewPermitted(eci, pathB.toString())) return errorStatus(403, "not authorized")
         List<Map<String, Object>> children = new ArrayList<>()
-        boolean truncated = collectScreenChildren(eci, cur, pathB.toString(), children, matchPat, depth, 1)
+        boolean truncated = collectScreenChildren(eci, cur, pathB.toString(), children, matchPat, depth, 1, !detail)
         Map<String, Object> out = listing(pathB.toString(), "screens", children)
         out.put("truncated", truncated)
         String title = cur.defaultMenuName
@@ -181,24 +203,25 @@ class BrowseTool implements LlmTool {
     }
 
     boolean collectScreenChildren(ExecutionContextImpl eci, ScreenDefinition sd, String path,
-            List<Map<String, Object>> children, Pattern matchPat, int depth, int level) {
+            List<Map<String, Object>> children, Pattern matchPat, int depth, int level, boolean listForms) {
         boolean truncated = false
         ServiceFacadeImpl sfi = eci.serviceFacade
-        List<Map<String, Object>> forms = screenForms(sd, path)
+        List<Map<String, Object>> forms = listForms ? screenForms(sd, path) : null
         // Form-list JSON paths and write transitions first when searching so match hits
-        // before MAX_CHILDREN fills with sibling screens.
-        if (matchPat != null) {
+        // before MAX_CHILDREN fills with sibling screens. detail=true puts those on leaf instead.
+        if (listForms && matchPat != null) {
             truncated = addFormListChildren(path, children, matchPat, forms) || truncated
-            truncated = addTransitionChildren(sd, path, children, matchPat, sfi, forms) || truncated
+            truncated = addTransitionChildren(eci, sd, path, children, matchPat, sfi, forms) || truncated
         }
         ArrayList<SubscreensItem> items = sd.getSubscreensItemsSorted()
         int n = items != null ? items.size() : 0
         for (int i = 0; i < n; i++) {
             SubscreensItem si = (SubscreensItem) items.get(i)
             if (si == null || si.location == null) continue
-            // Isolated AT_XML_SCREEN checks miss inheritAuthz from parent apps (System/Tools).
-            // Include the child; request/run_service still enforce authz on execution.
+            if (!si.isValidInCurrentContext()) continue
             String childPath = path + "/" + si.name
+            // Same path walk as the menu (inherit-authz), not an isolated screen artifact check.
+            if (!screenViewPermitted(eci, childPath)) continue
             ScreenDefinition childSd = null
             try { childSd = eci.screenFacade.getScreenDefinition(si.location) } catch (Throwable ignored) { }
             Map<String, Object> row = child(si.name, "screen", childPath, si.menuTitle)
@@ -207,10 +230,7 @@ class BrowseTool implements LlmTool {
             if (si.menuTitle != null) search.add(si.menuTitle)
             if (childSd != null) {
                 List<String> childParams = parameterNames(childSd.getParameterMap())
-                if (!childParams.isEmpty()) {
-                    row.put("parameters", childParams)
-                    search.addAll(childParams)
-                }
+                if (!childParams.isEmpty()) search.addAll(childParams)
                 if (matchPat != null) addFormSearchTexts(search, screenForms(childSd, childPath))
             }
             if (matchesAny(matchPat, search)) {
@@ -219,17 +239,17 @@ class BrowseTool implements LlmTool {
             }
             boolean willRecurse = depth > level && !truncated && childSd != null
             if (willRecurse) {
-                truncated = collectScreenChildren(eci, childSd, childPath, children, matchPat, depth, level + 1) || truncated
-            } else if (matchPat != null && childSd != null && !truncated) {
+                truncated = collectScreenChildren(eci, childSd, childPath, children, matchPat, depth, level + 1, listForms) || truncated
+            } else if (listForms && matchPat != null && childSd != null && !truncated) {
                 // Default depth is 1; still surface matching form-list JSON paths and write transitions.
                 List<Map<String, Object>> childForms = screenForms(childSd, childPath)
                 truncated = addFormListChildren(childPath, children, matchPat, childForms) || truncated
-                truncated = addTransitionChildren(childSd, childPath, children, matchPat, sfi, childForms) || truncated
+                truncated = addTransitionChildren(eci, childSd, childPath, children, matchPat, sfi, childForms) || truncated
             }
         }
-        if (matchPat == null) {
+        if (listForms && matchPat == null) {
             truncated = addFormListChildren(path, children, matchPat, forms) || truncated
-            truncated = addTransitionChildren(sd, path, children, matchPat, sfi, forms) || truncated
+            truncated = addTransitionChildren(eci, sd, path, children, matchPat, sfi, forms) || truncated
         }
         return truncated
     }
@@ -259,15 +279,6 @@ class BrowseTool implements LlmTool {
         row.put("method", "GET")
         Object entityName = form.get("entityName")
         if (entityName != null) row.put("entityName", entityName)
-        Object list = form.get("list")
-        if (list != null) row.put("list", list)
-        Object fields = form.get("fields")
-        if (fields instanceof List && !((List) fields).isEmpty()) row.put("fields", fields)
-        copyIfPresent(form, row, "requireParameters")
-        copyIfPresent(form, row, "defaultOrderBy")
-        copyIfPresent(form, row, "pageSizeDefault")
-        copyIfPresent(form, row, "findFields")
-        copyIfPresent(form, row, "jsonShape")
         return row
     }
 
@@ -291,6 +302,7 @@ class BrowseTool implements LlmTool {
         if (fields instanceof List) {
             for (Object fn : (List) fields) if (fn != null) texts.add(fn.toString())
         }
+        addTitleTexts(texts, form.get("fieldTitles"))
         if (Boolean.TRUE.equals(form.get("requireParameters"))) texts.add("requireParameters")
         Object findFields = form.get("findFields")
         if (findFields instanceof List) {
@@ -306,17 +318,28 @@ class BrowseTool implements LlmTool {
         return texts
     }
 
-    boolean addTransitionChildren(ScreenDefinition sd, String path, List<Map<String, Object>> children,
-            Pattern matchPat, ServiceFacadeImpl sfi, List<Map<String, Object>> forms) {
+    boolean addTransitionChildren(ExecutionContextImpl eci, ScreenDefinition sd, String path,
+            List<Map<String, Object>> children, Pattern matchPat, ServiceFacadeImpl sfi, List<Map<String, Object>> forms) {
         boolean truncated = false
         for (TransitionItem ti : sd.getAllTransitions()) {
             if (ti == null || SKIP_TRANSITIONS.contains(ti.name)) continue
+            if (!transitionPermitted(eci, path, ti)) continue
             List<String> extra = transitionSearchTexts(ti, sfi, forms)
             if (!matchesAny(matchPat, extra)) continue
             if (children.size() >= MAX_CHILDREN) { truncated = true; break }
-            children.add(transitionChild(path + "/" + ti.name, ti, sfi, forms))
+            children.add(transitionSummary(path + "/" + ti.name, ti))
         }
         return truncated
+    }
+
+    /** Directory row. Field lists and service parameters stay on detail=true. */
+    static Map<String, Object> transitionSummary(String childPath, TransitionItem ti) {
+        Map<String, Object> row = child(ti.name, "transition", childPath, ti.name)
+        row.put("method", ti.method)
+        row.put("readOnly", ti.readOnly)
+        String svc = ti.singleServiceName
+        if (svc != null && !svc.isEmpty()) row.put("serviceName", svc)
+        return row
     }
 
     static Map<String, Object> transitionChild(String childPath, TransitionItem ti, ServiceFacadeImpl sfi,
@@ -361,6 +384,7 @@ class BrowseTool implements LlmTool {
             if (fields instanceof List) {
                 for (Object fn : (List) fields) if (fn != null) texts.add(fn.toString())
             }
+            addTitleTexts(texts, form.get("fieldTitles"))
         }
         return texts
     }
@@ -445,6 +469,11 @@ class BrowseTool implements LlmTool {
                 row.put("type", isList ? "form-list" : "form-single")
                 String trans = node.attribute("transition")
                 if (trans != null && !trans.isEmpty()) row.put("transition", trans)
+                TransitionItem formTi = null
+                if (trans != null && !trans.isEmpty()) {
+                    try { formTi = sd.getTransitionItem(trans, "any") } catch (Throwable ignored) { }
+                }
+                row.put("navigationOnly", Boolean.valueOf(isNavigationOnly(formTi)))
                 String list = node.attribute("list")
                 if (list != null && !list.isEmpty()) row.put("list", list)
                 MNode entityFind = node.first("entity-find")
@@ -458,13 +487,17 @@ class BrowseTool implements LlmTool {
                     row.put("method", "GET")
                 }
                 List<String> fieldNames = new ArrayList<>()
+                List<String> fieldTitles = new ArrayList<>()
                 for (MNode field : node.children("field")) {
                     if (field == null) continue
                     String fn = field.attribute("name")
                     if (fn != null && !fn.isEmpty()) fieldNames.add(fn)
+                    String title = fieldTitleText(field)
+                    if (title != null) fieldTitles.add(title)
                     if (fieldNames.size() >= MAX_FORM_FIELDS) break
                 }
                 if (!fieldNames.isEmpty()) row.put("fields", fieldNames)
+                if (!fieldTitles.isEmpty()) row.put("fieldTitles", fieldTitles)
                 if (isList) addFormListFindMeta(row, node)
                 forms.add(row)
             }
@@ -559,7 +592,12 @@ class BrowseTool implements LlmTool {
             if (fields instanceof List) {
                 for (Object fn : (List) fields) if (fn != null) texts.add(fn.toString())
             }
+            addTitleTexts(texts, form.get("fieldTitles"))
         }
+    }
+    static void addTitleTexts(List<String> texts, Object titles) {
+        if (texts == null || !(titles instanceof List)) return
+        for (Object t : (List) titles) if (t != null) texts.add(t.toString())
     }
 
     Map<String, Object> browseRest(ExecutionContext ec, List<String> rest, Pattern matchPat, int depth, boolean detail) {
@@ -903,6 +941,312 @@ class BrowseTool implements LlmTool {
         m.put("truncated", false)
         return m
     }
+    static String fieldTitleText(MNode field) {
+        if (field == null) return null
+        String title = plainTitle(field.attribute("title"))
+        if (title != null) return title
+        MNode header = field.first("header-field")
+        if (header != null) {
+            title = plainTitle(header.attribute("title"))
+            if (title != null) return title
+        }
+        MNode defField = field.first("default-field")
+        if (defField != null) title = plainTitle(defField.attribute("title"))
+        return title
+    }
+    static String plainTitle(String title) {
+        if (title == null) return null
+        String t = title.trim()
+        if (t.isEmpty() || t.contains("\${") || t.indexOf('<') >= 0) return null
+        return t
+    }
+    /** No transition, a read-only transition, or a redirect that does not run a service or actions. */
+    static boolean isNavigationOnly(TransitionItem ti) {
+        if (ti == null) return true
+        if (ti.readOnly) return true
+        return !ti.hasActionsOrSingleService()
+    }
+
+    static ScreenDefinition webrootWithApps(ExecutionContextImpl eci) {
+        if (eci == null) return null
+        ScreenFacadeImpl sfi = eci.screenFacade
+        List<String> roots = sfi.getAllRootScreenLocations()
+        for (String loc : roots) {
+            ScreenDefinition root = sfi.getScreenDefinition(loc)
+            if (root != null && root.getSubscreensItem("apps") != null) return root
+        }
+        return null
+    }
+    /** Catalog path /qapps/a/b or /apps/a/b becomes the webroot path list [apps, a, b]. */
+    static ArrayList<String> appsPathList(String catalogPath) {
+        ArrayList<String> out = new ArrayList<>()
+        List<String> segs = splitPath(catalogPath == null ? "" : catalogPath)
+        if (segs.isEmpty()) { out.add("apps"); return out }
+        String root = segs.get(0)
+        if (!"qapps".equals(root) && !"apps".equals(root) && !"vapps".equals(root)) return null
+        out.add("apps")
+        for (int i = 1; i < segs.size(); i++) out.add(segs.get(i))
+        return out
+    }
+    static ScreenUrlInfo screenUrl(ExecutionContextImpl eci, String catalogPath) {
+        ArrayList<String> path = appsPathList(catalogPath)
+        if (path == null || eci == null) return null
+        ScreenDefinition root = webrootWithApps(eci)
+        if (root == null) return null
+        try {
+            return ScreenUrlInfo.getScreenUrlInfo(eci.screenFacade, root, root, path, null, 0)
+        } catch (Throwable t) {
+            logger.debug("browse screen url failed for ${catalogPath}: ${t.message}")
+            return null
+        }
+    }
+    static boolean screenViewPermitted(ExecutionContextImpl eci, String catalogPath) {
+        ScreenUrlInfo sui = screenUrl(eci, catalogPath)
+        if (sui == null || !sui.targetExists) return false
+        try {
+            return sui.isPermitted(eci, (TransitionItem) null)
+        } catch (Throwable t) {
+            logger.debug("browse screen authz failed for ${catalogPath}: ${t.message}")
+            return false
+        }
+    }
+    static boolean transitionPermitted(ExecutionContextImpl eci, String screenCatalogPath, TransitionItem ti) {
+        if (ti == null || eci == null) return false
+        ScreenUrlInfo sui = screenUrl(eci, screenCatalogPath)
+        if (sui == null || !sui.targetExists) return false
+        try {
+            return sui.isPermitted(eci, ti)
+        } catch (Throwable t) {
+            logger.debug("browse transition authz failed for ${screenCatalogPath}/${ti.name}: ${t.message}")
+            return false
+        }
+    }
+
+    Map<String, Object> searchScreens(ExecutionContext ec, String q) {
+        ExecutionContextImpl eci = asEci(ec)
+        if (eci == null) return error("ExecutionContextImpl is required")
+        List<String> tokens = queryTokens(q)
+        if (tokens.isEmpty()) return error("q has no words")
+        List<Map<String, Object>> index = screenIndex(eci)
+        String phrase = String.join(" ", tokens)
+        List<Map<String, Object>> ranked = new ArrayList<>()
+        for (Map<String, Object> row : index) {
+            if (row == null) continue
+            String groupId = str(row.get("userGroupId"))
+            if (groupId != null && !groupId.isEmpty() && eci.getUser() != null &&
+                    !eci.getUser().getUserGroupIdSet().contains(groupId)) continue
+            int score = scoreScreen(row, tokens, phrase)
+            if (score <= 0) continue
+            Map<String, Object> copy = new LinkedHashMap<>(row)
+            copy.put("_score", Integer.valueOf(score))
+            ranked.add(copy)
+        }
+        Collections.sort(ranked, new Comparator<Map<String, Object>>() {
+            @Override int compare(Map<String, Object> a, Map<String, Object> b) {
+                int sa = ((Number) a.get("_score")).intValue()
+                int sb = ((Number) b.get("_score")).intValue()
+                if (sa != sb) return sb - sa
+                boolean am = Boolean.TRUE.equals(a.get("inMenu"))
+                boolean bm = Boolean.TRUE.equals(b.get("inMenu"))
+                if (am != bm) return am ? -1 : 1
+                String pa = String.valueOf(a.get("path"))
+                String pb = String.valueOf(b.get("path"))
+                if (pa.length() != pb.length()) return pa.length() - pb.length()
+                return pa.compareTo(pb)
+            }
+        })
+        List<Map<String, Object>> hits = new ArrayList<>()
+        boolean truncated = false
+        for (Map<String, Object> row : ranked) {
+            if (hits.size() >= MAX_HITS) { truncated = true; break }
+            String path = str(row.get("path"))
+            if (!screenViewPermitted(eci, path)) continue
+            hits.add(searchHit(row))
+        }
+        Map<String, Object> out = new LinkedHashMap<>()
+        out.put("path", "/")
+        out.put("kind", "search")
+        out.put("query", q)
+        out.put("hits", hits)
+        out.put("truncated", truncated)
+        return out
+    }
+    /** Search card. Ranking still uses fields in the index; the tool result does not. */
+    static Map<String, Object> searchHit(Map<String, Object> row) {
+        Map<String, Object> hit = new LinkedHashMap<>()
+        hit.put("path", str(row.get("path")))
+        hit.put("name", row.get("name"))
+        hit.put("title", row.get("title"))
+        hit.put("inMenu", row.get("inMenu"))
+        List<Map<String, Object>> formHits = new ArrayList<>()
+        Object forms = row.get("forms")
+        if (forms instanceof List) {
+            for (Object f : (List) forms) {
+                if (!(f instanceof Map)) continue
+                Map fm = (Map) f
+                Map<String, Object> one = new LinkedHashMap<>()
+                copyIfPresent(fm, one, "name")
+                copyIfPresent(fm, one, "type")
+                if (!one.isEmpty()) formHits.add(one)
+            }
+        }
+        if (!formHits.isEmpty()) hit.put("forms", formHits)
+        return hit
+    }
+    static int scoreScreen(Map<String, Object> row, List<String> tokens, String phrase) {
+        String title = str(row.get("title"))
+        String name = str(row.get("name"))
+        String titleL = title == null ? "" : title.toLowerCase(Locale.ROOT)
+        String nameL = name == null ? "" : name.toLowerCase(Locale.ROOT)
+        int score = 0
+        int titleHits = 0
+        for (String tok : tokens) {
+            boolean hit = false
+            if (!titleL.isEmpty() && titleL.contains(tok)) { score += 80; titleHits++; hit = true }
+            if (!nameL.isEmpty() && nameL.contains(tok)) { score += 40; hit = true }
+            if (listHas(row.get("fieldTitles"), tok)) { score += 25; hit = true }
+            if (listHas(row.get("fieldNames"), tok)) { score += 15; hit = true }
+            if (listHas(row.get("services"), tok)) { score += 10; hit = true }
+            if (listHas(row.get("parameters"), tok)) { score += 8; hit = true }
+            if (!hit) return 0
+        }
+        if (phrase != null && !phrase.isEmpty() && titleL.contains(phrase)) score += 200
+        boolean strongTitle = titleHits == tokens.size() && (tokens.size() == 1 || titleL.contains(phrase))
+        if (!Boolean.TRUE.equals(row.get("inMenu")) && !strongTitle) score = score >> 1
+        return score
+    }
+    static boolean listHas(Object list, String token) {
+        if (!(list instanceof List) || token == null) return false
+        for (Object o : (List) list) {
+            if (o == null) continue
+            if (o.toString().toLowerCase(Locale.ROOT).contains(token)) return true
+        }
+        return false
+    }
+    static List<String> queryTokens(String q) {
+        List<String> out = new ArrayList<>()
+        if (q == null) return out
+        for (String raw : q.toLowerCase(Locale.ROOT).split("[^a-z0-9#]+")) {
+            if (raw != null && !raw.isEmpty()) out.add(raw)
+        }
+        return out
+    }
+
+    @SuppressWarnings("unchecked")
+    List<Map<String, Object>> screenIndex(ExecutionContextImpl eci) {
+        ScreenDefinition apps = getAppsScreen(eci)
+        if (apps == null) return Collections.emptyList()
+        int key = System.identityHashCode(eci.ecfi)
+        String stamp = treeStamp(eci, apps)
+        Map<String, Object> cached = SCREEN_INDEX.get(Integer.valueOf(key))
+        if (cached != null && stamp.equals(cached.get("stamp"))) return (List<Map<String, Object>>) cached.get("screens")
+        synchronized (SCREEN_INDEX) {
+            cached = SCREEN_INDEX.get(Integer.valueOf(key))
+            if (cached != null && stamp.equals(cached.get("stamp"))) return (List<Map<String, Object>>) cached.get("screens")
+            List<Map<String, Object>> screens = new ArrayList<>()
+            indexWalk(eci, apps, new ArrayList<String>(), new HashSet<String>(), screens)
+            Map<String, Object> box = new LinkedHashMap<>()
+            box.put("stamp", stamp)
+            box.put("screens", screens)
+            SCREEN_INDEX.put(Integer.valueOf(key), box)
+            return screens
+        }
+    }
+    static String treeStamp(ExecutionContextImpl eci, ScreenDefinition apps) {
+        StringBuilder sb = new StringBuilder()
+        stampWalk(eci, apps, new ArrayList<String>(), new HashSet<String>(), sb)
+        return sb.toString()
+    }
+    static void stampWalk(ExecutionContextImpl eci, ScreenDefinition sd, List<String> rel,
+            Set<String> ancestors, StringBuilder sb) {
+        if (sd == null || sd.location == null) return
+        if (!ancestors.add(sd.location)) return
+        try {
+            sb.append(sd.location).append('@').append(sd.screenLoadedTime).append('|')
+            ArrayList<SubscreensItem> items = sd.getSubscreensItemsSorted()
+            int n = items != null ? items.size() : 0
+            for (int i = 0; i < n; i++) {
+                SubscreensItem si = (SubscreensItem) items.get(i)
+                if (si == null || si.location == null || si.name == null) continue
+                ScreenDefinition child = null
+                try { child = eci.screenFacade.getScreenDefinition(si.location) } catch (Throwable ignored) { }
+                if (child == null) continue
+                rel.add(si.name)
+                stampWalk(eci, child, rel, ancestors, sb)
+                rel.remove(rel.size() - 1)
+            }
+        } finally {
+            ancestors.remove(sd.location)
+        }
+    }
+    void indexWalk(ExecutionContextImpl eci, ScreenDefinition sd, List<String> rel,
+            Set<String> ancestors, List<Map<String, Object>> screens) {
+        if (sd == null || sd.location == null) return
+        if (!ancestors.add(sd.location)) return
+        try {
+            ArrayList<SubscreensItem> items = sd.getSubscreensItemsSorted()
+            int n = items != null ? items.size() : 0
+            ServiceFacadeImpl sfi = eci.serviceFacade
+            for (int i = 0; i < n; i++) {
+                SubscreensItem si = (SubscreensItem) items.get(i)
+                if (si == null || si.location == null || si.name == null) continue
+                ScreenDefinition child = null
+                try { child = eci.screenFacade.getScreenDefinition(si.location) } catch (Throwable ignored) { }
+                if (child == null) continue
+                rel.add(si.name)
+                StringBuilder pathB = new StringBuilder("/qapps")
+                for (String seg : rel) pathB.append('/').append(seg)
+                String path = pathB.toString()
+                Map<String, Object> row = new LinkedHashMap<>()
+                row.put("path", path)
+                row.put("name", si.name)
+                String title = si.menuTitle
+                if (title == null || title.isEmpty()) title = child.defaultMenuName
+                if (title == null || title.isEmpty()) title = si.name
+                row.put("title", title)
+                row.put("inMenu", Boolean.valueOf(si.menuInclude))
+                if (si.userGroupId != null && !si.userGroupId.isEmpty()) row.put("userGroupId", si.userGroupId)
+                List<String> params = parameterNames(child.getParameterMap())
+                if (!params.isEmpty()) row.put("parameters", params)
+                List<Map<String, Object>> forms = screenForms(child, path)
+                if (!forms.isEmpty()) row.put("forms", forms)
+                List<String> fieldNames = new ArrayList<>()
+                List<String> fieldTitles = new ArrayList<>()
+                for (Map<String, Object> form : forms) {
+                    Object fns = form.get("fields")
+                    if (fns instanceof List) for (Object fn : (List) fns) if (fn != null) fieldNames.add(fn.toString())
+                    Object fts = form.get("fieldTitles")
+                    if (fts instanceof List) for (Object ft : (List) fts) if (ft != null) fieldTitles.add(ft.toString())
+                }
+                if (!fieldNames.isEmpty()) row.put("fieldNames", fieldNames)
+                if (!fieldTitles.isEmpty()) row.put("fieldTitles", fieldTitles)
+                List<Map<String, Object>> trans = new ArrayList<>()
+                Map<String, TransitionItem> tiByName = new LinkedHashMap<>()
+                List<String> services = new ArrayList<>()
+                for (TransitionItem ti : child.getAllTransitions()) {
+                    if (ti == null || SKIP_TRANSITIONS.contains(ti.name)) continue
+                    tiByName.put(ti.name, ti)
+                    Map<String, Object> one = new LinkedHashMap<>()
+                    one.put("name", ti.name)
+                    one.put("readOnly", Boolean.valueOf(ti.readOnly))
+                    if (ti.singleServiceName != null && !ti.singleServiceName.isEmpty()) {
+                        one.put("serviceName", ti.singleServiceName)
+                        services.add(ti.singleServiceName)
+                    }
+                    trans.add(one)
+                }
+                if (!trans.isEmpty()) row.put("transitions", trans)
+                if (!tiByName.isEmpty()) row.put("_transitionItems", tiByName)
+                if (!services.isEmpty()) row.put("services", services)
+                screens.add(row)
+                indexWalk(eci, child, rel, ancestors, screens)
+                rel.remove(rel.size() - 1)
+            }
+        } finally {
+            ancestors.remove(sd.location)
+        }
+    }
+
     static Map<String, Object> error(String message) {
         Map<String, Object> m = new LinkedHashMap<>()
         m.put("error", message)

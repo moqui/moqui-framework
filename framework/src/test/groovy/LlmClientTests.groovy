@@ -1070,8 +1070,8 @@ class LlmClientTests extends Specification {
 
     def "Assist prompt tells models the date format and writeMode"() {
         given:
-        File assist = new File("../runtime/base-component/tools/prompt/AssistSystem.ftl")
-        File openUi = new File("../runtime/base-component/tools/prompt/OpenUiLang.prompt.txt")
+        File assist = new File("../runtime/base-component/webroot/prompt/AssistSystem.ftl")
+        File openUi = new File("../runtime/base-component/webroot/prompt/OpenUiLang.prompt.txt")
         expect:
         assist.exists()
         assist.text.contains("YYYY-MM-DD HH:mm")

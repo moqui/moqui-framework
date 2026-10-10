@@ -90,13 +90,14 @@ public final class SessionFacts {
             }
         }
         if ((activeId == null || activeId.isBlank()) && orgs.size() > 1) {
-            sb.append("\nNo active organization. Do not guess. ");
-            sb.append("Build a form the user submits with POST /apps/setPrefGoLast, ");
+            sb.append("\nNo active organization. Opening a find does not need a company. Do not guess a company on a write. ");
+            sb.append("When a write needs one company, the user submits POST /apps/setPrefGoLast, ");
             sb.append("preferenceKey=ACTIVE_ORGANIZATION, preferenceValue set to one partyId listed above.");
         } else if ((activeId == null || activeId.isBlank()) && orgs.size() == 1) {
-            sb.append("\nNo active organization is set. The only related organization is ")
+            sb.append("\nNo active organization is set. Opening a find does not need a company. The only related organization is ")
                     .append(orgs.get(0).get("partyId"))
-                    .append(". Ask before writing that id onto a record that needs an internal organization, ");
+                    .append(". Do not guess that id on a write. ");
+            sb.append("Ask before writing it onto a record that needs an internal organization, ");
             sb.append("or let the user submit POST /apps/setPrefGoLast with preferenceKey=ACTIVE_ORGANIZATION.");
         }
     }

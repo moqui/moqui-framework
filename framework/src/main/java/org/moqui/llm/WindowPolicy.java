@@ -18,7 +18,7 @@ import java.util.Map;
 
 public final class WindowPolicy {
     public int maxMessages = 40;
-    public int maxChars = 120_000;
+    public int maxChars = 400_000;
     public boolean keepSystemFirst = true;
     public boolean keepToolPairs = true;
     public boolean includeContext = true;

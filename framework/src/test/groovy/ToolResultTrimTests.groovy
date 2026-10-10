@@ -12,6 +12,7 @@
  * <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
 
+import org.moqui.impl.llm.LlmClientImpl
 import org.moqui.impl.llm.ToolResultTrim
 import spock.lang.Specification
 
@@ -66,6 +67,16 @@ class ToolResultTrimTests extends Specification {
         kept.orderHeader.statusId == "OrderPlaced"
         !kept.containsKey("sri")
         !kept.containsKey("userOrgList")
+    }
+
+    def "a map under the tool result cap is unchanged"() {
+        given:
+        Map result = [status: 200, text: "y" * 20000]
+
+        expect:
+        LlmClientImpl.DEFAULT_TOOL_RESULT_MAX_CHARS == 65536
+        ToolResultTrim.limit(result, LlmClientImpl.DEFAULT_TOOL_RESULT_MAX_CHARS).is(result)
+        !result.containsKey("truncated")
     }
 
     def "error messages block a clean success"() {

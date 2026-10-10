@@ -326,6 +326,30 @@ Call run_service create#moqui.test.TestEntity with testId and testMedium.
         ((Map) ui.content).error == "skill_required"
     }
 
+    def "force skill use refuses screen_use without yield"() {
+        given:
+        def proto = new FakeLlmProtocol()
+        proto.handler = { ProtocolRequest req ->
+            def last = lastTool(req)
+            if (last?.name == "screen_use") return FakeLlmProtocol.stop("stayed")
+            return FakeLlmProtocol.toolCalls(new LlmToolCall("s1", "screen_use", '{"action":"snapshot"}'))
+        }
+        LlmClientImpl client = agent(proto).forceSkillUse(true)
+        client.allowClientTools(true)
+        client.tool(LlmTool.screenUse())
+
+        when:
+        LlmResponse r = client.user("look at this screen").call()
+
+        then:
+        !r.yielded
+        r.content == "stayed"
+        def use = r.toolResults.find { it.name == "screen_use" }
+        use != null
+        use.content instanceof Map
+        ((Map) use.content).error == "skill_required"
+    }
+
     def "unknown select does not activate; subsequent browse still refused"() {
         given:
         def proto = new FakeLlmProtocol()
@@ -470,7 +494,7 @@ Call run_service create#moqui.test.TestEntity.
         given:
         String stamp = Long.toString(System.currentTimeMillis())
         String skillName = "huge-skill-" + stamp
-        String pad = "x" * 9000
+        String pad = "x" * 70000
         def proto = new FakeLlmProtocol()
         proto.handler = { ProtocolRequest req ->
             boolean sim = isSim(req)

@@ -262,7 +262,10 @@ class ScreenUrlInfo {
         String permittedCacheKey = (String) null
         if (fullPathNameList != null) {
             String keyUserId = userId != null ? userId : '_anonymous'
-            permittedCacheKey = keyUserId.concat(fullPathNameList.toString())
+            // Include the transition so a screen view check does not cache a different transition's result.
+            StringBuilder keySb = new StringBuilder(keyUserId).append(fullPathNameList.toString())
+            if (transitionItem != null) keySb.append('/').append(transitionItem.name).append(':').append(String.valueOf(actionEnum))
+            permittedCacheKey = keySb.toString()
             Boolean cachedPermitted = (Boolean) aefi.screenPermittedCache.get(permittedCacheKey)
             if (cachedPermitted != null) return cachedPermitted.booleanValue()
         } else {

@@ -47,8 +47,9 @@ public class FindSkillTool implements LlmTool {
 
     @Override public String getName() { return NAME; }
     @Override public String getDescription() {
-        return "Look up a playbook (skill) for how to do a task. Call this before browse. "
-                + "Pass select with an exact skill name to make it the active skill. "
+        return "Look up a playbook (skill) for how to do a task. "
+                + "A screen the user can view still comes first: browse, then screen_use. "
+                + "Pass select with an exact skill name only when that skill's steps are the task. "
                 + "Provide query, select, or both. If none match, call enter_sim instead of inventing writes.";
     }
     @Override public Map<String, Object> getParametersSchema() { return SCHEMA; }
@@ -70,9 +71,14 @@ public class FindSkillTool implements LlmTool {
         Object lim = args.get("limit");
         if (lim instanceof Number) limit = ((Number) lim).intValue();
         List<Map<String, Object>> out = new ArrayList<>();
+        boolean anyStrong = false;
         if (!query.isEmpty()) {
             List<SkillIndex.SkillDoc> docs = SkillIndex.retrieve(ec, query, limit);
-            for (SkillIndex.SkillDoc d : docs) out.add(toMap(ec, d, false));
+            for (SkillIndex.SkillDoc d : docs) {
+                SkillIndex.ScoreDetail sd = SkillIndex.scoreDetail(d, query);
+                if (sd.strong) anyStrong = true;
+                out.add(toMap(ec, d, false, sd, true));
+            }
         }
         result.put("skills", out);
         if (!select.isEmpty()) {
@@ -85,32 +91,49 @@ public class FindSkillTool implements LlmTool {
                 return result;
             }
             SkillUseGate.activate(LlmAgentLoop.currentClient(), chosen.name);
-            result.put("selected", toMap(ec, chosen, true));
+            String scored = query.isEmpty() ? select : query;
+            result.put("selected", toMap(ec, chosen, true, SkillIndex.scoreDetail(chosen, scored), false));
             result.put("hint", "Skill " + chosen.name
                     + " is now the active skill. browse, GET request, and write_ui are allowed. "
                     + "run_service and other request methods run immediately only when risk is reversible; "
                     + "confirm and irreversible wait for the user to click.");
         } else if (out.isEmpty()) {
             result.put("hint", "No skill. Call enter_sim before writes, or find_skill with select to activate one.");
+        } else if (!anyStrong) {
+            result.put("hint", "These overlap words in the query. They are not a playbook for this task. "
+                    + "Open an existing screen with browse and screen_use. "
+                    + "Do not select a skill unless its title is the task.");
+        } else {
+            result.put("hint", "A screen the user can view still comes first. "
+                    + "Select a skill only when its steps are the task.");
         }
         return result;
     }
 
     static Map<String, Object> toMap(ExecutionContext ec, SkillIndex.SkillDoc d) {
-        return toMap(ec, d, true);
+        return toMap(ec, d, true, null, false);
     }
     static Map<String, Object> toMap(ExecutionContext ec, SkillIndex.SkillDoc d, boolean includeWidgets) {
+        return toMap(ec, d, includeWidgets, null, false);
+    }
+    static Map<String, Object> toMap(ExecutionContext ec, SkillIndex.SkillDoc d, boolean includeWidgets,
+            SkillIndex.ScoreDetail score, boolean dropWeakBody) {
         Map<String, Object> m = new LinkedHashMap<>();
         if (d == null) return m;
         m.put("name", d.name);
         m.put("title", d.title);
         m.put("description", d.description);
         m.put("risk", d.risk);
-        m.put("body", includeWidgets ? d.body : SkillIndex.withoutWidgets(d.body));
+        boolean drop = dropWeakBody && score != null && !score.strong;
+        if (!drop) m.put("body", includeWidgets ? d.body : SkillIndex.withoutWidgets(d.body));
+        if (score != null) {
+            m.put("score", score.score);
+            m.put("match", score.strong ? "strong" : "weak");
+        }
         if (d.skillId != null) m.put("skillId", d.skillId);
         if (d.statusId != null) m.put("status", d.statusId);
         if (d.sourceLocation != null) m.put("sourceLocation", d.sourceLocation);
-        if (d.skillId != null && ec != null && !SkillIndex.isReference(d)) {
+        if (!drop && d.skillId != null && ec != null && !SkillIndex.isReference(d)) {
             List<String> lessons = SkillIndex.lessonLines(ec, d.skillId);
             if (!lessons.isEmpty()) m.put("lessons", lessons);
         }

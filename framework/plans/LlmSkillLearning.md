@@ -62,7 +62,7 @@ Already on `llm-client`:
 - `LlmClient` / `LlmAgentLoop` sequential tool loop
 - Tools: `request` (ScreenRender, authz on), `run_service`, `browse`, `write_ui`
 - Conversations: `LlmConversation` / `LlmMessage` / `LlmCallLog`
-- Assist profile (`component://tools/prompt/AssistSystem.ftl`) currently **inlines** the playbooks (create user, sales order). Those *are* skills stuck in the system prompt.
+- Assist profile (`component://webroot/prompt/AssistSystem.ftl`) currently **inlines** the playbooks (create user, sales order). Those *are* skills stuck in the system prompt.
 - `TransactionCache` — per-JTA-TX map overlay (`Synchronization.flush` on commit). Documented holes: view-entities, counts, DB limit, some iterators. This is the shape to extend, not the sim itself.
 - `ArtifactExecutionFacade` already has `disableEntityEca`, `disableEntityDataFeed`, `disableAuthz`, audit-log disable.
 - `sequencedIdPrimary` banks IDs in `runRequireNew` against `SequenceValueItem` — a sim that calls this **burns production sequences**.

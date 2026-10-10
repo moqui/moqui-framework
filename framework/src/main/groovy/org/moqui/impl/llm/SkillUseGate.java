@@ -26,9 +26,9 @@ final class SkillUseGate {
     static final String ERROR = "skill_required";
     static final String INSTRUCTION =
             "No skill is selected and you are not in sim. Call find_skill (use select to activate a matching skill) "
-                    + "or enter_sim to explore, test, and write a skill. Do not browse, request, run_service, or write_ui until then.";
+                    + "or enter_sim to explore, test, and write a skill. Do not browse, request, run_service, write_ui, or screen_use until then.";
     static final String SYSTEM_ADDENDUM =
-            "Force Skill Use is on. Before browse, request, run_service, or write_ui: find_skill and select a skill "
+            "Force Skill Use is on. Before browse, request, run_service, write_ui, or screen_use: find_skill and select a skill "
                     + "(select argument), or enter_sim to explore, test, and write a skill. The server will refuse other "
                     + "tools until then. It will not enter sim for you.";
 

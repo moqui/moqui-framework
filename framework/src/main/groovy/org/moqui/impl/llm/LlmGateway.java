@@ -50,8 +50,8 @@ import java.util.function.Supplier;
  */
 public final class LlmGateway {
     private static final Logger logger = LoggerFactory.getLogger(LlmGateway.class);
-    public static final String PROMPT_SIM = "component://tools/prompt/SimSystem.ftl";
-    public static final String PROMPT_SKILL_INJECT = "component://tools/prompt/SkillInject.ftl";
+    public static final String PROMPT_SIM = "component://webroot/prompt/SimSystem.ftl";
+    public static final String PROMPT_SKILL_INJECT = "component://webroot/prompt/SkillInject.ftl";
     private LlmGateway() { }
 
     public static final class Route {
@@ -149,7 +149,7 @@ public final class LlmGateway {
     }
 
     /**
-     * Request tools may only subset {request, write_ui, browse, find_basic, run_service, find_skill, enter_sim, pin}.
+     * Request tools may only subset {request, write_ui, screen_use, browse, find_basic, run_service, find_skill, enter_sim, pin}.
      * write-ui is accepted as write_ui. Unknown names are 400, not silently ignored.
      * find_basic is a legal name here; attachServletTools adds the tool only when the profile has an allow list.
      */
@@ -165,17 +165,17 @@ public final class LlmGateway {
                 if (o != null && !o.toString().isBlank()) names.add(o.toString().trim());
             }
         } else {
-            throw new LlmException("tools must be a list of request/write_ui/browse/find_basic/run_service/find_skill/enter_sim/pin",
+            throw new LlmException("tools must be a list of request/write_ui/screen_use/browse/find_basic/run_service/find_skill/enter_sim/pin",
                     null, LlmFinishReason.ERROR, 400, null, null);
         }
         Set<String> seen = new LinkedHashSet<>();
         for (String raw : names) {
             String n = "write-ui".equals(raw) ? "write_ui" : raw;
             if ("run-service".equals(n)) n = "run_service";
-            if (!"request".equals(n) && !"write_ui".equals(n) && !"browse".equals(n) && !"run_service".equals(n)
-                    && !"find_skill".equals(n) && !"enter_sim".equals(n) && !"pin".equals(n)
-                    && !FindBasicTool.NAME.equals(n))
-                throw new LlmException("tools may only subset {request, write_ui, browse, find_basic, run_service, find_skill, enter_sim, pin}",
+            if (!"request".equals(n) && !"write_ui".equals(n) && !"screen_use".equals(n) && !"browse".equals(n)
+                    && !"run_service".equals(n) && !"find_skill".equals(n) && !"enter_sim".equals(n)
+                    && !"pin".equals(n) && !FindBasicTool.NAME.equals(n))
+                throw new LlmException("tools may only subset {request, write_ui, screen_use, browse, find_basic, run_service, find_skill, enter_sim, pin}",
                         null, LlmFinishReason.ERROR, 400, null, null);
             seen.add(n);
         }
@@ -205,6 +205,7 @@ public final class LlmGateway {
         if (client == null || tools == null || tools.isEmpty()) return;
         boolean wantRequest = tools.contains("request");
         boolean wantWriteUi = tools.contains("write_ui");
+        boolean wantScreenUse = tools.contains("screen_use");
         boolean wantBrowse = tools.contains("browse");
         boolean wantRunService = tools.contains("run_service");
         boolean wantFindSkill = tools.contains("find_skill") || wantBrowse || wantRunService;
@@ -222,6 +223,10 @@ public final class LlmGateway {
             if (profile.allowUnprefixedRequest && (profile.allowedEntities == null || profile.allowedEntities.isEmpty()))
                 wt.setAllowAnyAuthorizedEntity(true);
             client.tool(wt);
+            client.allowClientTools(true);
+        }
+        if (wantScreenUse && profile != null && profile.allowWriteUi) {
+            client.tool(LlmTool.screenUse());
             client.allowClientTools(true);
         }
         if (wantBrowse && profile != null && profile.allowBrowse) client.tool(LlmTool.browse());
@@ -303,6 +308,7 @@ public final class LlmGateway {
         refreshContext(impl, "session", session);
         refreshContext(impl, "pins", PinTool.text(impl));
         refreshContext(impl, "skill-widgets", SkillIndex.activeWidgetText(impl.ec, impl.activeSkillName));
+        refreshContext(impl, "screen", ScreenUseTool.contextText(body.get("screen")));
         String user = str(body.get("user"));
         if (user != null) {
             impl.user(user);

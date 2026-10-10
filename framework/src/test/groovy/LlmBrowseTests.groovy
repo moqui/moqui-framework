@@ -16,6 +16,7 @@ import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
 import org.moqui.impl.llm.BrowseTool
 import org.moqui.impl.llm.LlmGateway
+import org.moqui.impl.llm.ScreenUseTool
 import org.moqui.impl.llm.ScreenSearchHints
 import org.moqui.impl.llm.SessionFacts
 import org.moqui.impl.llm.SkillIndex
@@ -73,10 +74,9 @@ class LlmBrowseTests extends Specification {
         hit != null
         hit.kind == "transition"
         hit.serviceName == "org.moqui.impl.UserServices.create#UserAccount"
-        hit.inParameters.contains("username")
-        hit.form == "CreateUserAccount"
-        hit.formFields.contains("username")
-        hit.formFields.contains("newPassword")
+        hit.method != null
+        !hit.containsKey("inParameters")
+        !hit.containsKey("formFields")
     }
 
     def "UserAccountList screen detail includes parameters forms and transitions"() {
@@ -93,6 +93,10 @@ class LlmBrowseTests extends Specification {
         form.fields.contains("emailAddress")
         trans != null
         trans.serviceName == "org.moqui.impl.UserServices.create#UserAccount"
+        trans.inParameters.contains("username")
+        trans.formFields.contains("username")
+        trans.formFields.contains("newPassword")
+        ((List) out.children).find { it.name == "createUserAccount" } == null
     }
 
     def "match on service name finds createUserAccount under UserAccount at depth 1"() {
@@ -117,7 +121,8 @@ class LlmBrowseTests extends Specification {
         then:
         hit != null
         hit.kind == "transition"
-        hit.formFields.contains("emailAddress")
+        hit.serviceName.contains("create#UserAccount")
+        !hit.containsKey("formFields")
     }
 
     def "EntityDataEdit listing includes required screen parameter"() {
@@ -217,18 +222,72 @@ class LlmBrowseTests extends Specification {
         hit.jsonPath.toString() == "/apps/marble/Asset/Asset/FindAsset/actions/ListAssets"
         hit.path.toString() == "/apps/marble/Asset/Asset/FindAsset/actions/ListAssets"
         hit.entityName == "mantle.product.asset.AssetFindView"
-        hit.fields.contains("productId")
-        hit.fields.contains("quantityOnHandTotal") || hit.fields.contains("availableToPromiseTotal")
+        !hit.containsKey("fields")
+        !hit.containsKey("findFields")
         actions == null
+    }
+
+    def "q find order ranks Find Order and a limited user does not see it"() {
+        when:
+        Map out = (Map) new BrowseTool().execute([q: "find order"], ec)
+        List hits = (List) out.hits
+        Map top = hits ? (Map) hits[0] : null
+
+        then:
+        out.error == null
+        top != null
+        hits.size() <= 12
+        top.title == "Find Order"
+        top.path.toString().startsWith("/qapps/")
+        top.path.toString().endsWith("/FindOrder")
+        hits.every { !it.path.toString().startsWith("/apps/") && !it.path.toString().startsWith("/vapps/") }
+        ((List) top.forms).any { Map f -> f.type == "form-list" && f.name }
+        ((List) top.forms).every { Map f -> !f.containsKey("fields") && !f.containsKey("fieldTitles") }
+        !top.containsKey("transitions")
+
+        when:
+        Map detail = (Map) new BrowseTool().execute([path: top.path, detail: true], ec)
+        // CreateSalesOrder is a form-single and also titles a field Customer. The find list is OrderList.
+        Map orderForm = ((List) detail.leaf.forms).find { Map f ->
+            f.type == "form-list" && ((List) f.fieldTitles)?.any {
+                String.valueOf(it).toLowerCase().contains("customer")
+            }
+        }
+
+        then:
+        orderForm != null
+        orderForm.name == "OrderList"
+        ((List) orderForm.fields).contains("customerPartyId")
+        ((List) detail.children).find { it.kind == "form-list" || it.kind == "transition" } == null
+
+        when:
+        ec.user.logoutUser()
+        assert ec.user.loginUser("example.ltd", "moqui")
+        Map limited = (Map) new BrowseTool().execute([q: "find order"], ec)
+        List limitedHits = limited.hits instanceof List ? (List) limited.hits : []
+
+        then:
+        !limitedHits.any { Map h -> String.valueOf(h.path).contains("FindOrder") }
+
+        cleanup:
+        ec.user.logoutUser()
+        ec.user.loginUser("john.doe", "moqui")
     }
 
     def "ArtifactHitBins form-list exposes requireParameters and AT_SERVICE option"() {
         when:
-        Map out = (Map) new BrowseTool().execute(
+        Map summary = (Map) new BrowseTool().execute(
                 [path: "/qapps/system/ArtifactHitBins"], ec)
-        Map hit = ((List) out.children).find { it.name == "ArtifactHitBins" && it.kind == "form-list" }
+        Map listed = ((List) summary.children).find { it.name == "ArtifactHitBins" && it.kind == "form-list" }
+        Map out = (Map) new BrowseTool().execute(
+                [path: "/qapps/system/ArtifactHitBins", detail: true], ec)
+        Map hit = ((List) out.leaf.forms).find { it.name == "ArtifactHitBins" }
 
         then:
+        listed != null
+        listed.method == "GET"
+        listed.jsonPath.toString() == "/apps/system/ArtifactHitBins/actions/ArtifactHitBins"
+        !listed.containsKey("findFields")
         hit != null
         hit.jsonPath.toString() == "/apps/system/ArtifactHitBins/actions/ArtifactHitBins"
         hit.requireParameters == true
@@ -243,6 +302,7 @@ class LlmBrowseTests extends Specification {
         binStart != null
         binStart.widget == "date-period"
         binStart.params.contains("binStartDateTime_period")
+        ((List) out.children).find { it.kind == "form-list" } == null
     }
 
     def "FindAsset detail forms include jsonPath and skip actions transition"() {
@@ -258,7 +318,10 @@ class LlmBrowseTests extends Specification {
         form.jsonPath.toString() == "/apps/marble/Asset/Asset/FindAsset/actions/ListAssets"
         form.method == "GET"
         form.entityName == "mantle.product.asset.AssetFindView"
+        form.fields.contains("productId")
+        form.fields.contains("quantityOnHandTotal") || form.fields.contains("availableToPromiseTotal")
         actions == null
+        ((List) out.children).find { it.kind == "form-list" } == null
     }
 
     def "match quantityOnHand finds ListAssets form-list under Asset"() {
@@ -270,6 +333,7 @@ class LlmBrowseTests extends Specification {
         then:
         hit != null
         hit.jsonPath.toString() == "/apps/marble/Asset/Asset/FindAsset/actions/ListAssets"
+        !hit.containsKey("fields")
     }
 
     def "search hints name QuickSearch and mantle Search actions this user can view"() {
@@ -342,7 +406,7 @@ class LlmBrowseTests extends Specification {
 
     def "AssistSystem documents screen-first ladder and find-form jsonPath"() {
         when:
-        def f = new File("../runtime/base-component/tools/prompt/AssistSystem.ftl")
+        def f = new File("../runtime/base-component/webroot/prompt/AssistSystem.ftl")
         String text = f.exists() ? f.text : ""
 
         then:
@@ -367,7 +431,7 @@ class LlmBrowseTests extends Specification {
 
     def "AssistSystem template includes generated OpenUI Lang prompt"() {
         when:
-        String sys = LlmGateway.renderPrompt(ec, "component://tools/prompt/AssistSystem.ftl", null)
+        String sys = LlmGateway.renderPrompt(ec, "component://webroot/prompt/AssistSystem.ftl", null)
         then:
         sys != null
         sys.contains("root = Stack")
@@ -387,9 +451,9 @@ class LlmBrowseTests extends Specification {
 
     def "AssistSystem includes VueSfc prompt only when allowVueSfc"() {
         when:
-        String off = LlmGateway.renderPrompt(ec, "component://tools/prompt/AssistSystem.ftl", [allowVueSfc: false])
-        String on = LlmGateway.renderPrompt(ec, "component://tools/prompt/AssistSystem.ftl", [allowVueSfc: true])
-        String openUi = new File("../runtime/base-component/tools/prompt/OpenUiLang.prompt.txt").text
+        String off = LlmGateway.renderPrompt(ec, "component://webroot/prompt/AssistSystem.ftl", [allowVueSfc: false])
+        String on = LlmGateway.renderPrompt(ec, "component://webroot/prompt/AssistSystem.ftl", [allowVueSfc: true])
+        String openUi = new File("../runtime/base-component/webroot/prompt/OpenUiLang.prompt.txt").text
 
         then:
         off != null && !off.contains("kind=vue-sfc")
@@ -399,10 +463,69 @@ class LlmBrowseTests extends Specification {
         !openUi.contains("vue-sfc")
     }
 
+    def "screen_use navigate rejects a transition, another origin, and a screen the user cannot view"() {
+        when:
+        ScreenUseTool tool = new ScreenUseTool()
+        Map trans = tool.enrichForClient([action: "navigate", path: "/qapps/marble/Order/FindOrder/actions"], ec)
+        Map off = tool.enrichForClient([action: "navigate", path: "https://evil.example/qapps/marble"], ec)
+        Map proto = tool.enrichForClient([action: "navigate", path: "//evil.example/qapps"], ec)
+        Map ok = tool.enrichForClient([action: "navigate", path: "/apps/marble/Order/FindOrder",
+                parameters: [customerPartyId: "Cust", notAField: "no"],
+                fields: [customerPartyId: "Cust"]], ec)
+
+        then:
+        trans.error != null
+        off.error == "bad_path"
+        proto.error == "bad_path"
+        ok.error == null
+        ok.action == "navigate"
+        ok.path == "/qapps/marble/Order/FindOrder"
+        ok.parameters.customerPartyId == "Cust"
+        ok.parameters.notAField == null
+        ((List) ok.ignored).contains("notAField")
+        ok.fields.customerPartyId == "Cust"
+
+        when:
+        ec.user.logoutUser()
+        assert ec.user.loginUser("example.ltd", "moqui")
+        Map denied = tool.enrichForClient([action: "navigate", path: "/qapps/marble/Order/FindOrder"], ec)
+
+        then:
+        denied.error != null
+
+        cleanup:
+        ec.user.logoutUser()
+        ec.user.loginUser("john.doe", "moqui")
+    }
+
+    def "Assist prompt navigates with screen_use before write_ui and links stay in this window"() {
+        when:
+        String sys = LlmGateway.renderPrompt(ec, "component://webroot/prompt/AssistSystem.ftl", null)
+        String openUi = new File("../runtime/base-component/webroot/prompt/OpenUiLang.prompt.txt").text
+
+        then:
+        sys != null
+        sys.contains("screen_use")
+        sys.indexOf("screen_use") < sys.indexOf("write_ui")
+        sys.contains("navigate")
+        !sys.toLowerCase().contains("new tab")
+        !sys.contains("Follow a matching skill before browse")
+        !sys.contains("before `browse`")
+        !sys.contains("Prefer `kind=openui`")
+        int findAt = sys.indexOf("## Find forms")
+        int afterFind = sys.indexOf("## When submitted", findAt)
+        String findForms = sys.substring(findAt, afterFind)
+        findForms.contains("screen_use")
+        findForms.contains("submit_find")
+        !findForms.contains("kind=openui")
+        openUi.contains("this window")
+        !openUi.toLowerCase().contains("new tab")
+    }
+
     def "OpenUI spec component names appear in OpenUiLang prompt"() {
         when:
         File specFile = new File("../runtime/base-component/webroot/screen/webroot/js/assist/AssistOpenUiLibrary.spec.json")
-        File promptFile = new File("../runtime/base-component/tools/prompt/OpenUiLang.prompt.txt")
+        File promptFile = new File("../runtime/base-component/webroot/prompt/OpenUiLang.prompt.txt")
         def spec = new groovy.json.JsonSlurper().parse(specFile)
         def names = spec['$defs'].keySet()
         String prompt = promptFile.text
@@ -437,5 +560,32 @@ class LlmBrowseTests extends Specification {
         sim.contains("You are in sim")
         sim.contains("place order")
         sim.contains("orderId")
+    }
+
+    def "inject keeps one oversized skill whole and drops a later skill"() {
+        given:
+        SkillIndex.SkillDoc first = new SkillIndex.SkillDoc()
+        first.name = "first-skill"
+        first.title = "First"
+        first.risk = "confirm"
+        first.body = "BEGIN-FIRST " + ("a" * 40000) + " END-FIRST"
+        SkillIndex.SkillDoc second = new SkillIndex.SkillDoc()
+        second.name = "second-skill"
+        second.title = "Second"
+        second.risk = "confirm"
+        second.body = "BEGIN-SECOND " + ("b" * 20000) + " END-SECOND"
+
+        when:
+        String one = SkillIndex.formatInject(ec, [first])
+        String both = SkillIndex.formatInject(ec, [first, second])
+
+        then:
+        one.contains("BEGIN-FIRST")
+        one.contains("END-FIRST")
+        one.length() > SkillIndex.INJECT_CHARS
+        both.contains("BEGIN-FIRST")
+        both.contains("END-FIRST")
+        !both.contains("second-skill")
+        !both.contains("END-SECOND")
     }
 }

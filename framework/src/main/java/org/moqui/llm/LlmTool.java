@@ -37,6 +37,7 @@ public interface LlmTool {
 
     static LlmTool request() { return create("org.moqui.impl.llm.RequestTool"); }
     static LlmTool writeUi() { return create("org.moqui.impl.llm.WriteUiTool"); }
+    static LlmTool screenUse() { return create("org.moqui.impl.llm.ScreenUseTool"); }
     static LlmTool browse() { return create("org.moqui.impl.llm.BrowseTool"); }
     static LlmTool runService() { return create("org.moqui.impl.llm.RunServiceTool"); }
     static LlmTool findSkill() { return create("org.moqui.impl.llm.FindSkillTool"); }

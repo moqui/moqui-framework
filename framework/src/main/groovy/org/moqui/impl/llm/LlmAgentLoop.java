@@ -248,6 +248,20 @@ final class LlmAgentLoop {
                     }
                     if (tool != null) {
                         Map<String, Object> enriched = tool.enrichForClient(args, client.ec);
+                        // A client tool that failed its server check is a result. Do not yield it.
+                        if (enriched != null && enriched.get("error") != null
+                                && !(enriched.get("error") instanceof String
+                                    && ((String) enriched.get("error")).isBlank())) {
+                            LlmTrace.logToolCall(call.name, call.arguments);
+                            LlmTrace.logToolResult(call.name, enriched);
+                            if (listener != null) {
+                                listener.onToolCall(copy, LlmTool.Execution.CLIENT);
+                                listener.onToolResult(copy, enriched, LlmTool.Execution.CLIENT);
+                            }
+                            roundResults.add(new LlmToolResult(call.id, call.name, enriched));
+                            appendTool(working, call.id, call.name, enriched);
+                            continue;
+                        }
                         Map<String, Object> previousCanvas = null;
                         boolean canvasTouched = false;
                         if (enriched != null && WriteUiTool.NAME.equals(call.name)

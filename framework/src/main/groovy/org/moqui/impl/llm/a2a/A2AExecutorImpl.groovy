@@ -41,7 +41,7 @@ final class A2AExecutorImpl implements A2AExecutor {
     /** Artifact that carries the agent's textual answer; streamed as chunks, stored whole. */
     static final String RESPONSE_ARTIFACT_ID = 'response'
     private static final List<String> ASSIST_TOOLS =
-        ['request', 'write_ui', 'browse', 'find_basic', 'run_service', 'find_skill', 'enter_sim'].asImmutable() as List<String>
+        ['request', 'write_ui', 'screen_use', 'browse', 'find_basic', 'run_service', 'find_skill', 'enter_sim'].asImmutable() as List<String>
     private static final A2AExecutor executor = new A2AExecutorImpl()
 
     private A2AExecutorImpl() { }

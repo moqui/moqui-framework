@@ -28,7 +28,7 @@ along with this software (see the LICENSE.md file). If not, see
     <moqui.security.ArtifactTarpit userGroupId="ALL_USERS" artifactGroupId="LlmProfiles"
             maxHitsCount="30" maxHitsDuration="60" tarpitDuration="300"/>
 
-    <!-- LlmServlet is not a screen, so ASSIST_APP inheritAuthz does not cover these entities.
+    <!-- LlmServlet is not a screen, so screen inheritAuthz does not cover these entities.
          ADMIN (LlmGateway) may view/create admitted and proposed skills. SkillIndex also
          disableAuthz internally, same as LlmConversation persist. -->
     <moqui.security.ArtifactGroup artifactGroupId="LlmSkillEntities" description="LLM skill memory entities"/>

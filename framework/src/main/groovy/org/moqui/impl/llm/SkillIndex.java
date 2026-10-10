@@ -31,10 +31,12 @@ import java.util.function.Supplier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Shipped component://…/skill/*.md plus admitted LlmSkill rows. See framework/plans/LlmSkillLearning.md.
@@ -42,7 +44,11 @@ import java.util.Map;
 public class SkillIndex {
     private static final Logger logger = LoggerFactory.getLogger(SkillIndex.class);
     public static final int DEFAULT_LIMIT = 5;
-    public static final int INJECT_CHARS = 4000;
+    /** Catalog inject budget. Over this, drop whole skills from the end. Never cut inside a skill. */
+    public static final int INJECT_CHARS = 32000;
+    /** Intent words. Kept for an exact name or title phrase, ignored as loose tokens. */
+    private static final Set<String> QUERY_STOP = new HashSet<>(Arrays.asList(
+            "show", "list", "find", "get", "what", "the", "for", "my", "a", "an", "open"));
 
     public static class SkillDoc {
         public String name, title, description, body, risk, sourceLocation, skillId, statusId, provenanceId;
@@ -266,7 +272,8 @@ public class SkillIndex {
 
     /**
      * Procedure skills fill the inject slots. Reference cards are a short gloss beside them,
-     * not one of the three procedure slots.
+     * not one of the three procedure slots. A procedure is injected only on a real match.
+     * A blank query keeps the first procedures.
      */
     public static String formatInjectForQuery(ExecutionContext ec, String query) {
         List<SkillDoc> found = retrieve(ec, query, 15);
@@ -286,7 +293,7 @@ public class SkillIndex {
                     if (body.length() > 400) body = body.substring(0, 400);
                     m.put("body", body);
                     references.add(m);
-                } else if (skills.size() < 3) {
+                } else if (skills.size() < 3 && includeProcedure(d, query)) {
                     Map<String, Object> m = new LinkedHashMap<>();
                     m.put("name", d.name);
                     m.put("title", d.title);
@@ -298,13 +305,7 @@ public class SkillIndex {
                 }
             }
         }
-        Map<String, Object> ctx = new LinkedHashMap<>();
-        ctx.put("skills", skills);
-        ctx.put("references", references);
-        String text = LlmGateway.renderPrompt(ec, LlmGateway.PROMPT_SKILL_INJECT, ctx);
-        if (text == null) return "";
-        if (text.length() > INJECT_CHARS) return text.substring(0, INJECT_CHARS);
-        return text;
+        return fitInject(ec, skills, references);
     }
 
     /** Active rows for a query. A non-empty query is an entity find, not a full table load. */
@@ -329,7 +330,6 @@ public class SkillIndex {
     public static String formatInject(ExecutionContext ec, List<SkillDoc> docs) {
         List<Map<String, Object>> skills = new ArrayList<>();
         if (docs != null) {
-            int remaining = INJECT_CHARS;
             for (SkillDoc d : docs) {
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("name", d.name);
@@ -339,35 +339,112 @@ public class SkillIndex {
                 m.put("body", withoutWidgets(d.body));
                 m.put("lessons", lessonLines(ec, d.skillId));
                 skills.add(m);
-                int approx = (d.body != null ? d.body.length() : 0) + 80;
-                remaining -= approx;
-                if (remaining <= 0) break;
             }
         }
-        Map<String, Object> ctx = new LinkedHashMap<>();
-        ctx.put("skills", skills);
-        String text = LlmGateway.renderPrompt(ec, LlmGateway.PROMPT_SKILL_INJECT, ctx);
-        if (text == null) return "";
-        if (text.length() > INJECT_CHARS) return text.substring(0, INJECT_CHARS);
+        return fitInject(ec, skills, null);
+    }
+
+    /** Over the budget, drop whole skills from the end. One skill that is still over is returned whole. */
+    private static String fitInject(ExecutionContext ec, List<Map<String, Object>> skills,
+            List<Map<String, Object>> references) {
+        String text = renderInject(ec, skills, references);
+        while (text.length() > INJECT_CHARS && skills.size() > 1) {
+            skills.remove(skills.size() - 1);
+            text = renderInject(ec, skills, references);
+        }
         return text;
     }
 
+    private static String renderInject(ExecutionContext ec, List<Map<String, Object>> skills,
+            List<Map<String, Object>> references) {
+        Map<String, Object> ctx = new LinkedHashMap<>();
+        ctx.put("skills", skills);
+        if (references != null) ctx.put("references", references);
+        String text = LlmGateway.renderPrompt(ec, LlmGateway.PROMPT_SKILL_INJECT, ctx);
+        return text == null ? "" : text;
+    }
+
+    /** A blank query keeps the top procedures. Any other query needs a real match. */
+    static boolean includeProcedure(SkillDoc doc, String query) {
+        return query == null || query.isBlank() || strongMatch(doc, query);
+    }
+
+    /** Name or title content token, or a phrase in the name, title, or description. */
+    public static boolean strongMatch(SkillDoc doc, String query) {
+        if (query == null || query.isBlank()) return false;
+        return scoreDetail(doc, query).strong;
+    }
+
+    public static final class ScoreDetail {
+        public final int score;
+        public final boolean strong;
+        ScoreDetail(int score, boolean strong) { this.score = score; this.strong = strong; }
+    }
+
     static int score(SkillDoc doc, String q) {
-        if (q == null || q.isEmpty()) return 1;
+        return scoreDetail(doc, q).score;
+    }
+
+    public static ScoreDetail scoreDetail(SkillDoc doc, String q) {
+        if (q == null || q.isEmpty()) return new ScoreDetail(1, false);
+        if (doc == null) return new ScoreDetail(0, false);
+        String query = normPhrase(q);
+        if (query.isEmpty()) return new ScoreDetail(1, false);
+        String name = normPhrase(nz(doc.name));
+        String title = normPhrase(nz(doc.title));
+        String desc = normPhrase(nz(doc.description));
+        String body = normPhrase(nz(doc.body));
         int s = 0;
-        String name = nz(doc.name).toLowerCase(Locale.ROOT);
-        String title = nz(doc.title).toLowerCase(Locale.ROOT);
-        String desc = nz(doc.description).toLowerCase(Locale.ROOT);
-        String body = nz(doc.body).toLowerCase(Locale.ROOT);
-        if (name.equals(q) || title.equals(q)) s += 100;
-        if (name.contains(q) || title.contains(q)) s += 40;
-        for (String tok : q.split("\\s+")) {
-            if (tok.length() < 3) continue;
-            if (name.contains(tok) || title.contains(tok)) s += 20;
-            else if (desc.contains(tok)) s += 8;
-            else if (body.contains(tok)) s += 2;
+        boolean strong = false;
+        if (name.equals(query) || title.equals(query)) { s += 100; strong = true; }
+        List<String> content = contentTokens(query);
+        if (!content.isEmpty() && (name.contains(query) || title.contains(query))) { s += 40; strong = true; }
+        for (String tok : content) {
+            if (containsTok(name, tok) || containsTok(title, tok)) { s += 20; strong = true; }
+            else if (containsTok(desc, tok)) s += 8;
+            else if (containsTok(body, tok)) s += 2;
         }
-        return s;
+        if (content.size() >= 2 && (phraseIn(name, content) || phraseIn(title, content) || phraseIn(desc, content))) {
+            s += 40;
+            strong = true;
+        }
+        return new ScoreDetail(s, strong);
+    }
+
+    private static String normPhrase(String s) {
+        return s.toLowerCase(Locale.ROOT).replace('-', ' ').trim().replaceAll("\\s+", " ");
+    }
+
+    private static List<String> contentTokens(String query) {
+        List<String> out = new ArrayList<>();
+        for (String tok : query.split(" ")) {
+            if (tok.isEmpty() || QUERY_STOP.contains(tok) || tok.length() < 3) continue;
+            String stemmed = stem(tok);
+            if (stemmed.length() < 3 || QUERY_STOP.contains(stemmed)) continue;
+            out.add(stemmed);
+        }
+        return out;
+    }
+
+    /** Trailing s, length at least 5, so orders matches order. A double s stays. */
+    private static String stem(String tok) {
+        if (tok.length() >= 5 && tok.endsWith("s") && !tok.endsWith("ss"))
+            return tok.substring(0, tok.length() - 1);
+        return tok;
+    }
+
+    private static boolean containsTok(String hay, String stemmedTok) {
+        return !hay.isEmpty() && !stemmedTok.isEmpty() && hay.contains(stemmedTok);
+    }
+
+    private static boolean phraseIn(String hay, List<String> words) {
+        int from = 0;
+        for (String w : words) {
+            int i = hay.indexOf(w, from);
+            if (i < 0) return false;
+            from = i + w.length();
+        }
+        return true;
     }
 
     static SkillDoc fromEntity(EntityValue ev) {
@@ -566,7 +643,7 @@ public class SkillIndex {
     }
 
     /**
-     * LlmServlet is not a screen, so inheritAuthz from ASSIST_APP does not cover these rows.
+     * LlmServlet is not a screen, so screen inheritAuthz does not cover these rows.
      * Same pattern as {@code LlmConversationImpl} persist.
      */
     static <T> T withAuthzDisabled(ExecutionContext ec, Supplier<T> work) {
