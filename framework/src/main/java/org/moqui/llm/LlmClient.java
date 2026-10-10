@@ -40,6 +40,8 @@ public interface LlmClient {
     LlmClient model(String model);
     LlmClient temperature(double t);
     LlmClient maxTokens(int n);
+    /** Conversation reasoning level: low, medium, or high. Stored on the conversation when one is bound. */
+    LlmClient reasoning(String level);
     LlmClient timeout(int seconds);
     LlmClient maxIterations(int n);
     LlmClient extraBody(Map<String, Object> body);

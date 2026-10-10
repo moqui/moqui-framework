@@ -224,6 +224,7 @@ public class OpenAiCompatProtocol implements LlmProtocol {
             }
             if (!toolList.isEmpty()) body.put("tools", toolList);
         }
+        LlmApiConfig.applyToBody(body, request.apiConfig);
         return body;
     }
 

@@ -48,6 +48,8 @@ public interface LlmProtocol {
         public Integer timeoutSeconds;
         public boolean stream;
         public Map<String, Object> extraBody;
+        /** Resolved profile api-config for this turn (base plus the conversation level). */
+        public Map<String, Object> apiConfig;
         public RestClient.RequestFactory requestFactory;
         public float retryInitialSeconds = 2.0f;
         public int retryMax = 5;

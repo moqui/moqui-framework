@@ -536,6 +536,108 @@ class LlmConversationTests extends Specification {
         loaded.status == LlmConversationImpl.STATUS_COMPLETE
         loaded.history.find { it.role == LlmMessage.Role.USER && it.content == "again" } != null
     }
+
+    def "new conversation stores low, a later turn keeps high, and max is 400"() {
+        given:
+        String marker = "reason-" + UUID.randomUUID()
+        when:
+        def created = LlmGateway.prepareClient(ec, [user: "hi", purpose: marker], false)
+        String id = created.convId()
+        Map createdAttrs = LlmConversationImpl.load(ec, id, true).attributes
+        LlmGateway.prepareClient(ec, [conversationId: id, user: "next", reasoning: "high"], false)
+        Map highAttrs = LlmConversationImpl.load(ec, id, true).attributes
+        LlmGateway.prepareClient(ec, [conversationId: id, user: "omit"], false)
+        then:
+        createdAttrs.reasoning == "low"
+        highAttrs.reasoning == "high"
+        LlmConversationImpl.load(ec, id, true).attributes.reasoning == "high"
+        ec.entity.find("moqui.llm.LlmCallLog").condition("conversationId", id).count() == 0
+
+        when:
+        String badPurpose = marker + "-max"
+        LlmGateway.prepareClient(ec, [user: "nope", purpose: badPurpose, reasoning: "max"], false)
+        then:
+        LlmException bad = thrown()
+        bad.httpStatus == 400
+        ec.entity.find("moqui.llm.LlmConversation").condition("purpose", badPurpose).count() == 0
+    }
+
+    def "a conversation with no reasoning attribute becomes low on the next turn"() {
+        given:
+        String marker = "reason-old-" + UUID.randomUUID()
+        def conv = LlmConversationImpl.create(ec, "default", [purpose: marker])
+        expect:
+        conv.attributes.reasoning == null
+        when:
+        LlmGateway.prepareClient(ec, [conversationId: conv.conversationId, user: "later"], false)
+        then:
+        LlmConversationImpl.load(ec, conv.conversationId, true).attributes.reasoning == "low"
+    }
+
+    def "POST reasoning updates the attribute and does not call the model"() {
+        given:
+        String marker = "reason-post-" + UUID.randomUUID()
+        def created = LlmGateway.prepareClient(ec, [user: "hi", purpose: marker], false)
+        String id = created.convId()
+        long messages = ec.entity.find("moqui.llm.LlmMessage").condition("conversationId", id).count()
+        when:
+        Map updated = LlmGateway.updateReasoning(ec, id, [reasoning: "medium", ignored: true])
+        def loaded = LlmConversationImpl.load(ec, id, true)
+        then:
+        updated.httpStatus == 200
+        updated.conversationId == id
+        updated.reasoning == "medium"
+        loaded.attributes.reasoning == "medium"
+        loaded.attributes.purpose == marker
+        loaded.status == LlmConversationImpl.STATUS_ACTIVE
+        ec.entity.find("moqui.llm.LlmMessage").condition("conversationId", id).count() == messages
+        ec.entity.find("moqui.llm.LlmCallLog").condition("conversationId", id).count() == 0
+
+        when:
+        LlmGateway.updateReasoning(ec, id, [:])
+        then:
+        LlmException missing = thrown()
+        missing.httpStatus == 400
+
+        when:
+        setConversationStatus(id, LlmConversationImpl.STATUS_STREAMING)
+        Map busy = LlmGateway.updateReasoning(ec, id, [reasoning: "high"])
+        then:
+        busy.httpStatus == 409
+        busy.reasoning == "medium"
+        LlmConversationImpl.load(ec, id, true).attributes.reasoning == "medium"
+
+        when:
+        setConversationStatus(id, LlmConversationImpl.STATUS_YIELDED)
+        Map yielded = LlmGateway.updateReasoning(ec, id, [reasoning: "high"])
+        then:
+        yielded.httpStatus == 200
+        yielded.reasoning == "high"
+        LlmConversationImpl.load(ec, id, true).attributes.reasoning == "high"
+        LlmConversationImpl.load(ec, id, true).status == LlmConversationImpl.STATUS_YIELDED
+    }
+
+    def "listProfiles reports apiConfig as a boolean and not the JSON"() {
+        when:
+        List rows = LlmGateway.listProfiles(ec)
+        Map defaults = rows.find { it.name == "default" }
+        Map assist = rows.find { it.name == "assist" }
+        then:
+        defaults != null
+        assist != null
+        defaults.apiConfig == false
+        assist.apiConfig == false
+        rows.every { it.apiConfig instanceof Boolean }
+        rows.every { !(it.apiConfig instanceof Map) }
+        !rows.toString().contains("reasoning_effort")
+    }
+
+    private void setConversationStatus(String id, String status) {
+        EntityValue ev = ec.entity.find("moqui.llm.LlmConversation").condition("conversationId", id).one()
+        ev.statusId = status
+        ev.update()
+        if (ec.transaction.isTransactionInPlace()) ec.transaction.commit()
+    }
 }
 
 class CanvasOrderListener implements LlmStreamListener {

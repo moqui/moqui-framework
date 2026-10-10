@@ -16,6 +16,8 @@ import org.moqui.context.ArtifactExecutionFacade
 import org.moqui.context.ArtifactExecutionInfo
 import org.moqui.context.ExecutionContext
 import org.moqui.context.UserFacade
+import org.moqui.impl.context.ExecutionContextFactoryImpl
+import org.moqui.impl.llm.LlmApiConfig
 import org.moqui.impl.llm.LlmClientImpl
 import org.moqui.impl.llm.LlmConversationImpl
 import org.moqui.impl.llm.LlmFacadeImpl
@@ -372,6 +374,203 @@ class LlmClientTests extends Specification {
         body.stream == true
         body.stream_options instanceof Map
         body.stream_options.include_usage == true
+    }
+
+    def "api-config parses levels, deep-merges, and null removes a key"() {
+        when:
+        LlmApiConfig qwen = LlmApiConfig.fromNode(qwenProfile(), "qwen")
+        Map low = qwen.forLevel("low")
+        Map high = qwen.forLevel("high")
+        Map medium = qwen.forLevel("medium")
+
+        MNode arrays = new MNode("profile", [name: "arr"])
+        MNode arrApi = arrays.append("api-config", null)
+        arrApi.append("base", null, null, '{"stop":["a","b"],"nested":{"keep":1,"go":2}}')
+        arrApi.append("low", null, null, '{"stop":["c"],"nested":{"go":null}}')
+        Map merged = LlmApiConfig.fromNode(arrays, "arr").forLevel("low")
+
+        MNode baseOnly = new MNode("profile", [name: "baseonly"])
+        MNode baseApi = baseOnly.append("api-config", null)
+        baseApi.append("base", null, null, '{"reasoning_effort":"low"}')
+        baseApi.append("low", null, null, "  ")
+        LlmApiConfig baseCfg = LlmApiConfig.fromNode(baseOnly, "baseonly")
+
+        MNode empty = new MNode("profile", [name: "empty"])
+        empty.append("api-config", null)
+        LlmApiConfig emptyCfg = LlmApiConfig.fromNode(empty, "empty")
+        LlmApiConfig absent = LlmApiConfig.fromNode(new MNode("profile", [name: "none"]), "none")
+
+        then:
+        LlmApiConfig.canonical(" HIGH ") == "high"
+        LlmApiConfig.canonical("max") == null
+        LlmApiConfig.canonical(" ") == null
+        qwen.present
+        low.reasoning_effort == "low"
+        low.chat_template_kwargs.preserve_thinking == true
+        low.chat_template_kwargs.enable_thinking == false
+        !low.chat_template_kwargs.containsKey("drop_me")
+        high.reasoning_effort == "xhigh"
+        high.chat_template_kwargs.preserve_thinking == true
+        high.chat_template_kwargs.enable_thinking == true
+        medium.reasoning_effort == "medium"
+        medium.chat_template_kwargs.enable_thinking == true
+        merged.stop == ["c"]
+        merged.nested.keep == 1
+        !merged.nested.containsKey("go")
+        baseCfg.present
+        baseCfg.forLevel("medium").reasoning_effort == "low"
+        baseCfg.forLevel("high").reasoning_effort == "low"
+        baseCfg.forLevel(null).reasoning_effort == "low"
+        emptyCfg.present
+        emptyCfg.forLevel("low") == null
+        !absent.present
+        absent.forLevel("high") == null
+
+        when:
+        low.reasoning_effort = "changed"
+        low.chat_template_kwargs.enable_thinking = true
+        then:
+        qwen.forLevel("low").reasoning_effort == "low"
+        qwen.forLevel("low").chat_template_kwargs.enable_thinking == false
+    }
+
+    def "invalid api-config JSON fails profile load"() {
+        when:
+        MNode bad = new MNode("profile", [name: "bad"])
+        bad.append("api-config", null).append("low", null, null, "{")
+        LlmApiConfig.fromNode(bad, "bad")
+        then:
+        LlmException syntax = thrown()
+        syntax.message.contains("api-config.low")
+
+        when:
+        MNode list = new MNode("profile", [name: "list"])
+        list.append("api-config", null).append("high", null, null, "[1]")
+        LlmApiConfig.fromNode(list, "list")
+        then:
+        LlmException notObject = thrown()
+        notObject.message.contains("api-config.high")
+    }
+
+    def "api-config wins on its keys and leaves messages, tools, and stream"() {
+        given:
+        LlmApiConfig qwen = LlmApiConfig.fromNode(qwenProfile(), "qwen")
+        Map low = new LinkedHashMap(qwen.forLevel("low"))
+        low.messages = [[role: "system", content: "hijack"]]
+        low.tools = [[type: "function", function: [name: "hijack"]]]
+        low.stream = false
+        low.vendor_flag = null
+
+        ProtocolRequest req = new ProtocolRequest()
+        req.model = "qwen3.8-27b"
+        req.window = [LlmMessage.user("hello")]
+        req.stream = true
+        req.temperature = 0.2d
+        req.tools = [LlmTool.pin()]
+        req.extraBody = [reasoning_effort: "from-extra", vendor_flag: true,
+                chat_template_kwargs: [from_extra: true]]
+        req.apiConfig = low
+
+        when:
+        Map body = OpenAiCompatProtocol.buildRequestBody(req)
+        then:
+        body.model == "qwen3.8-27b"
+        body.temperature == 0.2d
+        body.stream == true
+        body.stream_options.include_usage == true
+        body.messages.size() == 1
+        body.messages[0].role == "user"
+        body.messages[0].content == "hello"
+        body.tools.size() == 1
+        body.tools[0].function.name == "pin"
+        body.reasoning_effort == "low"
+        !body.containsKey("vendor_flag")
+        body.chat_template_kwargs.from_extra == true
+        body.chat_template_kwargs.preserve_thinking == true
+        body.chat_template_kwargs.enable_thinking == false
+        !body.chat_template_kwargs.containsKey("drop_me")
+
+        when:
+        ProtocolRequest bare = new ProtocolRequest()
+        bare.model = "m"
+        bare.window = [LlmMessage.user("x")]
+        bare.stream = false
+        bare.apiConfig = [messages: [[role: "system", content: "no"]],
+                tools: [[type: "function"]], stream: true, reasoning_effort: "xhigh"]
+        Map bareBody = OpenAiCompatProtocol.buildRequestBody(bare)
+        ProtocolRequest highReq = new ProtocolRequest()
+        highReq.model = "qwen3.8-27b"
+        highReq.window = [LlmMessage.user("think")]
+        highReq.apiConfig = qwen.forLevel("high")
+        Map highBody = OpenAiCompatProtocol.buildRequestBody(highReq)
+        then:
+        !bareBody.containsKey("tools")
+        bareBody.stream == false
+        bareBody.messages[0].content == "x"
+        bareBody.reasoning_effort == "xhigh"
+        highBody.reasoning_effort == "xhigh"
+        highBody.chat_template_kwargs.preserve_thinking == true
+        highBody.chat_template_kwargs.enable_thinking == true
+        highBody.messages[0].content == "think"
+        highBody.stream == false
+    }
+
+    def "override api-config replaces the profile fragment wholesale"() {
+        given:
+        MNode base = new MNode("moqui-conf", null)
+        MNode baseProfile = base.append("llm-facade", null).append("profile", [name: "assist"])
+        baseProfile.append("api-config", null).append("low", null, null, '{"reasoning_effort":"low"}')
+        baseProfile.append("allowed-entity", [name: "keep.Entity"])
+        MNode over = new MNode("moqui-conf", null)
+        MNode overProfile = over.append("llm-facade", null).append("profile", [name: "assist"])
+        overProfile.append("api-config", null).append("high", null, null, '{"reasoning_effort":"high"}')
+        overProfile.append("header", [name: "X-Test", value: "1"])
+        def method = ExecutionContextFactoryImpl.getDeclaredMethod("mergeConfigNodes", MNode, MNode)
+        method.accessible = true
+
+        when:
+        method.invoke(null, base, over)
+        MNode merged = base.first("llm-facade").first("profile")
+        then:
+        merged.children("api-config").size() == 1
+        merged.first("api-config").first("low") == null
+        merged.first("api-config").first("high").text == '{"reasoning_effort":"high"}'
+        merged.first("allowed-entity").attribute("name") == "keep.Entity"
+        merged.first("header").attribute("name") == "X-Test"
+        merged.first("header").attribute("value") == "1"
+    }
+
+    def "call reports the reasoning level and rejects any other token"() {
+        given:
+        def proto = new FakeLlmProtocol()
+        proto.results = [FakeLlmProtocol.stop("ok"), FakeLlmProtocol.stop("ok")]
+        when:
+        LlmResponse plain = client(proto).user("hi").call()
+        LlmResponse high = client(proto).reasoning(" HIGH ").user("hi").call()
+        Map mapped = LlmGateway.responseToMap(high)
+        Map defaulted = LlmGateway.responseToMap(new LlmResponse())
+        client(new FakeLlmProtocol(failIfInvoked: true)).reasoning("max")
+        then:
+        plain.reasoning == "low"
+        high.reasoning == "high"
+        mapped.reasoning == "high"
+        defaulted.reasoning == "low"
+        LlmException bad = thrown()
+        bad.httpStatus == 400
+        bad.message.contains("low, medium, or high")
+    }
+
+    private static MNode qwenProfile() {
+        MNode profile = new MNode("profile", [name: "qwen"])
+        MNode api = profile.append("api-config", null)
+        api.append("base", null, null, '{"chat_template_kwargs":{"preserve_thinking":true,"drop_me":"yes"}}')
+        api.append("low", null, null,
+                '{"reasoning_effort":"low","chat_template_kwargs":{"enable_thinking":false,"drop_me":null}}')
+        api.append("medium", null, null,
+                '{"reasoning_effort":"medium","chat_template_kwargs":{"enable_thinking":true}}')
+        api.append("high", null, null,
+                '{"reasoning_effort":"xhigh","chat_template_kwargs":{"enable_thinking":true}}')
+        return profile
     }
 
     // ========== LlmClient.call with Fake protocol ==========

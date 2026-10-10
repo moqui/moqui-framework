@@ -55,7 +55,8 @@ public final class LlmGateway {
     private LlmGateway() { }
 
     public static final class Route {
-        public enum Op { CHAT, RESUME, CANCEL, GET_CONVERSATION, LIST_CONVERSATIONS, GET_PROFILES, DELETE_CONVERSATION }
+        public enum Op { CHAT, RESUME, CANCEL, GET_CONVERSATION, LIST_CONVERSATIONS, GET_PROFILES,
+            DELETE_CONVERSATION, UPDATE_CONVERSATION }
         public final Op op;
         public final String conversationId;
         public Route(Op op, String conversationId) {
@@ -63,7 +64,7 @@ public final class LlmGateway {
             this.conversationId = conversationId;
         }
         public boolean isPost() {
-            return op == Op.CHAT || op == Op.RESUME || op == Op.CANCEL;
+            return op == Op.CHAT || op == Op.RESUME || op == Op.CANCEL || op == Op.UPDATE_CONVERSATION;
         }
         public boolean isGet() {
             return op == Op.GET_CONVERSATION || op == Op.LIST_CONVERSATIONS || op == Op.GET_PROFILES;
@@ -97,6 +98,8 @@ public final class LlmGateway {
             if (p.length == 3) {
                 if (method != null && "DELETE".equalsIgnoreCase(method))
                     return new Route(Route.Op.DELETE_CONVERSATION, p[2]);
+                if (method != null && "POST".equalsIgnoreCase(method))
+                    return new Route(Route.Op.UPDATE_CONVERSATION, p[2]);
                 return new Route(Route.Op.GET_CONVERSATION, p[2]);
             }
             if (p.length == 4 && "cancel".equals(p[3])) return new Route(Route.Op.CANCEL, p[2]);
@@ -256,6 +259,7 @@ public final class LlmGateway {
         LlmClientImpl impl = (LlmClientImpl) facade.getClient(profileName);
 
         String conversationId = str(body.get("conversationId"));
+        String requestedReasoning = requestedReasoning(body, profileName, conversationId);
         if (resume) {
             if (conversationId == null)
                 throw new LlmException("conversationId is required to resume",
@@ -280,9 +284,12 @@ public final class LlmGateway {
             if (canvasId != null) attrs.put("canvasId", canvasId);
             String purpose = str(body.get("purpose"));
             if (purpose != null) attrs.put("purpose", purpose);
-            LlmConversation conv = facade.createConversation(profileName, attrs.isEmpty() ? null : attrs);
+            attrs.put(LlmApiConfig.ATTR, requestedReasoning != null ? requestedReasoning : "low");
+            LlmConversation conv = facade.createConversation(profileName, attrs);
             impl.conversation(conv);
         }
+        if (requestedReasoning != null) impl.useReasoning(requestedReasoning, true);
+        else impl.ensureStoredReasoning();
 
         Object inj = body.get("injectContext");
         if (inj instanceof List) {
@@ -344,6 +351,44 @@ public final class LlmGateway {
             impl.toolResults(parseToolResults(body.get("toolResults")));
         }
         return impl;
+    }
+
+    /** Null when the body omits reasoning. 400 when the value is not low, medium, or high. */
+    static String requestedReasoning(Map<String, Object> body, String profileName, String conversationId) {
+        if (body == null || !body.containsKey(LlmApiConfig.ATTR)) return null;
+        String canon = LlmApiConfig.canonical(body.get(LlmApiConfig.ATTR));
+        if (canon == null)
+            throw new LlmException("reasoning must be low, medium, or high",
+                    null, LlmFinishReason.ERROR, 400, profileName, conversationId);
+        return canon;
+    }
+
+    /**
+     * Set the conversation reasoning level without calling the model.
+     * 409 while the conversation is streaming.
+     */
+    public static Map<String, Object> updateReasoning(ExecutionContext ec, String conversationId,
+            Map<String, Object> body) {
+        requireLlmGateway(ec);
+        String canon = requestedReasoning(body, null, conversationId);
+        if (canon == null)
+            throw new LlmException("reasoning must be low, medium, or high",
+                    null, LlmFinishReason.ERROR, 400, null, conversationId);
+        LlmConversationImpl conv = LlmConversationImpl.load(ec, conversationId, true);
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("conversationId", conv.getConversationId());
+        if (LlmConversationImpl.STATUS_STREAMING.equals(conv.getStatus())) {
+            String current = LlmApiConfig.canonical(conv.getAttributes().get(LlmApiConfig.ATTR));
+            out.put(LlmApiConfig.ATTR, current != null ? current : "low");
+            out.put("httpStatus", 409);
+            out.put("message", "Conversation is streaming");
+            return out;
+        }
+        Object cur = conv.getAttributes().get(LlmApiConfig.ATTR);
+        if (!canon.equals(cur)) conv.setAttribute(LlmApiConfig.ATTR, canon);
+        out.put(LlmApiConfig.ATTR, canon);
+        out.put("httpStatus", 200);
+        return out;
     }
 
     static void applyForceSkillUse(LlmClientImpl impl, Map<String, Object> body) {
@@ -760,6 +805,7 @@ public final class LlmGateway {
                     row.put("allowEnterSim", ps.allowEnterSim);
                     row.put("allowClientSystem", ps.allowClientSystem);
                     row.put("allowVueSfc", ps.allowVueSfc);
+                    row.put("apiConfig", ps.apiConfig != null && ps.apiConfig.present);
                 }
                 out.add(row);
             } catch (ArtifactAuthorizationException ignored) {
@@ -798,6 +844,7 @@ public final class LlmGateway {
         out.put("usage", usageToMap(r.usage));
         out.put("model", r.model);
         out.put("profile", r.profileName);
+        out.put("reasoning", r.reasoning != null ? r.reasoning : "low");
         out.put("durationMs", r.durationMs);
         return out;
     }
@@ -871,6 +918,7 @@ public final class LlmGateway {
         m.put("yielded", r != null && r.yielded);
         m.put("durationMs", r != null ? r.durationMs : 0L);
         m.put("model", r != null ? r.model : null);
+        m.put("reasoning", r != null && r.reasoning != null ? r.reasoning : "low");
         return m;
     }
     public static Map<String, Object> yieldData(List<LlmToolCall> pending) {

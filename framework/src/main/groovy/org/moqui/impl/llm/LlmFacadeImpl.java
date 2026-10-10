@@ -284,6 +284,7 @@ public class LlmFacadeImpl implements LlmFacade {
         public final boolean allowVueSfc;
         public final boolean summarizeConversation;
         public final List<BasicEntityAllow> allowedBasicEntities;
+        public final LlmApiConfig apiConfig;
 
         ProfileState(String name, MNode confNode, String url, String path, String endpointUrl, String apiKey,
                 String authHeaderName, String authHeaderValue, String model, String maxTokensParameter,
@@ -296,7 +297,7 @@ public class LlmFacadeImpl implements LlmFacade {
                 boolean allowWriteUi, int ssePingSeconds, String systemLocation, boolean allowClientSystem,
                 boolean allowBrowse, boolean allowRunService, boolean allowUnprefixedRequest,
                 boolean allowEnterSim, boolean allowVueSfc, boolean summarizeConversation,
-                List<BasicEntityAllow> allowedBasicEntities) {
+                List<BasicEntityAllow> allowedBasicEntities, LlmApiConfig apiConfig) {
             this.name = name;
             this.confNode = confNode;
             this.url = url;
@@ -333,6 +334,7 @@ public class LlmFacadeImpl implements LlmFacade {
             this.allowVueSfc = allowVueSfc;
             this.summarizeConversation = summarizeConversation;
             this.allowedBasicEntities = allowedBasicEntities != null ? allowedBasicEntities : Collections.emptyList();
+            this.apiConfig = apiConfig != null ? apiConfig : LlmApiConfig.none();
         }
 
         static ProfileState fromConf(String name, MNode node, ExecutionContextFactoryImpl ecfi) {
@@ -430,7 +432,8 @@ public class LlmFacadeImpl implements LlmFacade {
                     rf, protocol, Collections.unmodifiableSet(allowedEntities),
                     Collections.unmodifiableList(allowedPaths), allowWriteUi, ssePingSeconds,
                     systemLocation, allowClientSystem, allowBrowse, allowRunService, allowUnprefixedRequest,
-                    allowEnterSim, allowVueSfc, summarizeConversation, Collections.unmodifiableList(allowedBasic));
+                    allowEnterSim, allowVueSfc, summarizeConversation, Collections.unmodifiableList(allowedBasic),
+                    LlmApiConfig.fromNode(node, name));
         }
 
         /** Test helper: no HTTP pool. */
@@ -452,7 +455,7 @@ public class LlmFacadeImpl implements LlmFacade {
                     Collections.emptySet(),
                     allowedPaths != null ? allowedPaths : Collections.emptyList(),
                     allowWriteUi, 15, null, true, false, false, false, false, false, false,
-                    Collections.emptyList());
+                    Collections.emptyList(), LlmApiConfig.none());
         }
         public static ProfileState forTest(String name, LlmProtocol protocol, String model,
                 boolean allowTxOverHttp, int emptyRetries, float retryInitialSeconds, int retryMax,
@@ -492,7 +495,7 @@ public class LlmFacadeImpl implements LlmFacade {
                     Collections.emptySet(),
                     allowedPaths != null ? allowedPaths : Collections.emptyList(),
                     allowWriteUi, 15, null, allowClientSystem, allowBrowse, allowRunService, allowUnprefixedRequest,
-                    allowEnterSim, false, summarizeConversation, Collections.emptyList());
+                    allowEnterSim, false, summarizeConversation, Collections.emptyList(), LlmApiConfig.none());
         }
     }
 

@@ -506,6 +506,73 @@
                 system-location="component://webroot/prompt/AssistSystem.ftl">
             <allowed-basic-entity package="moqui.basic"/>
         </profile>
+        <!-- Suggested api-config only. Not active. One level deep-merges onto base. A new conversation is low.
+             messages, tools, and stream are not replaced. Copy a block onto a real profile and set its api-key. -->
+        <!-- OpenAI Chat Completions. gpt-5.4 rejects tools unless reasoning_effort is none, and rejects temperature unless effort is none. This client does not speak the Responses API.
+        <profile name="openai" url="https://api.openai.com" api-key="${llm_openai_api_key}" model="gpt-5.4" max-tokens-parameter="max_completion_tokens">
+            <api-config>
+                <low>{"reasoning_effort":"low"}</low>
+                <medium>{"reasoning_effort":"medium"}</medium>
+                <high>{"reasoning_effort":"high"}</high>
+            </api-config>
+        </profile>
+        -->
+        <!-- xAI. No off switch. grok-4.6 and later also accept xhigh when High should mean the maximum.
+        <profile name="xai" url="https://api.x.ai" api-key="${llm_xai_api_key}" model="grok-4.7">
+            <api-config>
+                <low>{"reasoning_effort":"low"}</low>
+                <medium>{"reasoning_effort":"medium"}</medium>
+                <high>{"reasoning_effort":"high"}</high>
+            </api-config>
+        </profile>
+        -->
+        <!-- Anthropic native Messages uses output_config.effort (low, medium, high; some models also xhigh and max). Its OpenAI-compat endpoint ignores reasoning_effort, and this protocol still posts a Chat Completions body.
+        <profile name="anthropic" url="https://api.anthropic.com" path="/v1/messages" api-key="${llm_anthropic_api_key}" model="claude-sonnet-5" auth-header-name="x-api-key" auth-header-pattern="${api-key}">
+            <header name="anthropic-version" value="2023-06-01"/>
+            <api-config>
+                <low>{"output_config":{"effort":"low"}}</low>
+                <medium>{"output_config":{"effort":"medium"}}</medium>
+                <high>{"output_config":{"effort":"high"}}</high>
+            </api-config>
+        </profile>
+        -->
+        <!-- Gemini OpenAI-compat. reasoning_effort maps to thinking_level. gemini-3.8-flash rejects minimal. Thinking cannot be turned off. Path is /chat/completions, not /v1/chat/completions.
+        <profile name="gemini" url="https://generativelanguage.googleapis.com/v1beta/openai" path="/chat/completions" api-key="${llm_gemini_api_key}" model="gemini-3.8-flash">
+            <api-config>
+                <low>{"reasoning_effort":"low"}</low>
+                <medium>{"reasoning_effort":"medium"}</medium>
+                <high>{"reasoning_effort":"high"}</high>
+            </api-config>
+        </profile>
+        -->
+        <!-- Qwen 3.8. High is xhigh, the top of low, medium, xhigh. Low also turns thinking off. LM Studio MLX may drop these fields on /v1/chat/completions.
+        <profile name="qwen" url="http://127.0.0.1:1234" model="qwen3.8-27b">
+            <api-config>
+                <base>{"chat_template_kwargs":{"preserve_thinking":true}}</base>
+                <low>{"reasoning_effort":"low","chat_template_kwargs":{"enable_thinking":false}}</low>
+                <medium>{"reasoning_effort":"medium","chat_template_kwargs":{"enable_thinking":true}}</medium>
+                <high>{"reasoning_effort":"xhigh","chat_template_kwargs":{"enable_thinking":true}}</high>
+            </api-config>
+        </profile>
+        -->
+        <!-- GLM. glm-5.2 can disable thinking. glm-5.3 cannot. High is max.
+        <profile name="glm" url="https://api.z.ai/api/paas/v4" path="/chat/completions" api-key="${llm_glm_api_key}" model="glm-5.2">
+            <api-config>
+                <low>{"thinking":{"type":"disabled"}}</low>
+                <medium>{"thinking":{"type":"enabled"},"reasoning_effort":"high"}</medium>
+                <high>{"thinking":{"type":"enabled"},"reasoning_effort":"max"}</high>
+            </api-config>
+        </profile>
+        -->
+        <!-- DeepSeek. Thinking defaults on, so Low turns it off. max is the step above High.
+        <profile name="deepseek" url="https://api.deepseek.com" path="/chat/completions" api-key="${llm_deepseek_api_key}" model="deepseek-flash">
+            <api-config>
+                <low>{"thinking":{"type":"disabled"}}</low>
+                <medium>{"thinking":{"type":"enabled"},"reasoning_effort":"low"}</medium>
+                <high>{"thinking":{"type":"enabled"},"reasoning_effort":"high"}</high>
+            </api-config>
+        </profile>
+        -->
     </llm-facade>
 
     <entity-facade default-group-name="transactional" entity-eca-enabled="true" sequenced-id-prefix=""

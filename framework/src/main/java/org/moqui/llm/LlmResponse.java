@@ -24,6 +24,8 @@ public final class LlmResponse {
     public String model;
     public String profileName;
     public String conversationId;
+    /** Conversation reasoning level that was applied: low, medium, or high. */
+    public String reasoning;
     public int httpStatus;
     public String errorMessage;
     public String providerErrorCode;
@@ -42,6 +44,7 @@ public final class LlmResponse {
     public String getModel() { return model; }
     public String getProfileName() { return profileName; }
     public String getConversationId() { return conversationId; }
+    public String getReasoning() { return reasoning; }
     public int getHttpStatus() { return httpStatus; }
     public String getErrorMessage() { return errorMessage; }
     public String getProviderErrorCode() { return providerErrorCode; }

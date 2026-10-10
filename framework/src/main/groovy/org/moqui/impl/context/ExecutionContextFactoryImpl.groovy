@@ -1728,6 +1728,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 childBaseNode.mergeChildrenByKey(childOverrideNode, "allowed-path", "prefix", null)
                 childBaseNode.mergeChildrenByKey(childOverrideNode, "allowed-service", "name", null)
                 childBaseNode.mergeChildrenByKey(childOverrideNode, "allowed-entity", "name", null)
+                if (childOverrideNode.hasChild("api-config")) {
+                    childBaseNode.remove("api-config")
+                    childBaseNode.append(childOverrideNode.first("api-config").deepCopy(null))
+                }
             })
         }
 

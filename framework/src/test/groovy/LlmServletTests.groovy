@@ -45,7 +45,11 @@ class LlmServletTests extends Specification {
         LlmGateway.parseRoute("/v1/conversations/100").op == LlmGateway.Route.Op.GET_CONVERSATION
         LlmGateway.parseRoute("/v1/conversations/100", "DELETE").op == LlmGateway.Route.Op.DELETE_CONVERSATION
         LlmGateway.parseRoute("/v1/conversations/100", "DELETE").conversationId == "100"
+        LlmGateway.parseRoute("/v1/conversations/100", "POST").op == LlmGateway.Route.Op.UPDATE_CONVERSATION
+        LlmGateway.parseRoute("/v1/conversations/100", "POST").conversationId == "100"
+        LlmGateway.parseRoute("/v1/conversations/100", "POST").isPost()
         LlmGateway.parseRoute("/v1/conversations/100", "GET").op == LlmGateway.Route.Op.GET_CONVERSATION
+        LlmGateway.parseRoute("/v1/conversations/100").op == LlmGateway.Route.Op.GET_CONVERSATION
         LlmGateway.parseRoute("/v1/conversations").op == LlmGateway.Route.Op.LIST_CONVERSATIONS
         LlmGateway.parseRoute("/v1/profiles").op == LlmGateway.Route.Op.GET_PROFILES
         LlmGateway.parseRoute("/v1/chat").isPost()

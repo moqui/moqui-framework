@@ -142,6 +142,12 @@ class LlmServlet extends HttpServlet {
                 case LlmGateway.Route.Op.GET_CONVERSATION:
                     sendJson(response, 200, LlmGateway.getConversationMap(ec, route.conversationId))
                     return
+                case LlmGateway.Route.Op.UPDATE_CONVERSATION:
+                    Map<String, Object> updated = LlmGateway.updateReasoning(ec, route.conversationId, body)
+                    int ust = updated.get("httpStatus") instanceof Number ?
+                            ((Number) updated.get("httpStatus")).intValue() : 200
+                    sendJson(response, ust, updated)
+                    return
                 case LlmGateway.Route.Op.DELETE_CONVERSATION:
                     Map<String, Object> deleted = LlmGateway.deleteConversation(ec, route.conversationId)
                     int dst = deleted.get("httpStatus") instanceof Number ?

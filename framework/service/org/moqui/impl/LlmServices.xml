@@ -71,6 +71,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="injectContext" type="List"/>
             <parameter name="temperature" type="Double"/>
             <parameter name="maxTokens" type="Integer"/>
+            <parameter name="reasoning"/>
         </in-parameters>
         <out-parameters>
             <parameter name="conversationId"/>
@@ -82,6 +83,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="usage" type="Map"/>
             <parameter name="model"/>
             <parameter name="profile"/>
+            <parameter name="reasoning"/>
             <parameter name="durationMs" type="Long"/>
         </out-parameters>
         <actions><script>
@@ -96,6 +98,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="profile"/>
             <parameter name="toolResults" type="List"/>
             <parameter name="tools" type="List"/>
+            <parameter name="reasoning"/>
         </in-parameters>
         <out-parameters>
             <parameter name="conversationId"/>
@@ -107,6 +110,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="usage" type="Map"/>
             <parameter name="model"/>
             <parameter name="profile"/>
+            <parameter name="reasoning"/>
             <parameter name="durationMs" type="Long"/>
         </out-parameters>
         <actions><script>

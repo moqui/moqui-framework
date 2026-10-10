@@ -62,6 +62,8 @@ public class LlmClientImpl implements LlmClient {
     private Integer maxTokens = null;
     private Integer timeoutSeconds = null;
     private Map<String, Object> extraBody = null;
+    /** low, medium, or high once resolved for this client. Null until ensureStoredReasoning. */
+    private String reasoningLevel = null;
     LlmConversationImpl conversation = null;
     private WindowPolicy windowPolicy = null;
     final List<LlmTool> tools = new ArrayList<>();
@@ -109,6 +111,7 @@ public class LlmClientImpl implements LlmClient {
             throw new LlmException("conversationId is required");
         this.conversation = LlmConversationImpl.load(ec, conversationId, true);
         applyWindowPolicyToConversation();
+        if (reasoningLevel != null) useReasoning(reasoningLevel, true);
         return this;
     }
     @Override
@@ -123,11 +126,15 @@ public class LlmClientImpl implements LlmClient {
             this.conversation = LlmConversationImpl.load(ec, conversation.getConversationId(), true);
         }
         applyWindowPolicyToConversation();
+        if (reasoningLevel != null) useReasoning(reasoningLevel, true);
         return this;
     }
     @Override
     public LlmClient newConversation() {
-        this.conversation = LlmConversationImpl.create(ec, profile.name, null);
+        if (reasoningLevel == null) reasoningLevel = "low";
+        Map<String, Object> attrs = new LinkedHashMap<>();
+        attrs.put(LlmApiConfig.ATTR, reasoningLevel);
+        this.conversation = LlmConversationImpl.create(ec, profile.name, attrs);
         applyWindowPolicyToConversation();
         return this;
     }
@@ -237,6 +244,40 @@ public class LlmClientImpl implements LlmClient {
     public LlmClient maxTokens(int n) {
         this.maxTokens = n;
         return this;
+    }
+    @Override
+    public LlmClient reasoning(String level) {
+        String canon = LlmApiConfig.canonical(level);
+        if (canon == null)
+            throw new LlmException("reasoning must be low, medium, or high",
+                    null, LlmFinishReason.ERROR, 400, profile.name, convId());
+        useReasoning(canon, true);
+        return this;
+    }
+
+    /** Remember the level for this client. Persist it on the conversation when persist is true and one is bound. */
+    void useReasoning(String level, boolean persist) {
+        this.reasoningLevel = level;
+        if (!persist || conversation == null || level == null) return;
+        Object cur = conversation.getAttributes().get(LlmApiConfig.ATTR);
+        if (level.equals(cur)) return;
+        conversation.setAttribute(LlmApiConfig.ATTR, level);
+    }
+
+    /** Use an explicit level, else the conversation attribute, else low. Writes low onto a conversation that has none. */
+    void ensureStoredReasoning() {
+        if (reasoningLevel != null) {
+            useReasoning(reasoningLevel, conversation != null);
+            return;
+        }
+        if (conversation != null) {
+            String stored = LlmApiConfig.canonical(conversation.getAttributes().get(LlmApiConfig.ATTR));
+            if (stored != null) {
+                reasoningLevel = stored;
+                return;
+            }
+        }
+        useReasoning("low", conversation != null);
     }
     @Override
     public LlmClient timeout(int seconds) {
@@ -641,6 +682,8 @@ public class LlmClientImpl implements LlmClient {
         req.timeoutSeconds = timeoutSeconds != null ? timeoutSeconds : profile.timeoutSeconds;
         req.stream = false;
         req.extraBody = extraBody;
+        ensureStoredReasoning();
+        req.apiConfig = profile.apiConfig != null ? profile.apiConfig.forLevel(reasoningLevel) : null;
         req.requestFactory = profile.requestFactory;
         req.retryInitialSeconds = profile.retryInitialSeconds;
         req.retryMax = profile.retryMax;
@@ -659,6 +702,7 @@ public class LlmClientImpl implements LlmClient {
         r.model = result.model != null ? result.model : resolveModel();
         r.profileName = profile.name;
         r.conversationId = convId();
+        r.reasoning = reasoningLevel != null ? reasoningLevel : "low";
         r.httpStatus = result.httpStatus;
         r.errorMessage = result.errorMessage;
         r.providerErrorCode = result.providerErrorCode;
