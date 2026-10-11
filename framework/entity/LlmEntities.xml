@@ -78,6 +78,9 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="toolCallId" type="text-medium"/>
         <field name="toolCallsJson" type="text-very-long"/>
         <field name="metadataJson" type="text-long"/>
+        <!-- Replay bag for the next provider call (reasoning text, thought signatures, Responses items).
+             text-very-long: metadataJson is VARCHAR(4095) and encrypted reasoning does not fit. Not sent to the browser. -->
+        <field name="providerJson" type="text-very-long"/>
         <field name="tokenEstimate" type="number-integer"/>
         <field name="sentDate" type="date-time"/>
         <relationship type="one" related="moqui.llm.LlmConversation"/>

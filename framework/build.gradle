@@ -214,6 +214,7 @@ test {
     include '**/LlmConversationTests.class'
     include '**/LlmRequestToolTests.class'
     include '**/LlmClientStreamTests.class'
+    include '**/LlmResponsesProtocolTests.class'
     include '**/LlmServletTests.class'
     include '**/TransactionCacheDbTests.class'
     include '**/LlmSkillTests.class'

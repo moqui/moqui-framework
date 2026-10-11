@@ -25,6 +25,9 @@ def result = ec.llm.getDefault()
 
 - OpenAI-compatible protocol (`/v1/chat/completions`) for OpenAI, Azure OpenAI, Ollama, and other compatible
   servers. Sync `call()` and streaming `stream(LlmStreamListener)` via RestClient.streamSse.
+  An opt-in Responses protocol (`org.moqui.impl.llm.OpenAiResponsesProtocol`, `/v1/responses`) serves OpenAI
+  and xAI with `store` forced off; reasoning items are replayed from the conversation. Chat Completions replays
+  `reasoning_content` and tool-call fields such as a Gemini thought signature so a later tool turn is accepted.
 - Conversations persist as `LlmConversation` / `LlmMessage` / `LlmCallLog`. History is durable; the prompt window
   is a view of it. `injectContext` is untrusted CONTEXT, never SYSTEM.
 - Artifact type `AT_LLM` (authz and tarpit enabled). Seed grants ADMIN `AUTHZT_ALWAYS` on group `LlmProfiles`

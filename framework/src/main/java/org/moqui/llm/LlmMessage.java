@@ -29,6 +29,11 @@ public final class LlmMessage {
     public String toolCallId;
     public List<LlmToolCall> toolCalls;
     public Map<String, Object> metadata;
+    /**
+     * Provider replay bag (reasoningContent, messageExtras, items). Stored as providerJson.
+     * Not returned by the gateway. Null when the provider sent nothing to replay.
+     */
+    public Map<String, Object> providerState;
     public int ordinal;
     public Timestamp sentDate;
 
@@ -61,6 +66,15 @@ public final class LlmMessage {
     public String getToolCallId() { return toolCallId; }
     public List<LlmToolCall> getToolCalls() { return toolCalls; }
     public Map<String, Object> getMetadata() { return metadata; }
+    public Map<String, Object> getProviderState() { return providerState; }
+
+    /** Copy a non-empty protocol replay bag onto this message. */
+    public void copyProviderStateFrom(Map<String, Object> state) {
+        if (state == null || state.isEmpty()) return;
+        if (providerState == null) providerState = new LinkedHashMap<>();
+        providerState.putAll(state);
+    }
+
     public int getOrdinal() { return ordinal; }
     public Timestamp getSentDate() { return sentDate; }
 
@@ -73,6 +87,7 @@ public final class LlmMessage {
         c.toolCallId = toolCallId;
         if (toolCalls != null) c.toolCalls = new ArrayList<>(toolCalls);
         if (metadata != null) c.metadata = new LinkedHashMap<>(metadata);
+        if (providerState != null) c.providerState = new LinkedHashMap<>(providerState);
         c.ordinal = ordinal;
         c.sentDate = sentDate;
         return c;

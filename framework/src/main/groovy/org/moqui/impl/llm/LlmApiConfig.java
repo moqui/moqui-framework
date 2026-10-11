@@ -89,19 +89,62 @@ public final class LlmApiConfig {
     }
 
     /**
-     * Deep-merge overlay onto the request body. messages, tools, and stream stay as the protocol wrote them.
+     * Deep-merge overlay onto the request body. messages, input, instructions, tools, and stream stay as the
+     * protocol wrote them. An overlay cannot add those keys when the protocol left them out.
      */
     public static void applyToBody(Map<String, Object> body, Map<String, Object> overlay) {
         if (body == null || overlay == null || overlay.isEmpty()) return;
         Object messages = body.get("messages");
+        boolean hadMessages = body.containsKey("messages");
+        Object input = body.get("input");
+        boolean hadInput = body.containsKey("input");
+        Object instructions = body.get("instructions");
+        boolean hadInstructions = body.containsKey("instructions");
         boolean hadTools = body.containsKey("tools");
         Object tools = body.get("tools");
         Object stream = body.get("stream");
+        boolean hadStream = body.containsKey("stream");
         deepMerge(body, overlay);
-        body.put("messages", messages);
-        body.put("stream", stream);
+        if (hadMessages) body.put("messages", messages);
+        else body.remove("messages");
+        if (hadInput) body.put("input", input);
+        else body.remove("input");
+        if (hadInstructions) body.put("instructions", instructions);
+        else body.remove("instructions");
+        if (hadStream) body.put("stream", stream);
+        else body.remove("stream");
         if (hadTools) body.put("tools", tools);
         else body.remove("tools");
+    }
+
+    /**
+     * Drop temperature when {@code reasoning.effort} is set to anything other than {@code none}.
+     * Chat Completions still sends temperature alongside {@code reasoning_effort} (Qwen and others accept both).
+     */
+    public static void omitTemperatureForReasoningObject(Map<String, Object> body) {
+        if (body == null || !body.containsKey("temperature")) return;
+        Object reasoning = body.get("reasoning");
+        if (!(reasoning instanceof Map)) return;
+        if (effortBlocksTemperature(((Map<?, ?>) reasoning).get("effort"))) body.remove("temperature");
+    }
+
+    /**
+     * Responses: GPT-5 and Grok reject temperature unless effort is {@code none}.
+     * Checks both {@code reasoning.effort} and {@code reasoning_effort}.
+     */
+    public static void omitTemperatureUnlessEffortNone(Map<String, Object> body) {
+        if (body == null || !body.containsKey("temperature")) return;
+        if (effortBlocksTemperature(body.get("reasoning_effort"))) {
+            body.remove("temperature");
+            return;
+        }
+        omitTemperatureForReasoningObject(body);
+    }
+
+    static boolean effortBlocksTemperature(Object effort) {
+        if (effort == null) return false;
+        String s = effort.toString().trim();
+        return !s.isEmpty() && !"none".equalsIgnoreCase(s);
     }
 
     @SuppressWarnings("unchecked")

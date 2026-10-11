@@ -31,6 +31,9 @@ public interface LlmProtocol {
     boolean supportsTools();
     boolean supportsStreaming();
 
+    /** Path appended to an origin URL when the profile omits path. Chat Completions is the default. */
+    default String defaultPath() { return "/v1/chat/completions"; }
+
     final class ProtocolRequest {
         public String profileName;
         public String endpointUrl;
@@ -73,6 +76,11 @@ public interface LlmProtocol {
         public String rawJson;
         /** Layer B: retry this result (5xx or HTTP 200 rate-limit JSON). */
         public boolean retryable;
+        /**
+         * Opaque replay bag copied onto the assistant message. Not returned to the browser.
+         * Keys: reasoningContent, messageExtras, items.
+         */
+        public Map<String, Object> providerState;
 
         public ProtocolResult() { }
         public ProtocolResult(LlmFinishReason finishReason) { this.finishReason = finishReason; }

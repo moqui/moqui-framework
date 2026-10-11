@@ -565,6 +565,7 @@ public class LlmClientImpl implements LlmClient {
         conversation.persistIsolated(() -> {
             LlmMessage asst = LlmMessage.assistant(result.content);
             asst.toolCalls = result.toolCalls;
+            asst.copyProviderStateFrom(result.providerState);
             conversation.appendInternal(asst);
             conversation.writeCallLog(profile.name, profile.protocol != null ? profile.protocol.getName() : null,
                     result.model != null ? result.model : resolveModel(), profile.logContent,

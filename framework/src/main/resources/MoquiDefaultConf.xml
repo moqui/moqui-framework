@@ -507,22 +507,27 @@
             <allowed-basic-entity package="moqui.basic"/>
         </profile>
         <!-- Suggested api-config only. Not active. One level deep-merges onto base. A new conversation is low.
-             messages, tools, and stream are not replaced. Copy a block onto a real profile and set its api-key. -->
-        <!-- OpenAI Chat Completions. gpt-5.4 rejects tools unless reasoning_effort is none, and rejects temperature unless effort is none. This client does not speak the Responses API.
-        <profile name="openai" url="https://api.openai.com" api-key="${llm_openai_api_key}" model="gpt-5.4" max-tokens-parameter="max_completion_tokens">
+             messages, input, instructions, tools, and stream are not replaced. Copy a block onto a real profile and set its api-key. -->
+        <!-- OpenAI Responses. Chat Completions cannot call tools with reasoning on for gpt-5.4 and later.
+             store is forced false. Replay items are tied to the deployment that minted them; start a new
+             conversation to move provider. Temperature is omitted when reasoning.effort is not none.
+        <profile name="openai" url="https://api.openai.com" api-key="${llm_openai_api_key}" model="gpt-5.4"
+                protocol="org.moqui.impl.llm.OpenAiResponsesProtocol">
             <api-config>
-                <low>{"reasoning_effort":"low"}</low>
-                <medium>{"reasoning_effort":"medium"}</medium>
-                <high>{"reasoning_effort":"high"}</high>
+                <low>{"reasoning":{"effort":"low"}}</low>
+                <medium>{"reasoning":{"effort":"medium"}}</medium>
+                <high>{"reasoning":{"effort":"high"}}</high>
             </api-config>
         </profile>
         -->
-        <!-- xAI. No off switch. grok-4.6 and later also accept xhigh when High should mean the maximum.
-        <profile name="xai" url="https://api.x.ai" api-key="${llm_xai_api_key}" model="grok-4.7">
+        <!-- xAI Responses. Same protocol as OpenAI. No off switch. grok-4.6 and later also accept xhigh when High should mean the maximum.
+             A Chat Completions profile still works for models that accept tools on that endpoint.
+        <profile name="xai" url="https://api.x.ai" api-key="${llm_xai_api_key}" model="grok-4.7"
+                protocol="org.moqui.impl.llm.OpenAiResponsesProtocol">
             <api-config>
-                <low>{"reasoning_effort":"low"}</low>
-                <medium>{"reasoning_effort":"medium"}</medium>
-                <high>{"reasoning_effort":"high"}</high>
+                <low>{"reasoning":{"effort":"low"}}</low>
+                <medium>{"reasoning":{"effort":"medium"}}</medium>
+                <high>{"reasoning":{"effort":"high"}}</high>
             </api-config>
         </profile>
         -->
@@ -565,6 +570,7 @@
         </profile>
         -->
         <!-- DeepSeek. Thinking defaults on, so Low turns it off. max is the step above High.
+             Thinking-mode tool turns echo reasoning_content. thinking.type enabled with no captured text sends an empty string.
         <profile name="deepseek" url="https://api.deepseek.com" path="/chat/completions" api-key="${llm_deepseek_api_key}" model="deepseek-flash">
             <api-config>
                 <low>{"thinking":{"type":"disabled"}}</low>

@@ -181,7 +181,7 @@ public class OpenAiCompatProtocol implements LlmProtocol {
         Map<String, Object> body = new LinkedHashMap<>();
         if (request.extraBody != null) body.putAll(request.extraBody);
         if (request.model != null && !request.model.isBlank()) body.put("model", request.model);
-        body.put("messages", convertMessages(request.window));
+        body.put("messages", convertMessages(request.window, request));
         if (request.temperature != null) body.put("temperature", request.temperature);
         if (request.maxTokens != null) {
             String param = request.maxTokensParameter != null && !request.maxTokensParameter.isBlank()
@@ -225,10 +225,16 @@ public class OpenAiCompatProtocol implements LlmProtocol {
             if (!toolList.isEmpty()) body.put("tools", toolList);
         }
         LlmApiConfig.applyToBody(body, request.apiConfig);
+        // reasoning.effort (Responses shape) rejects temperature. reasoning_effort stays, so Qwen can send both.
+        LlmApiConfig.omitTemperatureForReasoningObject(body);
         return body;
     }
 
     public static List<Map<String, Object>> convertMessages(List<LlmMessage> window) {
+        return convertMessages(window, null);
+    }
+
+    public static List<Map<String, Object>> convertMessages(List<LlmMessage> window, ProtocolRequest request) {
         List<Map<String, Object>> out = new ArrayList<>();
         if (window == null) return out;
         for (LlmMessage msg : window) {
@@ -257,10 +263,19 @@ public class OpenAiCompatProtocol implements LlmProtocol {
                             fn.put("name", tc.name);
                             fn.put("arguments", tc.arguments != null ? tc.arguments : "{}");
                             tcm.put("function", fn);
+                            if (tc.providerFields != null) {
+                                for (Map.Entry<String, Object> extra : tc.providerFields.entrySet()) {
+                                    if (extra.getKey() == null || extra.getValue() == null) continue;
+                                    String k = extra.getKey();
+                                    if ("id".equals(k) || "type".equals(k) || "function".equals(k)) continue;
+                                    tcm.put(k, extra.getValue());
+                                }
+                            }
                             tcs.add(tcm);
                         }
                         m.put("tool_calls", tcs);
                     }
+                    applyAssistantReplay(m, msg, request);
                     break;
                 case TOOL:
                     m.put("role", "tool");
@@ -358,6 +373,46 @@ public class OpenAiCompatProtocol implements LlmProtocol {
         }
     }
 
+    /**
+     * Echo reasoning_content and message extra_content. DeepSeek thinking mode 400s on the next tool
+     * turn when the key is missing, including turns that returned no reasoning text.
+     */
+    static void applyAssistantReplay(Map<String, Object> m, LlmMessage msg, ProtocolRequest request) {
+        Map<String, Object> state = msg != null ? msg.providerState : null;
+        boolean hasReasoning = state != null && state.containsKey("reasoningContent");
+        if (hasReasoning) {
+            Object rc = state.get("reasoningContent");
+            m.put("reasoning_content", rc == null ? "" : rc.toString());
+        } else if (needsEmptyReasoning(m, request)) {
+            m.put("reasoning_content", "");
+        }
+        Object extras = state != null ? state.get("messageExtras") : null;
+        if (extras instanceof Map) {
+            for (Map.Entry<?, ?> e : ((Map<?, ?>) extras).entrySet()) {
+                if (e.getKey() == null || e.getValue() == null) continue;
+                String k = e.getKey().toString();
+                if ("role".equals(k) || "content".equals(k) || "tool_calls".equals(k) || "reasoning_content".equals(k))
+                    continue;
+                m.put(k, e.getValue());
+            }
+        }
+    }
+
+    static boolean needsEmptyReasoning(Map<String, Object> message, ProtocolRequest request) {
+        if (request == null || request.tools == null || request.tools.isEmpty()) return false;
+        if (message == null || !(message.get("tool_calls") instanceof List) || ((List<?>) message.get("tool_calls")).isEmpty())
+            return false;
+        return thinkingEnabled(request.apiConfig);
+    }
+
+    static boolean thinkingEnabled(Map<String, Object> apiConfig) {
+        if (apiConfig == null) return false;
+        Object thinking = apiConfig.get("thinking");
+        if (!(thinking instanceof Map)) return false;
+        Object type = ((Map<?, ?>) thinking).get("type");
+        return type != null && "enabled".equalsIgnoreCase(type.toString().trim());
+    }
+
     static final String CONTEXT_ELIDED = "[elided-context-marker]";
 
     /** Replace wrapper markers inside a context body so the payload cannot close the wrapper early. */
@@ -415,6 +470,8 @@ public class OpenAiCompatProtocol implements LlmProtocol {
         private final boolean logContent;
         private final StringBuilder content = new StringBuilder();
         private final StringBuilder reasoning = new StringBuilder();
+        private boolean sawReasoningKey;
+        private Object messageExtra;
         private final TreeMap<Integer, ToolCallAcc> toolCalls = new TreeMap<>();
         private final Map<String, Integer> toolCallIdToIndex = new LinkedHashMap<>();
         private String finishReason;
@@ -480,8 +537,15 @@ public class OpenAiCompatProtocol implements LlmProtocol {
                     if (listener != null) listener.onDelta(s);
                 }
             }
-            String think = LlmRetryClassifier.reasoningOf(delta);
-            if (think != null && !think.isEmpty()) reasoning.append(think);
+            if (delta.containsKey("reasoning_content")) {
+                sawReasoningKey = true;
+                Object raw = delta.get("reasoning_content");
+                if (raw != null) reasoning.append(raw.toString());
+            } else {
+                String think = LlmRetryClassifier.reasoningOf(delta);
+                if (think != null && !think.isEmpty()) reasoning.append(think);
+            }
+            if (delta.get("extra_content") != null) messageExtra = delta.get("extra_content");
 
             Object tcs = delta.get("tool_calls");
             if (tcs instanceof List) {
@@ -524,6 +588,11 @@ public class OpenAiCompatProtocol implements LlmProtocol {
             Map<?, ?> fn = LlmRetryClassifier.asMap(tc.get("function"));
             String name = fn != null ? LlmRetryClassifier.str(fn.get("name")) : LlmRetryClassifier.str(tc.get("name"));
             if (name != null && !name.isBlank()) acc.name = name;
+            Map<String, Object> extras = LlmRetryClassifier.providerFieldsOf(tc);
+            if (extras != null) {
+                if (acc.extras == null) acc.extras = new LinkedHashMap<>();
+                acc.extras.putAll(extras);
+            }
             Object argsObj = fn != null ? fn.get("arguments") : tc.get("arguments");
             if (argsObj instanceof CharSequence) {
                 acc.arguments.append(argsObj);
@@ -558,7 +627,9 @@ public class OpenAiCompatProtocol implements LlmProtocol {
             if (finishReason != null) choice.put("finish_reason", finishReason);
             Map<String, Object> message = new LinkedHashMap<>();
             message.put("content", content.length() == 0 ? null : content.toString());
-            if (reasoning.length() > 0) message.put("reasoning_content", reasoning.toString());
+            if (sawReasoningKey) message.put("reasoning_content", reasoning.toString());
+            else if (reasoning.length() > 0) message.put("reasoning_content", reasoning.toString());
+            if (messageExtra != null) message.put("extra_content", messageExtra);
             if (!toolCalls.isEmpty()) message.put("tool_calls", toolCallsAsOpenAi());
             choice.put("message", message);
             choices.add(choice);
@@ -581,6 +652,7 @@ public class OpenAiCompatProtocol implements LlmProtocol {
                 fn.put("name", acc.name);
                 fn.put("arguments", acc.arguments.toString());
                 tc.put("function", fn);
+                if (acc.extras != null) tc.putAll(acc.extras);
                 out.add(tc);
             }
             return out;
@@ -590,6 +662,7 @@ public class OpenAiCompatProtocol implements LlmProtocol {
     static final class ToolCallAcc {
         String id;
         String name;
+        Map<String, Object> extras;
         final StringBuilder arguments = new StringBuilder();
         int lastDeltaLen = 0;
     }

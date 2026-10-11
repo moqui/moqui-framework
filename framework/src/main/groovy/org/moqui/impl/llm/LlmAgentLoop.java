@@ -151,6 +151,7 @@ final class LlmAgentLoop {
 
             LlmMessage asst = LlmMessage.assistant(result.content);
             asst.toolCalls = hasCalls ? new ArrayList<>(calls) : null;
+            asst.copyProviderStateFrom(result.providerState);
             if (client.conversation != null) {
                 final ProtocolResult logResult = result;
                 final int logIter = iteration;

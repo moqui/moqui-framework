@@ -343,14 +343,15 @@ public class LlmFacadeImpl implements LlmFacade {
             // ${api-key} to empty (api - key) and would force Azure onto Bearer.
             String authPatternRaw = node.getAttributes() != null ? node.getAttributes().get("auth-header-pattern") : null;
             String url = node.attribute("url");
-            String path = nvl(node.attribute("path"), OpenAiCompatProtocol.DEFAULT_PATH);
             String apiKey = node.attribute("api-key");
             if (apiKey != null) apiKey = apiKey.trim();
             String authHeaderName = nvl(node.attribute("auth-header-name"), "Authorization");
             String authHeaderValue = resolveAuthHeaderValue(authPatternRaw, apiKey);
             String model = node.attribute("model");
             if (model == null) model = "";
-            String maxTokensParameter = nvl(node.attribute("max-tokens-parameter"), "max_tokens");
+            // Null when omitted so each protocol can apply its own default (max_tokens vs max_output_tokens).
+            String maxTokensParameter = node.attribute("max-tokens-parameter");
+            if (maxTokensParameter != null && maxTokensParameter.isBlank()) maxTokensParameter = null;
             boolean allowTxOverHttp = parseBoolean(node.attribute("allow-tx-over-http"), false);
             int timeoutSeconds = parseInt(node.attribute("timeout-seconds"), 120);
             float retryInitialSeconds = parseFloat(node.attribute("retry-initial-seconds"), 2.0f);
@@ -409,22 +410,22 @@ public class LlmFacadeImpl implements LlmFacade {
                 }
             }
 
-            String endpointUrl = OpenAiCompatProtocol.composeEndpointUrl(url, path, extraQuery);
-
-            int poolMax = parseInt(node.attribute("pool-max"), 16);
-            int queueSize = parseInt(node.attribute("queue-size"), 64);
-            RestClient.PooledRequestFactory rf = new RestClient.PooledRequestFactory("llm-" + name);
-            rf.poolSize(poolMax).queueSize(queueSize).init();
-
             String protocolClass = nvl(node.attribute("protocol"), DEFAULT_PROTOCOL);
             LlmProtocol protocol;
             try {
                 Class<?> cls = ecfi.getClassLoader().loadClass(protocolClass);
                 protocol = (LlmProtocol) cls.getDeclaredConstructor().newInstance();
             } catch (Throwable t) {
-                rf.destroy();
                 throw new LlmException("Could not load LLM protocol class " + protocolClass + " for profile " + name, t);
             }
+
+            String path = resolvePath(node.attribute("path"), protocol);
+            String endpointUrl = OpenAiCompatProtocol.composeEndpointUrl(url, path, extraQuery);
+
+            int poolMax = parseInt(node.attribute("pool-max"), 16);
+            int queueSize = parseInt(node.attribute("queue-size"), 64);
+            RestClient.PooledRequestFactory rf = new RestClient.PooledRequestFactory("llm-" + name);
+            rf.poolSize(poolMax).queueSize(queueSize).init();
 
             return new ProfileState(name, node, url, path, endpointUrl, apiKey, authHeaderName, authHeaderValue,
                     model, maxTokensParameter, allowTxOverHttp, timeoutSeconds, retryInitialSeconds, retryMax,
@@ -435,6 +436,16 @@ public class LlmFacadeImpl implements LlmFacade {
                     systemLocation, allowClientSystem, allowBrowse, allowRunService, allowUnprefixedRequest,
                     allowEnterSim, allowVueSfc, summarizeConversation, Collections.unmodifiableList(allowedBasic),
                     LlmApiConfig.fromNode(node, name));
+        }
+
+        /** Profile path, or the protocol default when the attribute is omitted. An explicit path is kept. */
+        public static String resolvePath(String pathAttribute, LlmProtocol protocol) {
+            if (pathAttribute != null && !pathAttribute.isBlank()) return pathAttribute.trim();
+            if (protocol != null) {
+                String d = protocol.defaultPath();
+                if (d != null && !d.isBlank()) return d;
+            }
+            return OpenAiCompatProtocol.DEFAULT_PATH;
         }
 
         /** Test helper: no HTTP pool. */

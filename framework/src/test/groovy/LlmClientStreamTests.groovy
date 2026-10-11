@@ -137,6 +137,21 @@ class LlmClientStreamTests extends Specification {
         listener.deltas == ["Hello"]
     }
 
+    def "stream keeps reasoning_content and tool-call extra_content for replay"() {
+        given:
+        handler.scenario = "replay_fields"
+        def listener = new ProtoListener()
+        when:
+        new OpenAiCompatProtocol().chatStream(req(), listener)
+        then:
+        listener.failure == null
+        listener.complete.finishReason == LlmFinishReason.TOOL_CALLS
+        listener.complete.reasoning == "because"
+        listener.complete.providerState.reasoningContent == "because"
+        listener.complete.toolCalls[0].providerFields.extra_content.google.thought_signature == "sig"
+        listener.deltas.isEmpty()
+    }
+
     def "tool_call argument chunks are concatenated by index"() {
         given:
         handler.scenario = "tool_calls"
@@ -325,6 +340,12 @@ class LlmClientStreamTests extends Specification {
                 } else if ("write_ui".equals(sc)) {
                     writeChunk(response, sse('{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_w","type":"function","function":{"name":"write_ui","arguments":""}}]}}]}'), false)
                     writeChunk(response, sse('{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\\"kind\\":\\"openui\\",\\"title\\":\\"Find assets screen\\",\\"lang\\":\\"root = Stack([])\\"}"}}]}}]}'), false)
+                    writeChunk(response, sse('{"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}'), false)
+                    writeChunk(response, "data: [DONE]\n\n", true)
+                    callback.succeeded()
+                } else if ("replay_fields".equals(sc)) {
+                    writeChunk(response, sse('{"choices":[{"index":0,"delta":{"reasoning_content":"because"}}]}'), false)
+                    writeChunk(response, sse('{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","extra_content":{"google":{"thought_signature":"sig"}},"function":{"name":"request","arguments":"{}"}}]}}]}'), false)
                     writeChunk(response, sse('{"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}'), false)
                     writeChunk(response, "data: [DONE]\n\n", true)
                     callback.succeeded()

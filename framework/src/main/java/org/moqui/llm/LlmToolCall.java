@@ -13,6 +13,9 @@
  */
 package org.moqui.llm;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 public final class LlmToolCall {
     public String id;
     public String name;
@@ -27,6 +30,11 @@ public final class LlmToolCall {
     public Boolean confirm;
     /** Skill risk that required the click: {@code confirm} or {@code irreversible}. */
     public String risk;
+    /**
+     * Provider fields other than id, type, and function (Gemini thought signature under extra_content).
+     * Persisted. Not copied onto the browser tool-call payload.
+     */
+    public Map<String, Object> providerFields;
 
     public LlmToolCall() { }
     public LlmToolCall(String id, String name, String arguments) {
@@ -41,12 +49,15 @@ public final class LlmToolCall {
     public LlmTool.Execution getExecution() { return execution; }
     public Boolean getConfirm() { return confirm; }
     public String getRisk() { return risk; }
+    public Map<String, Object> getProviderFields() { return providerFields; }
+    public void setProviderFields(Map<String, Object> providerFields) { this.providerFields = providerFields; }
 
     public LlmToolCall copy() {
         LlmToolCall c = new LlmToolCall(id, name, arguments);
         c.execution = execution;
         c.confirm = confirm;
         c.risk = risk;
+        if (providerFields != null) c.providerFields = new LinkedHashMap<>(providerFields);
         return c;
     }
 }

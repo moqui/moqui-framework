@@ -966,6 +966,7 @@ public class LlmConversationImpl implements LlmConversation {
         ev.set("toolCallId", m.toolCallId);
         ev.set("toolCallsJson", m.toolCalls == null || m.toolCalls.isEmpty() ? null : LlmJson.toJson(m.toolCalls));
         ev.set("metadataJson", m.metadata == null || m.metadata.isEmpty() ? null : LlmJson.toJson(m.metadata));
+        ev.set("providerJson", m.providerState == null || m.providerState.isEmpty() ? null : LlmJson.toJson(m.providerState));
         ev.set("tokenEstimate", tokenEstimate(m.content));
         ev.set("sentDate", m.sentDate != null ? m.sentDate : now(ec));
     }
@@ -986,6 +987,7 @@ public class LlmConversationImpl implements LlmConversation {
         m.toolCallId = ev.getString("toolCallId");
         m.toolCalls = parseToolCalls(ev.getString("toolCallsJson"));
         m.metadata = LlmJson.toMap(ev.getString("metadataJson"));
+        m.providerState = LlmJson.toMap(ev.getString("providerJson"));
         m.sentDate = ev.getTimestamp("sentDate");
         return m;
     }
@@ -1019,6 +1021,13 @@ public class LlmConversationImpl implements LlmConversation {
                     tc.confirm = Boolean.TRUE;
                 Object risk = map.get("risk");
                 if (risk != null) tc.risk = risk.toString();
+                Object fields = map.get("providerFields");
+                if (fields instanceof Map) {
+                    tc.providerFields = new LinkedHashMap<>();
+                    for (Map.Entry<?, ?> e : ((Map<?, ?>) fields).entrySet()) {
+                        if (e.getKey() != null) tc.providerFields.put(e.getKey().toString(), e.getValue());
+                    }
+                }
                 out.add(tc);
             }
         }
