@@ -107,6 +107,26 @@ class LlmClientStreamTests extends Specification {
         handler.hits.get() == 1
     }
 
+    def "log-content stores one assembled completion, not SSE chunks"() {
+        given:
+        handler.scenario = "content"
+        def listener = new ProtoListener()
+        ProtocolRequest request = req()
+        request.logContent = true
+        when:
+        new OpenAiCompatProtocol().chatStream(request, listener)
+        Map logged = new JsonSlurper().parseText(listener.complete.rawJson) as Map
+        then:
+        listener.failure == null
+        listener.complete.rawJson != null
+        !listener.complete.rawJson.contains("\n")
+        !listener.complete.rawJson.contains("data:")
+        logged.model == "test-model"
+        logged.choices[0].message.content == "Hello"
+        logged.choices[0].finish_reason == "stop"
+        logged.usage.total_tokens == 5
+    }
+
     def "blank api-key omits auth header on stream"() {
         given:
         handler.scenario = "content"
