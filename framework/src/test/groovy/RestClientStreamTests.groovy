@@ -34,6 +34,14 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 class RestClientStreamTests extends Specification {
+    def "redactUri masks credential-looking query values only"() {
+        expect:
+        RestClient.redactUri("https://h/v1/x?key=SECRET&api-version=2024&access_token=abc#f") ==
+                "https://h/v1/x?key=***&api-version=2024&access_token=***#f"
+        RestClient.redactUri("https://h/v1/x") == "https://h/v1/x"
+        RestClient.redactUri(null) == null
+    }
+
     protected final static Logger logger = LoggerFactory.getLogger(RestClientStreamTests.class)
 
     @Shared Server server

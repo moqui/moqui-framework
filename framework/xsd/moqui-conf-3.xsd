@@ -628,7 +628,7 @@ along with this software (see the LICENSE.md file). If not, see
                         <xs:attribute name="methods" type="xs:string" default="GET"/>
                     </xs:complexType></xs:element>
                     <xs:element name="allowed-service" minOccurs="0" maxOccurs="unbounded"><xs:complexType>
-                        <xs:annotation><xs:documentation>Optional typed LlmTool.service(); off by default on the servlet.</xs:documentation></xs:annotation>
+                        <xs:annotation><xs:documentation>Reserved. Declared for typed LlmTool.service() allow-lists, not read by the gateway yet.</xs:documentation></xs:annotation>
                         <xs:attribute name="name" type="xs:string" use="required"/>
                         <xs:attribute name="function-name" type="xs:string"/>
                         <xs:attribute name="description" type="xs:string"/>
@@ -664,15 +664,19 @@ along with this software (see the LICENSE.md file). If not, see
                 <xs:attribute name="name" type="xs:string" use="required"/>
                 <xs:attribute name="protocol" type="xs:string" default="org.moqui.impl.llm.OpenAiCompatProtocol"/>
                 <xs:attribute name="url" type="xs:string"/>
-                <xs:attribute name="path" type="xs:string" default="/v1/chat/completions"/>
+                <xs:attribute name="path" type="xs:string">
+                    <xs:annotation><xs:documentation>Request path. When omitted the protocol default is used: /v1/chat/completions, or /v1/responses for the Responses protocol.</xs:documentation></xs:annotation>
+                </xs:attribute>
                 <xs:attribute name="api-key" type="xs:string"/>
                 <xs:attribute name="auth-header-name" type="xs:string" default="Authorization"/>
                 <xs:attribute name="auth-header-pattern" type="xs:string" default="Bearer ${api-key}"/>
                 <xs:attribute name="model" type="xs:string"/>
-                <xs:attribute name="max-tokens-parameter" default="max_tokens">
+                <xs:attribute name="max-tokens-parameter">
+                    <xs:annotation><xs:documentation>Request key for the token limit. When omitted the protocol default is used: max_tokens for Chat Completions, max_output_tokens for Responses.</xs:documentation></xs:annotation>
                     <xs:simpleType><xs:restriction base="xs:token">
                         <xs:enumeration value="max_tokens"/>
                         <xs:enumeration value="max_completion_tokens"/>
+                        <xs:enumeration value="max_output_tokens"/>
                     </xs:restriction></xs:simpleType>
                 </xs:attribute>
                 <xs:attribute name="allow-write-ui" type="boolean-expandable" default="false"/>
@@ -714,7 +718,7 @@ along with this software (see the LICENSE.md file). If not, see
                     </xs:documentation></xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="allow-tx-over-http" type="boolean-expandable" default="false"/>
-                <xs:attribute name="tool-result-max-chars" type="xs:positiveInteger" default="8000"/>
+                <xs:attribute name="tool-result-max-chars" type="xs:positiveInteger" default="65536"/>
                 <xs:attribute name="sse-ping-seconds" type="xs:positiveInteger" default="15"/>
                 <xs:attribute name="timeout-seconds" type="xs:positiveInteger" default="120"/>
                 <xs:attribute name="retry-initial-seconds" type="xs:decimal" default="2"/>
@@ -931,6 +935,12 @@ along with this software (see the LICENSE.md file). If not, see
                     <xs:enumeration value="mssql-contains"/>
                     <xs:enumeration value="oracle-text"/>
                 </xs:restriction></xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="fts-ddl" default="true" type="xs:boolean">
+                <xs:annotation><xs:documentation>
+                    When false Moqui does not create the generated tsvector column, GIN or FULLTEXT index for text-fts fields.
+                    Use it when a DBA manages them, because on PostgreSQL adding the stored column rewrites the table.
+                </xs:documentation></xs:annotation>
             </xs:attribute>
             <xs:attribute name="fts-config" default="english" type="xs:token">
                 <xs:annotation><xs:documentation>

@@ -101,7 +101,7 @@ class LlmSkillAgentTests extends Specification {
         !proto.lastRequest.window.any { it.role == LlmMessage.Role.TOOL && it.name == "enter_sim" }
     }
 
-    def "skill miss enters sim, nested write does not persist, proposed skill admits after world pass"() {
+    def "skill miss enters sim, nested write does not persist, proposed skill waits for a click and stays proposed"() {
         given:
         String stamp = Long.toString(System.currentTimeMillis())
         String skillName = "create-test-entity-" + stamp
@@ -147,20 +147,27 @@ Call run_service create#moqui.test.TestEntity with testId and testMedium.
         LlmClientImpl client = agent(proto)
 
         when:
-        LlmResponse r = client.user("frobnicate a widget").call()
+        def conv = org.moqui.impl.llm.LlmConversationImpl.create(ec, "default", null)
+        LlmResponse first = client.conversation(conv).user("frobnicate a widget").call()
+        // The sim-written risk: reversible is not honored, so the world write waits for a click
+        EntityValue beforeConfirm = ec.entity.find("moqui.test.TestEntity").condition("testId", worldId).one()
+        LlmResponse r = agent(proto).conversation(conv).toolResults([new org.moqui.llm.LlmToolResult(
+                first.pendingToolCalls[0].id, "run_service", [confirmed: true])]).call()
         EntityValue simRow = ec.entity.find("moqui.test.TestEntity").condition("testId", simId).one()
         EntityValue worldRow = ec.entity.find("moqui.test.TestEntity").condition("testId", worldId).one()
         EntityValue proposed = ec.entity.find("moqui.llm.LlmSkill").condition("name", skillName).useCache(false).one()
 
         then:
+        first.yielded
+        beforeConfirm == null
         r.content == "world created " + worldId
         simRow == null
         worldRow != null
         worldRow.testMedium == "from-world"
         proposed != null
-        proposed.statusId == "LsksActive"
-        proposed.provenanceId == "LskpMixed"
-        (proposed.worldSuccessCount as Number).longValue() >= 1L
+        // A confirmed resume never promotes a model-proposed skill
+        proposed.statusId == "LsksProposed"
+        proposed.provenanceId == "LskpSim"
         def enterTool = proto.lastRequest.window.findAll { it.role == LlmMessage.Role.TOOL && it.name == "enter_sim" }
         enterTool
         enterTool[-1].content.contains("proposedSkillId")
@@ -205,8 +212,9 @@ Call run_service create#moqui.test.TestEntity with testId and testMedium.
         then:
         persisted != null
         persisted.skillId
-        admitted.statusId == "LsksActive"
-        docs.any { it.name == name }
+        admitted.statusId == "LsksProposed"
+        admitted.worldSuccessCount == 1
+        !docs.any { it.name == name }
 
         cleanup:
         boolean d = ec.artifactExecution.disableAuthz()
@@ -550,6 +558,29 @@ ${pad}
         }
     }
 
+    def "tool execution inside persistIsolated runs with the caller's authz, not the bookkeeping bypass"() {
+        given:
+        ec.artifactExecution.enableAuthz()
+        boolean inside = false
+        boolean inTool = true
+        boolean after = false
+
+        when:
+        org.moqui.impl.llm.LlmConversationImpl.persistIsolated(ec, {
+            inside = ec.artifactExecution.disableAuthz() // true means it was already disabled by persistIsolated
+            inTool = org.moqui.impl.llm.LlmConversationImpl.withCallerAuthz(ec, { ec.artifactExecution.disableAuthz() })
+        } as Runnable, null)
+        after = ec.artifactExecution.disableAuthz()
+
+        then:
+        inside
+        !inTool
+        !after
+
+        cleanup:
+        ec.artifactExecution.disableAuthz()
+    }
+
     def "getByName finds shipped and proposed skills"() {
         given:
         String name = "getbyname-" + System.currentTimeMillis()
@@ -871,6 +902,9 @@ steps
         boolean began = ec.transaction.begin(null)
         SkillIndex.persistProposed(ec, doc, "steps")
         SkillIndex.admitWorldPass(ec, skillName)
+        // Only human-authored skills may waive confirmation
+        def revRow = ec.entity.find("moqui.llm.LlmSkill").condition("name", skillName).useCache(false).forUpdate(true).one()
+        revRow.set("provenanceId", "LskpHuman").update()
         if (began) ec.transaction.commit()
 
         def proto = new FakeLlmProtocol()

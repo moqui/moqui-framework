@@ -65,10 +65,11 @@ public final class LlmTrace {
         String profile = client != null ? client.getProfileName() : null;
         String convId = client != null ? client.convId() : null;
         boolean sim = isSim(client);
-        logger.info(formatRequest(profile, convId, sim,
+        String line = formatRequest(profile, convId, sim,
                 req != null ? req.model : null,
                 req != null && req.stream,
-                req != null ? req.window : null));
+                req != null ? req.window : null);
+        logger.info(contentLogged(client) ? line : stripPreview(line));
         if (isDumpEnabled())
             logger.info("{}\n{}", formatDumpRequestLine(profile, convId, sim, req), formatDumpRequest(req));
     }
@@ -78,7 +79,8 @@ public final class LlmTrace {
         String profile = client != null ? client.getProfileName() : null;
         String convId = client != null ? client.convId() : null;
         boolean sim = isSim(client);
-        logger.info(formatResponse(profile, convId, sim, durationMs, result));
+        String line = formatResponse(profile, convId, sim, durationMs, result);
+        logger.info(contentLogged(client) ? line : stripPreview(line));
         if (isDumpEnabled())
             logger.info("{}\n{}", formatDumpResponseLine(profile, convId, sim, result), formatDumpResponse(result));
     }
@@ -477,6 +479,16 @@ public final class LlmTrace {
     static String quote(String s) {
         if (s == null) return "\"\"";
         return "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+    }
+
+    /** Prompt and response previews follow the profile log-content flag, like the raw JSON. */
+    static boolean contentLogged(LlmClientImpl client) {
+        return client == null || client.profile == null || client.profile.logContent;
+    }
+
+    static String stripPreview(String line) {
+        int i = line != null ? line.indexOf(" head=") : -1;
+        return i < 0 ? line : line.substring(0, i);
     }
 
     static void appendPreview(StringBuilder sb, Preview prev) {

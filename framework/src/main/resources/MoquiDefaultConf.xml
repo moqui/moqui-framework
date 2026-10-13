@@ -531,7 +531,7 @@
             </api-config>
         </profile>
         -->
-        <!-- Anthropic native Messages uses output_config.effort (low, medium, high; some models also xhigh and max). Its OpenAI-compat endpoint ignores reasoning_effort, and this protocol still posts a Chat Completions body.
+        <!-- NOT WORKING YET: needs a Messages API protocol class. Anthropic native Messages uses output_config.effort (low, medium, high; some models also xhigh and max), but OpenAiCompatProtocol still posts a Chat Completions body, so this profile would fail. Kept as the intended shape for when that protocol exists.
         <profile name="anthropic" url="https://api.anthropic.com" path="/v1/messages" api-key="${llm_anthropic_api_key}" model="claude-sonnet-5" auth-header-name="x-api-key" auth-header-pattern="${api-key}">
             <header name="anthropic-version" value="2023-06-01"/>
             <api-config>

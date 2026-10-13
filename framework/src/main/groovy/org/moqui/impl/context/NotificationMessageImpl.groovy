@@ -297,6 +297,8 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
         return send()
     }
     @Override NotificationMessage send() {
+        // A sim session must not push to real users or topics
+        org.moqui.impl.context.SimFence.refuse("Sending a notification message")
         // persist if is persistOnSend
         if (isPersistOnSend()) {
             sentDate = new Timestamp(System.currentTimeMillis())

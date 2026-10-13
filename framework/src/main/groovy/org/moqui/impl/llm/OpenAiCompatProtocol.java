@@ -261,7 +261,7 @@ public class OpenAiCompatProtocol implements LlmProtocol {
                             tcm.put("type", "function");
                             Map<String, Object> fn = new LinkedHashMap<>();
                             fn.put("name", tc.name);
-                            fn.put("arguments", tc.arguments != null ? tc.arguments : "{}");
+                            fn.put("arguments", tc.arguments != null && !tc.arguments.isBlank() ? tc.arguments : "{}");
                             tcm.put("function", fn);
                             if (tc.providerFields != null) {
                                 for (Map.Entry<String, Object> extra : tc.providerFields.entrySet()) {
@@ -577,6 +577,11 @@ public class OpenAiCompatProtocol implements LlmProtocol {
             }
 
             ToolCallAcc acc = toolCalls.get(idx);
+            // Some servers reuse index 0 for every parallel call and tell them apart only by id
+            if (acc != null && hasId && acc.id != null && !acc.id.equals(id)) {
+                idx = toolCalls.lastKey() + 1;
+                acc = null;
+            }
             if (acc == null) {
                 acc = new ToolCallAcc();
                 toolCalls.put(idx, acc);

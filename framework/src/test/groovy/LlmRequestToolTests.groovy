@@ -82,6 +82,15 @@ class LlmRequestToolTests extends Specification {
         ec.message.clearAll()
     }
 
+    def "mutates classifies verbs and GET to a transition with actions, never executing it"() {
+        expect:
+        RequestTool.mutates(ec, [method: "POST", path: "/apps/system/dashboard/actions"])
+        !RequestTool.mutates(ec, [method: "GET", path: "/apps/system/dashboard/actions"])
+        !RequestTool.mutates(ec, [method: "GET", path: "/apps/system/dashboard"])
+        !RequestTool.mutates(ec, [method: "GET", path: "/no/such/screen"])
+        RequestTool.mutates(ec, [method: "GET", path: "/apps/system/dashboard/reInitElasticFacade"])
+    }
+
     def "GET actions returns JSON not HTML"() {
         when:
         def result = LlmTool.request().execute([method: "GET", path: "/apps/system/dashboard/actions"], ec)

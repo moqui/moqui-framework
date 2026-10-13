@@ -276,6 +276,19 @@ class LlmClientStreamTests extends Specification {
         listener.complete.toolCalls[0].arguments == '{"method":"GET"}'
     }
 
+    def "parallel tool calls that reuse index 0 stay separate calls and blank arguments replay as an empty object"() {
+        given:
+        handler.scenario = "parallel_same_index"
+        def listener = new ProtoListener()
+        when:
+        new OpenAiCompatProtocol().chatStream(req(), listener)
+        then:
+        listener.failure == null
+        listener.complete.toolCalls*.id == ["call_a", "call_b"]
+        listener.complete.toolCalls[0].arguments == '{"q":"a"}'
+        listener.complete.toolCalls[1].name == "request"
+    }
+
     static class ProtoListener implements ProtocolStreamListener {
         List<String> deltas = []
         List<Map> toolCallDeltas = []
@@ -355,6 +368,12 @@ class LlmClientStreamTests extends Specification {
                     writeChunk(response, sse('{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\\"GET\\"}"}}]}}]}'), false)
                     writeChunk(response, sse('{"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}'), false)
                     writeChunk(response, sse(usageChunk(9, 4, 13)), false)
+                    writeChunk(response, "data: [DONE]\n\n", true)
+                    callback.succeeded()
+                } else if ("parallel_same_index".equals(sc)) {
+                    writeChunk(response, sse('{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_a","type":"function","function":{"name":"browse","arguments":"{\\"q\\":\\"a\\"}"}}]}}]}'), false)
+                    writeChunk(response, sse('{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_b","type":"function","function":{"name":"request","arguments":""}}]}}]}'), false)
+                    writeChunk(response, sse('{"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}'), false)
                     writeChunk(response, "data: [DONE]\n\n", true)
                     callback.succeeded()
                 } else if ("no_usage".equals(sc)) {

@@ -56,15 +56,23 @@ public final class FtsDdl {
         if (databaseNode == null) return;
         String style = databaseNode.attribute("fts-style");
         if (style == null || style.isEmpty() || "none".equals(style) || FtsSql.isDisabled(groupName)) return;
+        // fts-ddl="false" leaves the columns and indexes to a DBA. Searches still use the fts-style predicate.
+        if ("false".equals(databaseNode.attribute("fts-ddl"))) return;
         Connection con = sharedCon;
         boolean close = false;
         boolean began = false;
+        java.sql.Savepoint savepoint = null;
         try {
             if (con == null) {
                 if (!efi.ecfi.transactionFacade.isTransactionInPlace())
                     began = efi.ecfi.transactionFacade.begin(60);
                 con = efi.getConnection(groupName);
                 close = true;
+            }
+            // On a shared connection a failed statement must not leave the caller's transaction aborted (PostgreSQL)
+            if (sharedCon != null) {
+                try { if (!con.getAutoCommit()) savepoint = con.setSavepoint(); }
+                catch (SQLException ignored) { savepoint = null; }
             }
             if ("h2-native".equals(style)) ensureH2(con, ed, fields);
             else if ("postgres-tsvector".equals(style)) ensurePostgres(con, databaseNode, ed, fields);
@@ -73,10 +81,12 @@ public final class FtsDdl {
                 warnOnce(groupName, style + " finds use SQL LIKE until a full-text catalog is added");
                 FtsSql.disable(groupName);
             }
+            if (savepoint != null) { try { con.releaseSavepoint(savepoint); } catch (SQLException ignored) { } }
             if (began) efi.ecfi.transactionFacade.commit();
         } catch (Throwable t) {
             logger.warn("FTS setup failed for {} ({}): {}", ed.getFullEntityName(), style, t.getMessage());
             FtsSql.disable(groupName);
+            if (savepoint != null) { try { con.rollback(savepoint); } catch (SQLException ignored) { } }
             if (began) {
                 try { efi.ecfi.transactionFacade.rollback(began, "FTS setup", t); }
                 catch (Throwable ignored) { }

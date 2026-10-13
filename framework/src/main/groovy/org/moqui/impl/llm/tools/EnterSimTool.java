@@ -72,10 +72,10 @@ public class EnterSimTool implements LlmTool {
         String goal = args.get("goal") != null ? args.get("goal").toString() : "";
         String criteria = args.get("success_criteria") != null ? args.get("success_criteria").toString() : "";
         // Prove-then-optimize: give the nested model enough rounds to actually return a skill.
-        // Floor 32 so a parent tool-call cannot shrink the budget back to 8.
+        // Default 32. A caller may ask for fewer rounds, down to 4, or up to 64.
         int maxIter = 32;
         Object maxObj = args.get("max_iterations");
-        if (maxObj instanceof Number) maxIter = Math.max(32, Math.min(64, ((Number) maxObj).intValue()));
+        if (maxObj instanceof Number) maxIter = Math.max(4, Math.min(64, ((Number) maxObj).intValue()));
 
         ExecutionContextImpl eci = (ExecutionContextImpl) ec;
         LlmClientImpl parent = LlmClientImpl.currentClient();

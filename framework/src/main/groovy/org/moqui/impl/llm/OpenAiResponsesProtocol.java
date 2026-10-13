@@ -213,7 +213,7 @@ public class OpenAiResponsesProtocol implements LlmProtocol {
                             call.put("type", "function_call");
                             call.put("call_id", tc.id);
                             call.put("name", tc.name);
-                            call.put("arguments", tc.arguments != null ? tc.arguments : "{}");
+                            call.put("arguments", tc.arguments != null && !tc.arguments.isBlank() ? tc.arguments : "{}");
                             out.add(call);
                         }
                     }

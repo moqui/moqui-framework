@@ -175,9 +175,11 @@ class LlmServlet extends HttpServlet {
         } catch (LlmException e) {
             sendJsonError(response, LlmGateway.httpStatusOf(e), e.message)
         } catch (Throwable t) {
-            logger.error("Error in LlmServlet", t)
+            // The message stays in the log. The client gets a reference so internals are not exposed.
+            String ref = Long.toString(System.nanoTime(), 36)
+            logger.error("Error in LlmServlet (ref ${ref})", t)
             if (!response.isCommitted())
-                sendJsonError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, t.message ?: t.toString())
+                sendJsonError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Internal error (ref ${ref})".toString())
         } finally {
             MDC.remove("moqui_llm_conversationId")
             // Filter destroys the EC after service() returns.

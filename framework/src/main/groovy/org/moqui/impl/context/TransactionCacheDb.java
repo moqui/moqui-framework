@@ -55,6 +55,17 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class TransactionCacheDb implements EntityTxCache {
     protected final static Logger logger = LoggerFactory.getLogger(TransactionCacheDb.class);
+    /** Rows copied from production over the life of one overlay. Bounds memory in a long sim. */
+    public static final int TOTAL_COPY_CAP = 200_000;
+    private final java.util.concurrent.atomic.AtomicLong copiedRows = new java.util.concurrent.atomic.AtomicLong();
+
+    /** Count a row copied from production and fail the sim when the overlay has grown too large. */
+    public void noteCopied() {
+        if (copiedRows.incrementAndGet() > TOTAL_COPY_CAP)
+            throw new EntityException("TX cache DB copied more than " + TOTAL_COPY_CAP
+                    + " production rows in this sim. Narrow the query or end the sim.");
+    }
+
     public static final int COPY_CAP = 10000;
     private static final long SEQ_START = 900000000L;
 
@@ -145,6 +156,11 @@ public class TransactionCacheDb implements EntityTxCache {
             throw new EntityException("Tried to create a value that already exists in TX cache DB, entity " +
                     evb.resolveEntityName() + ", PK " + evb.getPrimaryKeys());
         }
+        // Production would reject this too. Without the check a sim could create what the real write cannot.
+        if (loadFromWorld(evb, ed) != null) {
+            throw new EntityException("Tried to create a value that already exists, entity " +
+                    evb.resolveEntityName() + ", PK " + evb.getPrimaryKeys());
+        }
         insertH2(evb, ed);
         dirtyCreateKeys.add(key);
         dirtyUpdateKeys.remove(key);
@@ -165,8 +181,9 @@ public class TransactionCacheDb implements EntityTxCache {
             if (fromDb != null) insertH2(fromDb, ed);
         }
         if (!existsInH2(evb, ed)) {
-            insertH2(evb, ed);
-            dirtyCreateKeys.add(key);
+            // Updating a row that exists nowhere fails in production, so it must fail in the sim as well
+            throw new EntityException("Tried to update a value that does not exist, entity " +
+                    evb.resolveEntityName() + ", PK " + evb.getPrimaryKeys());
         } else {
             updateH2(evb, ed);
             if (!dirtyCreateKeys.contains(key)) dirtyUpdateKeys.add(key);
@@ -210,14 +227,15 @@ public class TransactionCacheDb implements EntityTxCache {
         if (!handles(ed) || ed.isViewEntity) return null;
         Map<String, Object> pk = efb.getSimpleMapPrimaryKeys();
         if (pk == null || pk.isEmpty()) return null;
-        Map<String, Object> key = new HashMap<>(pk);
-        key.put("_entityName", ed.getFullEntityName());
-        if (tombstoneKeys.contains(key)) {
+        // Build the value first so a String condition for a Timestamp or Long key is converted to the field type
+        // before it is compared with tombstone keys, which hold typed values.
+        EntityValueBase evb = (EntityValueBase) efi.makeValue(ed.getFullEntityName());
+        for (Map.Entry<String, Object> e : pk.entrySet()) evb.set(e.getKey(), e.getValue());
+        Map<String, Object> key = makeKey(evb);
+        if (key != null && tombstoneKeys.contains(key)) {
             return new EntityValueBase.DeletedEntityValue(ed, efi);
         }
         if (!tablesCreated.contains(ed.getFullEntityName())) return null;
-        EntityValueBase evb = (EntityValueBase) efi.makeValue(ed.getFullEntityName());
-        for (Map.Entry<String, Object> e : pk.entrySet()) evb.set(e.getKey(), e.getValue());
         if (selectInto(evb, ed)) return (EntityValueBase) evb.cloneValue();
         return null;
     }
@@ -253,6 +271,7 @@ public class TransactionCacheDb implements EntityTxCache {
             return;
         ensureTable(ed);
         if (existsInH2(evb, ed)) return;
+        noteCopied();
         insertH2(evb, ed);
     }
 
@@ -361,6 +380,9 @@ public class TransactionCacheDb implements EntityTxCache {
     private void checkOpen() {
         if (closed) throw new EntityException("TransactionCacheDb is closed");
     }
+
+    /** Rows deleted in this overlay. They are still returned by production and shrink a copied page. */
+    public int deletedCount() { return tombstoneKeys.size(); }
 
     static Map<String, Object> makeKey(EntityValueBase evb) {
         if (evb == null) return null;

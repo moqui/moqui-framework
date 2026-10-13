@@ -341,15 +341,15 @@ public final class LlmGateway {
 
 
         Object temp = body.get("temperature");
-        if (temp instanceof Number) impl.temperature(((Number) temp).doubleValue());
+        if (temp instanceof Number) impl.temperature(Math.max(0.0, Math.min(2.0, ((Number) temp).doubleValue())));
         Object maxTok = body.get("maxTokens");
-        if (maxTok instanceof Number) impl.maxTokens(((Number) maxTok).intValue());
-        Object extraBody = body.get("extraBody");
-        if (extraBody instanceof Map) {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> extraMap = (Map<String, Object>) extraBody;
-            impl.extraBody(extraMap);
+        if (maxTok instanceof Number) {
+            // A caller may lower the profile's cap, never raise it
+            int cap = impl.profile.maxTokens != null ? impl.profile.maxTokens : 65536;
+            impl.maxTokens(Math.max(1, Math.min(cap, ((Number) maxTok).intValue())));
         }
+        // extraBody is deliberately not accepted from HTTP callers. It is merged into the provider body
+        // and could set n, tool_choice or a second max-tokens key past the profile's cost limits.
 
         if (resume) {
             impl.markResumeFromYielded();

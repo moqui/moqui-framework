@@ -654,9 +654,17 @@ public class LlmClientImpl implements LlmClient {
         return null;
     }
 
+    /** When above 0, caps the window size in characters for this call. Set after a context overflow. */
+    int overflowMaxChars = 0;
+
     List<LlmMessage> buildWindow() {
         if (conversation != null) {
             WindowPolicy policy = windowPolicy != null ? windowPolicy : conversation.getWindowPolicy();
+            if (overflowMaxChars > 0 && policy != null) {
+                // After a context overflow, trim harder for this call only. The stored policy is left alone.
+                policy = policy.copy();
+                policy.maxChars = policy.maxChars > 0 ? Math.min(policy.maxChars, overflowMaxChars) : overflowMaxChars;
+            }
             List<LlmMessage> window = conversation.buildWindow(policy);
             for (LlmMessage extra : extraMessages) {
                 if (extra == null || extra.role == LlmMessage.Role.SYSTEM) continue;
@@ -738,7 +746,11 @@ public class LlmClientImpl implements LlmClient {
     float nextWait(float waitSeconds) {
         float initial = profile.retryInitialSeconds > 0 ? profile.retryInitialSeconds : 2.0f;
         if (waitSeconds <= 0) return initial;
-        return waitSeconds * initial;
+        // Doubling when the initial wait is 1 or less, otherwise the configured multiplier. Capped at one minute,
+        // with up to 25% jitter so concurrent retries do not stampede the provider together.
+        float factor = initial > 1.0f ? initial : 2.0f;
+        float next = Math.min(60.0f, waitSeconds * factor);
+        return next * (1.0f + (float) (Math.random() * 0.25));
     }
 
     private static String nvl(String v, String def) { return v == null || v.isBlank() ? def : v; }
@@ -754,11 +766,24 @@ public class LlmClientImpl implements LlmClient {
     void markStreamingPersisted() { this.streamingWasPersisted = true; }
     LlmClientImpl markResumeFromYielded() { this.resumeFromYielded = true; return this; }
 
+    /** Set on the client that runs inside enter_sim, which has no conversation of its own. */
+    LlmClientImpl cancelParent;
+    private long lastStoreCancelCheck = 0L;
+    private static final long STORE_CANCEL_CHECK_MS = 2000L;
+
     boolean isExternallyCancelled() {
+        if (cancelParent != null) return cancelParent.isExternallyCancelled();
         if (conversation != null && LlmConversationImpl.STATUS_CANCELLED.equals(conversation.getStatus()))
             return true;
         LlmFacadeImpl f = facadeOrNull();
-        return f != null && f.isCancelled(convId());
+        if (f != null && f.isCancelled(convId())) return true;
+        // Poll the stored status now and then so a cancel on another node is seen here
+        long now = System.currentTimeMillis();
+        if (conversation != null && now - lastStoreCancelCheck >= STORE_CANCEL_CHECK_MS) {
+            lastStoreCancelCheck = now;
+            if (conversation.isCancelledInStore()) return true;
+        }
+        return false;
     }
     void throwIfCancelled() {
         if (isExternallyCancelled()) throw new CancellationException("LLM conversation cancelled");
@@ -812,6 +837,7 @@ public class LlmClientImpl implements LlmClient {
         LlmClientImpl nested = new LlmClientImpl(ec, profile, transactionInPlace);
         nested.maxIterations(maxIter > 0 ? maxIter : 32);
         nested.activeSkillName = activeSkillName;
+        nested.cancelParent = this;
         nested.allowedPaths.addAll(allowedPaths);
         nested.allowedEntities.addAll(allowedEntities);
         for (LlmTool t : tools) {

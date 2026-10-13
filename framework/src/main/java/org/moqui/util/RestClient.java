@@ -312,7 +312,7 @@ public class RestClient {
         if (factory == null) return;
         ExecutionContext ec = factory.getActiveExecutionContext();
         if (ec != null && ec.isSimSession())
-            throw new BaseException("RestClient is disabled in LLM sim session (" + uriString + ")");
+            throw new BaseException("RestClient is disabled in LLM sim session (" + redactUri(uriString) + ")");
     }
 
     /** Names of request headers to mask in TRACE logs (values printed as {@code ***}). Unused unless set. */
@@ -363,7 +363,7 @@ public class RestClient {
                 } catch (InterruptedException e) {
                     logger.warn("RestClient velocity retry sleep interrupted", e);
                     Thread.currentThread().interrupt();
-                    throw new BaseException("Retry sleep interrupted for REST request to " + uriString, e);
+                    throw new BaseException("Retry sleep interrupted for REST request to " + redactUri(uriString), e);
                 }
                 curWaitSeconds = curWaitSeconds * initialWaitSeconds;
             } else {
@@ -390,7 +390,7 @@ public class RestClient {
             tempFactory = null;
             return stream;
         } catch (TimeoutException e) {
-            logger.warn("RestClient request timed out after " + timeoutSeconds + "s waiting for headers from " + uriString);
+            logger.warn("RestClient request timed out after " + timeoutSeconds + "s waiting for headers from " + redactUri(uriString));
             if (request != null) request.abort(e);
             closeQuietly(listener);
             if (tempFactory != null) tempFactory.destroy();
@@ -401,7 +401,7 @@ public class RestClient {
             closeQuietly(listener);
             if (tempFactory != null) tempFactory.destroy();
             if (e instanceof BaseException) throw (BaseException) e;
-            throw new BaseException("Error calling HTTP request to " + uriString, e);
+            throw new BaseException("Error calling HTTP request to " + redactUri(uriString), e);
         }
     }
 
@@ -531,13 +531,13 @@ public class RestClient {
                 ContentResponse response = future.get(timeoutSeconds, TimeUnit.SECONDS);
                 return new RestResponse(this, response);
             } catch (TimeoutException e) {
-                logger.warn("RestClient request timed out after " + timeoutSeconds + "s to " + request.getURI());
+                logger.warn("RestClient request timed out after " + timeoutSeconds + "s to " + redactUri(String.valueOf(request.getURI())));
                 // abort request to make sure it gets closed and cleaned up
                 request.abort(e);
                 throw e;
             }
         } catch (Exception e) {
-            throw new BaseException("Error calling HTTP request to " + uriString, e);
+            throw new BaseException("Error calling HTTP request to " + redactUri(uriString), e);
         } finally {
             if (tempFactory != null) tempFactory.destroy();
         }
@@ -576,14 +576,38 @@ public class RestClient {
         request.accept(acceptContentType != null && !acceptContentType.isEmpty() ? acceptContentType : contentType);
 
         if (logger.isTraceEnabled())
-            logger.trace("RestClient request " + request.getMethod() + " " + request.getURI() + " Headers: " + formatHeadersForLog(request.getHeaders()));
+            logger.trace("RestClient request " + request.getMethod() + " " + redactUri(String.valueOf(request.getURI())) + " Headers: " + formatHeadersForLog(request.getHeaders()));
 
         return request;
     }
 
+    private static final java.util.regex.Pattern SECRET_NAME = java.util.regex.Pattern.compile(
+            "(?i).*(key|token|secret|sig|signature|auth|password|passwd|credential|cookie).*");
+    private static final java.util.regex.Pattern QUERY_PARAM = java.util.regex.Pattern.compile("([?&])([^=&#]+)=([^&#]*)");
+
+    /** True for header or query names that normally carry credentials. */
+    static boolean isSecretName(String name) { return name != null && SECRET_NAME.matcher(name).matches(); }
+
+    /** The URI with values of credential-looking query parameters masked, for logs and exception messages. */
+    public static String redactUri(String uri) {
+        if (uri == null || uri.indexOf('?') < 0) return uri;
+        java.util.regex.Matcher m = QUERY_PARAM.matcher(uri);
+        StringBuilder sb = new StringBuilder();
+        while (m.find()) {
+            String repl = isSecretName(m.group(2)) ? m.group(1) + m.group(2) + "=***" : m.group(0);
+            m.appendReplacement(sb, java.util.regex.Matcher.quoteReplacement(repl));
+        }
+        m.appendTail(sb);
+        return sb.toString();
+    }
+
+    private static String capErrorText(String text) {
+        if (text == null || text.length() <= 2000) return text;
+        return text.substring(0, 2000) + "... [" + (text.length() - 2000) + " more chars]";
+    }
+
     private String formatHeadersForLog(HttpFields headers) {
         if (headers == null) return "";
-        if (redactHeaderNames == null || redactHeaderNames.isEmpty()) return headers.toString();
         StringBuilder sb = new StringBuilder();
         sb.append('[');
         boolean first = true;
@@ -592,7 +616,7 @@ public class RestClient {
             first = false;
             String name = hdr.getName();
             sb.append(name).append('=');
-            if (redactHeaderNames.contains(name.toLowerCase())) sb.append("***");
+            if (isSecretName(name) || (redactHeaderNames != null && redactHeaderNames.contains(name.toLowerCase()))) sb.append("***");
             else sb.append(hdr.getValue());
         }
         sb.append(']');
@@ -645,8 +669,8 @@ public class RestClient {
          * handling or skip it to handle manually or allow errors */
         public RestResponse checkError() {
             if (statusCode < 200 || statusCode >= 300) {
-                logger.info("Error " + statusCode + " (" + reasonPhrase + ") in response to " + rci.method + " to " + rci.uriString + ", response text:\n" + text());
-                throw new HttpResponseException("Error " + statusCode + " (" + reasonPhrase + ") in response to " + rci.method + " to " + rci.uriString, response);
+                logger.info("Error " + statusCode + " (" + reasonPhrase + ") in response to " + rci.method + " to " + redactUri(rci.uriString) + ", response text:\n" + capErrorText(text()));
+                throw new HttpResponseException("Error " + statusCode + " (" + reasonPhrase + ") in response to " + rci.method + " to " + redactUri(rci.uriString), response);
             }
 
             return this;
@@ -788,9 +812,9 @@ public class RestClient {
             if (statusCode < 200 || statusCode >= 300) {
                 String body = readErrorBody();
                 logger.info("Error " + statusCode + " (" + reasonPhrase + ") in response to " + rci.method
-                        + " to " + rci.uriString + (body.isEmpty() ? "" : ", response text:\n" + body));
+                        + " to " + redactUri(rci.uriString) + (body.isEmpty() ? "" : ", response text:\n" + capErrorText(body)));
                 throw new HttpErrorException("Error " + statusCode + " (" + reasonPhrase + ") in response to "
-                        + rci.method + " to " + rci.uriString, response, body);
+                        + rci.method + " to " + redactUri(rci.uriString), response, body);
             }
             return this;
         }
@@ -808,7 +832,7 @@ public class RestClient {
                 }
                 return sb.toString();
             } catch (IOException e) {
-                logger.warn("Error reading REST error response body from " + rci.uriString, e);
+                logger.warn("Error reading REST error response body from " + redactUri(rci.uriString), e);
                 return "";
             }
         }

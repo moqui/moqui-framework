@@ -55,6 +55,23 @@ public class LlmConversationImpl implements LlmConversation {
     static final int PERSIST_TIMEOUT_SECONDS = 30;
 
     private static final ThreadLocal<Integer> PERSIST_DEPTH = new ThreadLocal<>();
+    /** Set while persistIsolated holds authz disabled that the caller had enabled. */
+    private static final ThreadLocal<Boolean> PERSIST_OWNS_AUTHZ = new ThreadLocal<>();
+
+    /**
+     * Run a tool with the caller's own authz setting. persistIsolated disables authz for LLM
+     * bookkeeping writes, which must not extend to a tool the user asked to execute.
+     */
+    static <T> T withCallerAuthz(ExecutionContext ec, java.util.function.Supplier<T> work) {
+        ArtifactExecutionFacade aefi = ec != null ? ec.getArtifactExecution() : null;
+        boolean restore = aefi != null && Boolean.TRUE.equals(PERSIST_OWNS_AUTHZ.get());
+        if (restore) aefi.enableAuthz();
+        try {
+            return work.get();
+        } finally {
+            if (restore) aefi.disableAuthz();
+        }
+    }
 
     private final ExecutionContext ec;
     private String conversationId;
@@ -173,6 +190,7 @@ public class LlmConversationImpl implements LlmConversation {
         PERSIST_DEPTH.set(1);
         ArtifactExecutionFacade aefi = ec.getArtifactExecution();
         boolean alreadyDisabled = aefi != null && aefi.disableAuthz();
+        PERSIST_OWNS_AUTHZ.set(!alreadyDisabled);
         TransactionFacade tf = ec.getTransaction();
         boolean suspended = false;
         try {
@@ -195,6 +213,7 @@ public class LlmConversationImpl implements LlmConversation {
             }
             if (aefi != null && !alreadyDisabled) aefi.enableAuthz();
             PERSIST_DEPTH.remove();
+            PERSIST_OWNS_AUTHZ.remove();
         }
     }
 
@@ -639,6 +658,21 @@ public class LlmConversationImpl implements LlmConversation {
         updateHeader();
     }
 
+    /**
+     * True when the stored row says Cancelled. A cancel handled by another node only reaches this node
+     * through the database, because the in-memory cancel set is per JVM.
+     */
+    boolean isCancelledInStore() {
+        if (!hasEntity(ec) || conversationId == null) return false;
+        boolean[] cancelled = new boolean[1];
+        persistIsolated(() -> {
+            EntityValue ev = ec.getEntity().find("moqui.llm.LlmConversation")
+                    .condition("conversationId", conversationId).useCache(false).one();
+            cancelled[0] = ev != null && STATUS_CANCELLED.equals(ev.getString("statusId"));
+        });
+        return cancelled[0];
+    }
+
     /** Re-read DB (source of truth) and only then Failed/Cancelled if still Streaming. */
     void repairTerminalIfStreaming(boolean cancelled) {
         persistIsolated(() -> {
@@ -1037,6 +1071,13 @@ public class LlmConversationImpl implements LlmConversation {
     private static List<LlmMessage> trimRest(List<LlmMessage> rest, WindowPolicy policy, int reservedChars) {
         if (rest.isEmpty()) return rest;
         List<LlmMessage> kept = new ArrayList<>(rest);
+        // The latest user message and everything after it is the turn in progress. It is never trimmed,
+        // or the model would be asked to continue a tool chain that has lost its question.
+        int pinFrom = -1;
+        for (int i = rest.size() - 1; i >= 0; i--) {
+            if (rest.get(i).role == LlmMessage.Role.USER) { pinFrom = i; break; }
+        }
+        int dropped = 0;
         while (!kept.isEmpty()) {
             boolean overMessages = policy.maxMessages > 0 && kept.size() > policy.maxMessages;
             boolean overChars = policy.maxChars > 0 && (reservedChars + charsOfAll(kept)) > policy.maxChars;
@@ -1045,7 +1086,15 @@ public class LlmConversationImpl implements LlmConversation {
             if (policy.keepToolPairs) drop = pairLength(kept, 0);
             if (drop < 1) drop = 1;
             if (drop > kept.size()) drop = kept.size();
+            if (pinFrom >= 0 && dropped + drop > pinFrom) drop = pinFrom - dropped;
+            if (drop <= 0) break;
             kept.subList(0, drop).clear();
+            dropped += drop;
+        }
+        // A tool result whose assistant message was trimmed away is rejected by providers
+        while (dropped > 0 && !kept.isEmpty() && kept.get(0).role == LlmMessage.Role.TOOL && (pinFrom < 0 || dropped < pinFrom)) {
+            kept.remove(0);
+            dropped++;
         }
         return kept;
     }

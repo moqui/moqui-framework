@@ -211,14 +211,14 @@ public class ScreenUseTool implements LlmTool {
         }
         ExecutionContextImpl eci = BrowseTool.asEci(ec);
         if (eci == null) return error("no_context", "No screen tree is available for this call.");
-        ScreenUrlInfo sui = BrowseTool.screenUrl(eci, path);
+        ScreenUrlInfo sui = ScreenCatalog.screenUrl(eci, path);
         String transitionName = sui != null ? sui.getTargetTransitionActualName() : null;
         if (transitionName != null && !transitionName.isEmpty())
             return error("transition", "That path is a transition. Navigate to the screen, then submit_find or tell the user which button to click.");
         ScreenDefinition screen = sui != null ? sui.getTargetScreen() : null;
         if (sui == null || !sui.isTargetExists() || screen == null)
             return error("not_found", "No screen at that path. browse q to find one the user can view.");
-        if (!BrowseTool.screenViewPermitted(eci, path))
+        if (!ScreenCatalog.screenViewPermitted(eci, path))
             return error("not_permitted", "The user cannot view that screen. Pick another browse hit.");
         Set<String> parameterNames = new LinkedHashSet<>();
         Set<String> fieldNames = new LinkedHashSet<>();

@@ -102,9 +102,27 @@ public class SkillIndex {
         return doc;
     }
 
+    private static final long SHIPPED_TTL_MS = 15_000L;
+    private static volatile List<SkillDoc> shippedCache = null;
+    private static volatile Object shippedCacheOwner = null;
+    private static volatile long shippedCacheTime = 0L;
+
+    /** Shipped skill files, read from every component. Cached briefly because risk checks call this per tool call. */
     public static List<SkillDoc> scanShipped(ExecutionContext ec) {
+        if (ec == null || ec.getFactory() == null) return new ArrayList<>();
+        long now = System.currentTimeMillis();
+        List<SkillDoc> cached = shippedCache;
+        if (cached != null && shippedCacheOwner == ec.getFactory() && now - shippedCacheTime < SHIPPED_TTL_MS)
+            return new ArrayList<>(cached);
+        List<SkillDoc> fresh = scanShippedUncached(ec);
+        shippedCache = fresh;
+        shippedCacheOwner = ec.getFactory();
+        shippedCacheTime = now;
+        return new ArrayList<>(fresh);
+    }
+
+    private static List<SkillDoc> scanShippedUncached(ExecutionContext ec) {
         List<SkillDoc> out = new ArrayList<>();
-        if (ec == null || ec.getFactory() == null) return out;
         ExecutionContextFactoryImpl ecfi = (ExecutionContextFactoryImpl) ec.getFactory();
         Map<String, String> comps = ecfi.getComponentBaseLocations();
         for (Map.Entry<String, String> e : comps.entrySet()) {
@@ -510,7 +528,11 @@ public class SkillIndex {
         });
     }
 
-    /** Promote a sim-proposed skill after a successful world act. */
+    /**
+     * Count a successful world act for a sim-proposed skill. The skill stays Proposed, which keeps it out of
+     * every other user's prompt and search, until a person activates it. Setting the llm_skill_auto_admit
+     * property or environment variable to true restores automatic promotion for trusted single-tenant setups.
+     */
     public static EntityValue admitWorldPass(ExecutionContext ec, String skillName) {
         if (ec == null || skillName == null || skillName.isEmpty()) return null;
         return withAuthzDisabled(ec, () -> {
@@ -520,7 +542,8 @@ public class SkillIndex {
             Object worldObj = sk.get("worldSuccessCount");
             long world = worldObj instanceof Number ? ((Number) worldObj).longValue() : 0L;
             sk.set("worldSuccessCount", world + 1L);
-            if ("LsksProposed".equals(sk.getString("statusId"))) {
+            if ("LsksProposed".equals(sk.getString("statusId"))
+                    && "true".equals(org.moqui.util.SystemBinding.getPropOrEnv("llm_skill_auto_admit"))) {
                 sk.set("statusId", "LsksActive");
                 if ("LskpSim".equals(sk.getString("provenanceId")) || "LskpInfer".equals(sk.getString("provenanceId")))
                     sk.set("provenanceId", "LskpMixed");
@@ -583,7 +606,8 @@ public class SkillIndex {
                             .set("title", title)
                             .set("body", lessonBody.trim())
                             .set("provenanceId", "sim".equals(contact) ? "LskpSim" : "LskpWorld")
-                            .set("statusId", "LsksActive")
+                            // A model-written skill must not push text into every user's prompt unreviewed
+                            .set("statusId", "LskpHuman".equals(sk.getString("provenanceId")) ? "LsksActive" : "LsksProposed")
                             .set("createdDate", ec.getUser().getNowTimestamp());
                     lesson.setSequencedIdPrimary();
                     lesson.create();

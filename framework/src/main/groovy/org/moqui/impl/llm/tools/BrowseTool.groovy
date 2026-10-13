@@ -168,7 +168,7 @@ class BrowseTool implements LlmTool {
             Pattern matchPat, int depth, boolean detail) {
         ExecutionContextImpl eci = asEci(ec)
         if (eci == null) return error("ExecutionContextImpl is required")
-        ScreenDefinition apps = getAppsScreen(eci)
+        ScreenDefinition apps = ScreenCatalog.getAppsScreen(eci)
         if (apps == null) return error("apps screen tree not found")
         ScreenDefinition cur = apps
         StringBuilder pathB = new StringBuilder(wrapper)
@@ -178,8 +178,8 @@ class BrowseTool implements LlmTool {
                 // maybe a transition leaf
                 TransitionItem ti = cur.getTransitionItem(seg, "any")
                 if (ti == null) return error("not found: " + pathB.toString() + "/" + seg)
-                if (!screenViewPermitted(eci, pathB.toString())) return errorStatus(403, "not authorized")
-                if (!transitionPermitted(eci, pathB.toString(), ti)) return errorStatus(403, "not authorized")
+                if (!ScreenCatalog.screenViewPermitted(eci, pathB.toString())) return errorStatus(403, "not authorized")
+                if (!ScreenCatalog.transitionPermitted(eci, pathB.toString(), ti)) return errorStatus(403, "not authorized")
                 return screenTransitionDetail(pathB.toString() + "/" + seg, cur, ti, eci.serviceFacade)
             }
             // Isolated AT_XML_SCREEN checks miss inheritAuthz from parent apps (System/Tools).
@@ -189,7 +189,7 @@ class BrowseTool implements LlmTool {
             pathB.append('/').append(seg)
             cur = next
         }
-        if (!screenViewPermitted(eci, pathB.toString())) return errorStatus(403, "not authorized")
+        if (!ScreenCatalog.screenViewPermitted(eci, pathB.toString())) return errorStatus(403, "not authorized")
         List<Map<String, Object>> children = new ArrayList<>()
         boolean truncated = collectScreenChildren(eci, cur, pathB.toString(), children, matchPat, depth, 1, !detail)
         Map<String, Object> out = listing(pathB.toString(), "screens", children)
@@ -221,7 +221,7 @@ class BrowseTool implements LlmTool {
             if (!si.isValidInCurrentContext()) continue
             String childPath = path + "/" + si.name
             // Same path walk as the menu (inherit-authz), not an isolated screen artifact check.
-            if (!screenViewPermitted(eci, childPath)) continue
+            if (!ScreenCatalog.screenViewPermitted(eci, childPath)) continue
             ScreenDefinition childSd = null
             try { childSd = eci.screenFacade.getScreenDefinition(si.location) } catch (Throwable ignored) { }
             Map<String, Object> row = child(si.name, "screen", childPath, si.menuTitle)
@@ -323,7 +323,7 @@ class BrowseTool implements LlmTool {
         boolean truncated = false
         for (TransitionItem ti : sd.getAllTransitions()) {
             if (ti == null || SKIP_TRANSITIONS.contains(ti.name)) continue
-            if (!transitionPermitted(eci, path, ti)) continue
+            if (!ScreenCatalog.transitionPermitted(eci, path, ti)) continue
             List<String> extra = transitionSearchTexts(ti, sfi, forms)
             if (!matchesAny(matchPat, extra)) continue
             if (children.size() >= MAX_CHILDREN) { truncated = true; break }
@@ -853,20 +853,6 @@ class BrowseTool implements LlmTool {
         return false
     }
 
-    static ScreenDefinition getAppsScreen(ExecutionContextImpl eci) {
-        ScreenFacadeImpl sfi = eci.screenFacade
-        List<String> roots = sfi.getAllRootScreenLocations()
-        for (String loc : roots) {
-            ScreenDefinition root = sfi.getScreenDefinition(loc)
-            if (root == null) continue
-            SubscreensItem apps = root.getSubscreensItem("apps")
-            if (apps == null) continue
-            ScreenDefinition appsSd = sfi.getScreenDefinition(apps.location)
-            if (appsSd != null) return appsSd
-        }
-        return null
-    }
-
     static boolean permitted(ExecutionContextImpl eci, String name, ArtifactExecutionInfo.ArtifactType type) {
         if (eci == null || name == null || name.isEmpty()) return false
         try {
@@ -967,61 +953,6 @@ class BrowseTool implements LlmTool {
         return !ti.hasActionsOrSingleService()
     }
 
-    static ScreenDefinition webrootWithApps(ExecutionContextImpl eci) {
-        if (eci == null) return null
-        ScreenFacadeImpl sfi = eci.screenFacade
-        List<String> roots = sfi.getAllRootScreenLocations()
-        for (String loc : roots) {
-            ScreenDefinition root = sfi.getScreenDefinition(loc)
-            if (root != null && root.getSubscreensItem("apps") != null) return root
-        }
-        return null
-    }
-    /** Catalog path /qapps/a/b or /apps/a/b becomes the webroot path list [apps, a, b]. */
-    static ArrayList<String> appsPathList(String catalogPath) {
-        ArrayList<String> out = new ArrayList<>()
-        List<String> segs = splitPath(catalogPath == null ? "" : catalogPath)
-        if (segs.isEmpty()) { out.add("apps"); return out }
-        String root = segs.get(0)
-        if (!"qapps".equals(root) && !"apps".equals(root) && !"vapps".equals(root)) return null
-        out.add("apps")
-        for (int i = 1; i < segs.size(); i++) out.add(segs.get(i))
-        return out
-    }
-    static ScreenUrlInfo screenUrl(ExecutionContextImpl eci, String catalogPath) {
-        ArrayList<String> path = appsPathList(catalogPath)
-        if (path == null || eci == null) return null
-        ScreenDefinition root = webrootWithApps(eci)
-        if (root == null) return null
-        try {
-            return ScreenUrlInfo.getScreenUrlInfo(eci.screenFacade, root, root, path, null, 0)
-        } catch (Throwable t) {
-            logger.debug("browse screen url failed for ${catalogPath}: ${t.message}")
-            return null
-        }
-    }
-    static boolean screenViewPermitted(ExecutionContextImpl eci, String catalogPath) {
-        ScreenUrlInfo sui = screenUrl(eci, catalogPath)
-        if (sui == null || !sui.targetExists) return false
-        try {
-            return sui.isPermitted(eci, (TransitionItem) null)
-        } catch (Throwable t) {
-            logger.debug("browse screen authz failed for ${catalogPath}: ${t.message}")
-            return false
-        }
-    }
-    static boolean transitionPermitted(ExecutionContextImpl eci, String screenCatalogPath, TransitionItem ti) {
-        if (ti == null || eci == null) return false
-        ScreenUrlInfo sui = screenUrl(eci, screenCatalogPath)
-        if (sui == null || !sui.targetExists) return false
-        try {
-            return sui.isPermitted(eci, ti)
-        } catch (Throwable t) {
-            logger.debug("browse transition authz failed for ${screenCatalogPath}/${ti.name}: ${t.message}")
-            return false
-        }
-    }
-
     Map<String, Object> searchScreens(ExecutionContext ec, String q) {
         ExecutionContextImpl eci = asEci(ec)
         if (eci == null) return error("ExecutionContextImpl is required")
@@ -1060,7 +991,7 @@ class BrowseTool implements LlmTool {
         for (Map<String, Object> row : ranked) {
             if (hits.size() >= MAX_HITS) { truncated = true; break }
             String path = str(row.get("path"))
-            if (!screenViewPermitted(eci, path)) continue
+            if (!ScreenCatalog.screenViewPermitted(eci, path)) continue
             hits.add(searchHit(row))
         }
         Map<String, Object> out = new LinkedHashMap<>()
@@ -1134,7 +1065,7 @@ class BrowseTool implements LlmTool {
 
     @SuppressWarnings("unchecked")
     List<Map<String, Object>> screenIndex(ExecutionContextImpl eci) {
-        ScreenDefinition apps = getAppsScreen(eci)
+        ScreenDefinition apps = ScreenCatalog.getAppsScreen(eci)
         if (apps == null) return Collections.emptyList()
         int key = System.identityHashCode(eci.ecfi)
         String stamp = treeStamp(eci, apps)

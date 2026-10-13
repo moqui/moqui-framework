@@ -84,6 +84,28 @@ class EntityFtsTests extends Specification {
         ec.entity.find("moqui.test.TestFts").condition("testFtsId", one).deleteAll()
     }
 
+    def "wildcard-only and short-word patterns keep plain LIKE meaning, and matching is case-insensitive"() {
+        given:
+        String id = "FTSSHORT" + System.currentTimeMillis()
+        ec.entity.makeValue("moqui.test.TestFts").setAll([testFtsId: id, note: "s", body: "Zz abQxyz Mixed Case"]).create()
+
+        when:
+        def all = ec.entity.find("moqui.test.TestFts").condition("body", EntityCondition.LIKE, "%")
+                .condition("testFtsId", id).list()
+        def shortWord = ec.entity.find("moqui.test.TestFts").condition("body", EntityCondition.LIKE, "%Zz%")
+                .condition("testFtsId", id).list()
+        def mixed = ec.entity.find("moqui.test.TestFts").condition("body", EntityCondition.LIKE, "%mixed case%")
+                .condition("testFtsId", id).list()
+
+        then:
+        all.size() == 1
+        shortWord.size() == 1
+        mixed.size() == 1
+
+        cleanup:
+        ec.entity.find("moqui.test.TestFts").condition("testFtsId", id).deleteAll()
+    }
+
     def "HOLD overlay find on text-fts still returns the row"() {
         given:
         String id = "FTSHOLD" + System.currentTimeMillis()

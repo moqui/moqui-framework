@@ -93,7 +93,7 @@ public class LlmFacadeImpl implements LlmFacade {
                 ProfileState state = ProfileState.fromConf(name, profileNode, ecfi);
                 profileByName.put(name, state);
                 anyUrl = true;
-                logger.info("Initialized LlmFacade profile {} at {} protocol {}", name, state.endpointUrl, state.protocol.getName());
+                logger.info("Initialized LlmFacade profile {} at {} protocol {}", name, org.moqui.util.RestClient.redactUri(state.endpointUrl), state.protocol.getName());
             } catch (Throwable t) {
                 logger.error("Error initializing LlmFacade profile " + name, t);
             }
@@ -424,6 +424,8 @@ public class LlmFacadeImpl implements LlmFacade {
 
             int poolMax = parseInt(node.attribute("pool-max"), 16);
             int queueSize = parseInt(node.attribute("queue-size"), 64);
+            // Parse the api-config before the pool exists, so invalid JSON cannot leak a started HTTP client
+            LlmApiConfig apiConfig = LlmApiConfig.fromNode(node, name);
             RestClient.PooledRequestFactory rf = new RestClient.PooledRequestFactory("llm-" + name);
             rf.poolSize(poolMax).queueSize(queueSize).init();
 
@@ -435,7 +437,7 @@ public class LlmFacadeImpl implements LlmFacade {
                     Collections.unmodifiableList(allowedPaths), allowWriteUi, ssePingSeconds,
                     systemLocation, allowClientSystem, allowBrowse, allowRunService, allowUnprefixedRequest,
                     allowEnterSim, allowVueSfc, summarizeConversation, Collections.unmodifiableList(allowedBasic),
-                    LlmApiConfig.fromNode(node, name));
+                    apiConfig);
         }
 
         /** Profile path, or the protocol default when the attribute is omitted. An explicit path is kept. */

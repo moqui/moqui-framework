@@ -26,6 +26,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * LIKE / NOT LIKE rewrite for {@code text-fts} fields. Boolean AND of tokens.
+ * Semantics: every word of 3+ characters must appear, case-insensitively. The index narrows by word and a
+ * LOWER(col) LIKE per word keeps substring meaning, so a stemmed or mid-word index match alone is not enough.
  * Prefix-only patterns stay SQL LIKE. HOLD overlays and {@code fts-style=none} stay SQL LIKE.
  */
 public final class FtsSql {
@@ -94,18 +96,16 @@ public final class FtsSql {
         boolean not = operator == EntityCondition.ComparisonOperator.NOT_LIKE;
         List<String> toks = tokens(stripWildcards(pattern));
         StringBuilder sql = eqb.sqlTopLevel;
-        if (toks.isEmpty()) {
-            sql.append(not ? " 1 = 1 " : " 1 = 2 ");
-            return true;
-        }
+        // Nothing searchable (only wildcards, or words under 3 characters): plain LIKE keeps its normal meaning
+        if (toks.isEmpty()) return false;
         String column = fi.getFullColumnName() != null ? fi.getFullColumnName() : fi.columnName;
         if (not) sql.append(" NOT (");
         boolean wrote = false;
         if ("h2-native".equals(style)) wrote = appendH2(eqb, ed, column, toks);
         else if ("postgres-tsvector".equals(style)) wrote = appendPostgres(eqb, databaseNode, fi, toks);
-        else if ("mysql-fulltext".equals(style)) wrote = appendMysql(eqb, fi, toks);
-        else if ("mssql-contains".equals(style)) wrote = appendMssql(eqb, fi, toks);
-        else if ("oracle-text".equals(style)) wrote = appendOracle(eqb, fi, toks);
+        else if ("mysql-fulltext".equals(style)) wrote = appendMysql(eqb, fi, column, toks);
+        else if ("mssql-contains".equals(style)) wrote = appendMssql(eqb, fi, column, toks);
+        else if ("oracle-text".equals(style)) wrote = appendOracle(eqb, fi, column, toks);
         if (!wrote) {
             if (not) {
                 int start = sql.lastIndexOf(" NOT (");
@@ -114,9 +114,10 @@ public final class FtsSql {
             return false;
         }
         // Per-field filter. H2's one index covers every text-fts column on the table.
+        // LOWER(col) LIKE works on every database, ILIKE is only H2 and PostgreSQL.
         for (String tok : toks) {
-            sql.append(" AND ").append(column).append(" ILIKE ?");
-            eqb.parameters.add(new EntityConditionParameter(fi, "%" + tok + "%", eqb));
+            sql.append(" AND LOWER(").append(column).append(") LIKE ?");
+            eqb.parameters.add(new EntityConditionParameter(fi, "%" + tok.toLowerCase(java.util.Locale.ROOT) + "%", eqb));
         }
         if (not) sql.append(')');
         return true;
@@ -162,26 +163,44 @@ public final class FtsSql {
         return true;
     }
 
-    private static boolean appendMysql(EntityQueryBuilder eqb, FieldInfo fi, List<String> toks) {
-        StringBuilder against = new StringBuilder();
+    /** Letters, digits and underscore only. Full-text query syntax characters are dropped, not escaped. */
+    static List<String> wordsOnly(List<String> toks) {
+        List<String> out = new ArrayList<>();
         for (String tok : toks) {
-            if (against.length() > 0) against.append(' ');
-            against.append('+').append(tok.replace("+", "").replace("-", ""));
+            String w = tok.replaceAll("[^\\p{L}\\p{N}_]", "");
+            if (w.length() >= 3) out.add(w);
         }
-        eqb.sqlTopLevel.append("MATCH(").append(fi.columnName).append(") AGAINST (? IN BOOLEAN MODE)");
+        return out;
+    }
+
+    private static boolean appendMysql(EntityQueryBuilder eqb, FieldInfo fi, String column, List<String> toks) {
+        List<String> words = wordsOnly(toks);
+        if (words.isEmpty()) return false;
+        StringBuilder against = new StringBuilder();
+        for (String w : words) {
+            if (against.length() > 0) against.append(' ');
+            against.append('+').append(w);
+        }
+        eqb.sqlTopLevel.append("MATCH(").append(column).append(") AGAINST (? IN BOOLEAN MODE)");
         eqb.parameters.add(new EntityConditionParameter(fi, against.toString(), eqb));
         return true;
     }
 
-    private static boolean appendMssql(EntityQueryBuilder eqb, FieldInfo fi, List<String> toks) {
-        eqb.sqlTopLevel.append("CONTAINS(").append(fi.columnName).append(", ?)");
-        eqb.parameters.add(new EntityConditionParameter(fi, "\"" + String.join("\" AND \"", toks) + "\"", eqb));
+    private static boolean appendMssql(EntityQueryBuilder eqb, FieldInfo fi, String column, List<String> toks) {
+        List<String> words = wordsOnly(toks);
+        if (words.isEmpty()) return false;
+        eqb.sqlTopLevel.append("CONTAINS(").append(column).append(", ?)");
+        eqb.parameters.add(new EntityConditionParameter(fi, "\"" + String.join("\" AND \"", words) + "\"", eqb));
         return true;
     }
 
-    private static boolean appendOracle(EntityQueryBuilder eqb, FieldInfo fi, List<String> toks) {
-        eqb.sqlTopLevel.append("CONTAINS(").append(fi.columnName).append(", ?, 1) > 0");
-        eqb.parameters.add(new EntityConditionParameter(fi, String.join(" AND ", toks), eqb));
+    private static boolean appendOracle(EntityQueryBuilder eqb, FieldInfo fi, String column, List<String> toks) {
+        List<String> words = wordsOnly(toks);
+        if (words.isEmpty()) return false;
+        List<String> braced = new ArrayList<>();
+        for (String w : words) braced.add("{" + w + "}");
+        eqb.sqlTopLevel.append("CONTAINS(").append(column).append(", ?, 1) > 0");
+        eqb.parameters.add(new EntityConditionParameter(fi, String.join(" AND ", braced), eqb));
         return true;
     }
 }

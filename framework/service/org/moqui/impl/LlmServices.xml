@@ -36,15 +36,16 @@ along with this software (see the LICENSE.md file). If not, see
             callLogsRemoved = 0L
             messagesRemoved = 0L
             conversationsRemoved = 0L
-            if (oldIds) {
+            // Chunked so one IN list never exceeds a database limit (Oracle allows 1000)
+            for (List chunk in oldIds.collate(500)) {
                 callLogsRemoved += ec.entity.find("moqui.llm.LlmCallLog")
-                        .condition("conversationId", EntityCondition.IN, oldIds)
+                        .condition("conversationId", EntityCondition.IN, chunk)
                         .disableAuthz().deleteAll()
                 messagesRemoved += ec.entity.find("moqui.llm.LlmMessage")
-                        .condition("conversationId", EntityCondition.IN, oldIds)
+                        .condition("conversationId", EntityCondition.IN, chunk)
                         .disableAuthz().deleteAll()
                 conversationsRemoved += ec.entity.find("moqui.llm.LlmConversation")
-                        .condition("conversationId", EntityCondition.IN, oldIds)
+                        .condition("conversationId", EntityCondition.IN, chunk)
                         .disableAuthz().deleteAll()
             }
             messagesRemoved += ec.entity.find("moqui.llm.LlmMessage")
@@ -52,6 +53,9 @@ along with this software (see the LICENSE.md file). If not, see
                     .disableAuthz().deleteAll()
             callLogsRemoved += ec.entity.find("moqui.llm.LlmCallLog")
                     .condition("startDate", EntityCondition.LESS_THAN, basisTimestamp)
+                    .disableAuthz().deleteAll()
+            ec.entity.find("moqui.llm.LlmSkillUse")
+                    .condition("usedDate", EntityCondition.LESS_THAN, basisTimestamp)
                     .disableAuthz().deleteAll()
             ec.logger.info("Removed ${callLogsRemoved} LlmCallLog, ${messagesRemoved} LlmMessage, ${conversationsRemoved} LlmConversation records more than ${daysToKeep} days old")
         </script></actions>

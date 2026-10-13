@@ -62,7 +62,7 @@ final class SkillRiskGate {
             return Decision.run();
         Map<String, Object> args = LlmJson.tryToMap(call.arguments);
         if (args == null) return Decision.run();
-        if (RequestTool.NAME.equals(call.name) && !mutatingRequest(args)) return Decision.run();
+        if (RequestTool.NAME.equals(call.name) && !RequestTool.mutates(client.ec, args)) return Decision.run();
         String skillName = client.activeSkillName;
         if (skillName == null || skillName.isBlank()) return Decision.refuse();
         String risk = riskOf(client, skillName);
@@ -112,18 +112,12 @@ final class SkillRiskGate {
         return RunServiceTool.NAME.equals(name) || RequestTool.NAME.equals(name);
     }
 
-    /** GET and HEAD are reads. A missing method is left to the tool, which reports it. */
-    private static boolean mutatingRequest(Map<String, Object> args) {
-        Object raw = args.get("method");
-        if (raw == null) return false;
-        String method = raw.toString().trim().toUpperCase(Locale.ROOT);
-        if (method.isEmpty()) return false;
-        return !"GET".equals(method) && !"HEAD".equals(method);
-    }
-
     private static String riskOf(LlmClientImpl client, String skillName) {
         SkillIndex.SkillDoc doc = SkillIndex.getByName(client.ec, skillName);
-        String risk = doc != null && doc.risk != null ? doc.risk.trim().toLowerCase(Locale.ROOT) : "";
+        // Only human-authored skills can waive confirmation. Sim, inferred and world-promoted skills
+        // carry a model-written risk field, which must not be able to lower the gate.
+        if (doc == null || !"LskpHuman".equals(doc.provenanceId)) return "confirm";
+        String risk = doc.risk != null ? doc.risk.trim().toLowerCase(Locale.ROOT) : "";
         if ("reversible".equals(risk) || "irreversible".equals(risk)) return risk;
         return "confirm";
     }

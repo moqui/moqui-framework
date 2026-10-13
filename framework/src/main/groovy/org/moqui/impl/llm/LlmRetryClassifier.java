@@ -30,7 +30,8 @@ import java.util.regex.Pattern;
  */
 public final class LlmRetryClassifier {
     private static final Pattern CONTEXT_OVERFLOW_MSG =
-            Pattern.compile("context length|maximum context|too many tokens", Pattern.CASE_INSENSITIVE);
+            Pattern.compile("context length|maximum context|too many tokens|prompt is too long"
+                    + "|input token count|exceeds the (maximum|context)|context window", Pattern.CASE_INSENSITIVE);
 
     private LlmRetryClassifier() { }
 
@@ -82,7 +83,10 @@ public final class LlmRetryClassifier {
         result.reasoning = reasoningOf(message);
         result.providerState = providerStateOf(message);
 
-        String overflowHaystack = joinNonNull(errorCode, errorType, errorMessage, rawJson);
+        // The raw body only counts when the provider sent no structured error, because a 400 can echo
+        // user text that happens to contain a phrase like "too many tokens"
+        String overflowHaystack = errorMessage != null || errorCode != null
+                ? joinNonNull(errorCode, errorType, errorMessage) : joinNonNull(errorType, rawJson);
 
         // 1. CONTEXT_OVERFLOW
         if (httpStatus == 400 || httpStatus == 413) {
@@ -110,6 +114,14 @@ public final class LlmRetryClassifier {
         if ("tool_calls".equalsIgnoreCase(finishReasonStr) || "function_call".equalsIgnoreCase(finishReasonStr)
                 || hasToolCalls) {
             result.finishReason = LlmFinishReason.TOOL_CALLS;
+            return result;
+        }
+
+        // 4b. A model refusal has no content and would otherwise be retried as EMPTY. Surface it as a filter result.
+        String refusal = message != null ? str(message.get("refusal")) : null;
+        if (refusal != null && !refusal.isBlank() && (content == null || content.isBlank()) && !hasToolCalls) {
+            result.finishReason = LlmFinishReason.CONTENT_FILTER;
+            result.content = refusal;
             return result;
         }
 

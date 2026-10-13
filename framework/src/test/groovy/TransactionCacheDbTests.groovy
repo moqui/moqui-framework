@@ -15,6 +15,7 @@
 import org.moqui.BaseException
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
+import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityValue
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.TransactionCacheDb
@@ -54,6 +55,59 @@ class TransactionCacheDbTests extends Specification {
         } finally {
             db.endBypass()
         }
+    }
+
+    def "HOLD paged list applies offset once and partial-field selects do not null other columns"() {
+        given:
+        (1..5).each { i ->
+            ec.entity.makeValue("moqui.test.TestEntity").setAll([testId: "TCPG" + i, testMedium: "m" + i, testLong: "l" + i]).create()
+        }
+        ec.transaction.commit()
+        ec.transaction.begin(null)
+
+        when:
+        ec.entity.startTxCacheDb(true)
+        def page = ec.entity.find("moqui.test.TestEntity").condition("testId", EntityCondition.LIKE, "TCPG%")
+                .orderBy("testId").offset(2).limit(2).list()
+        def partial = ec.entity.find("moqui.test.TestEntity").condition("testId", EntityCondition.LIKE, "TCPG%")
+                .selectField("testId").orderBy("testId").list()
+        def full = ec.entity.find("moqui.test.TestEntity").condition("testId", "TCPG1").one()
+        def counted = ec.entity.find("moqui.test.TestEntity").condition("testId", EntityCondition.LIKE, "TCPG%").limit(1).count()
+
+        then:
+        page*.testId == ["TCPG3", "TCPG4"]
+        partial.size() == 5
+        full.testMedium == "m1"
+        full.testLong == "l1"
+        counted == 5
+
+        cleanup:
+        if (ec.entity.isTxCacheActive()) ec.entity.stopTxCache()
+        (1..5).each { i -> ec.entity.find("moqui.test.TestEntity").condition("testId", "TCPG" + i).one()?.delete() }
+    }
+
+    def "HOLD create of a row that exists in production fails like production, and update of a missing row fails"() {
+        given:
+        ec.entity.makeValue("moqui.test.TestEntity").setAll([testId: "TCDUP1", testMedium: "real"]).create()
+        ec.transaction.commit()
+        ec.transaction.begin(null)
+
+        when:
+        ec.entity.startTxCacheDb(true)
+        ec.entity.makeValue("moqui.test.TestEntity").setAll([testId: "TCDUP1", testMedium: "dup"]).create()
+
+        then:
+        thrown(org.moqui.entity.EntityException)
+
+        when:
+        ec.entity.makeValue("moqui.test.TestEntity").setAll([testId: "TCNOROW", testMedium: "x"]).update()
+
+        then:
+        thrown(org.moqui.entity.EntityException)
+
+        cleanup:
+        if (ec.entity.isTxCacheActive()) ec.entity.stopTxCache()
+        ec.entity.find("moqui.test.TestEntity").condition("testId", "TCDUP1").one()?.delete()
     }
 
     def "HOLD create is not in production"() {

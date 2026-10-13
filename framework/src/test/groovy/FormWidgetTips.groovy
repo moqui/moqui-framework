@@ -15,6 +15,7 @@
 import org.moqui.context.ExecutionContext
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.llm.tools.BrowseTool
+import org.moqui.impl.llm.tools.ScreenCatalog
 import org.moqui.impl.screen.ScreenDefinition
 import org.moqui.util.MNode
 
@@ -76,7 +77,7 @@ class FormWidgetTips {
         List<String> segs = []
         for (String s : screenPath.split("/")) if (s != null && !s.isEmpty()) segs.add(s)
         if (segs.isEmpty() || !"apps".equals(segs.get(0))) return null
-        ScreenDefinition cur = BrowseTool.getAppsScreen(eci)
+        ScreenDefinition cur = ScreenCatalog.getAppsScreen(eci)
         if (cur == null) return null
         for (int i = 1; i < segs.size(); i++) {
             def si = cur.getSubscreensItem(segs.get(i))

@@ -15,7 +15,7 @@ package org.moqui.impl.llm;
 
 import org.moqui.context.ExecutionContext;
 import org.moqui.impl.context.ExecutionContextImpl;
-import org.moqui.impl.llm.tools.BrowseTool;
+import org.moqui.impl.llm.tools.ScreenCatalog;
 import org.moqui.impl.screen.ScreenDefinition;
 import org.moqui.impl.screen.ScreenDefinition.SubscreensItem;
 import org.moqui.impl.screen.ScreenFacadeImpl;
@@ -100,7 +100,7 @@ public final class ScreenSearchHints {
         ScreenFacadeImpl sfi = eci.screenFacade;
         if (sfi == null) return out;
         ScreenDefinition root = webroot(eci);
-        ScreenDefinition apps = BrowseTool.getAppsScreen(eci);
+        ScreenDefinition apps = ScreenCatalog.getAppsScreen(eci);
         if (root == null || apps == null) return out;
         walk(eci, sfi, root, apps, "/apps", 1, new LinkedHashSet<>(), out);
         return out;

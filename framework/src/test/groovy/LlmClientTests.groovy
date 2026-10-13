@@ -36,6 +36,7 @@ import org.moqui.llm.LlmToolCall
 import org.moqui.llm.LlmToolResult
 import org.moqui.llm.WindowPolicy
 import org.moqui.impl.llm.LlmGateway
+import org.moqui.impl.llm.tools.DateDefaults
 import org.moqui.impl.llm.tools.RequestTool
 import org.moqui.impl.llm.tools.ServiceCallTool
 import org.moqui.impl.llm.tools.WriteUiTool
@@ -190,6 +191,24 @@ class LlmClientTests extends Specification {
         then:
         r.finishReason == LlmFinishReason.CONTEXT_OVERFLOW
         !r.retryable
+    }
+
+    def "a refusal is a filter result, not an empty retry"() {
+        when:
+        def r = LlmRetryClassifier.classify(200,
+                '{"choices":[{"finish_reason":"stop","message":{"content":null,"refusal":"I cannot help with that"}}]}')
+        then:
+        r.finishReason == LlmFinishReason.CONTENT_FILTER
+        r.content == "I cannot help with that"
+        !r.retryable
+    }
+
+    def "overflow wording from other providers is recognized, echoed user text is not"() {
+        expect:
+        LlmRetryClassifier.classify(400, '{"error":{"type":"invalid_request_error","message":"prompt is too long: 250000 tokens > 200000 maximum"}}')
+                .finishReason == LlmFinishReason.CONTEXT_OVERFLOW
+        LlmRetryClassifier.classify(400, '{"error":{"message":"Invalid value for temperature","param":"too many tokens"}}')
+                .finishReason != LlmFinishReason.CONTEXT_OVERFLOW
     }
 
     def "HTTP 413 with too many tokens message is context overflow"() {
@@ -857,6 +876,7 @@ class LlmClientTests extends Specification {
         asst.toolCalls = [new LlmToolCall("c1", "request", "{}")]
         conv.append(asst)
         conv.appendToolResult("c1", "request", "tool-out")
+        conv.appendUser("new-user")
         def policy = new WindowPolicy()
         policy.maxMessages = 2
         policy.keepSystemFirst = true
@@ -866,17 +886,30 @@ class LlmClientTests extends Specification {
         then:
         window[0].role == LlmMessage.Role.SYSTEM
         window[0].content == "sys"
-        // pair is atomic: dropping old-user leaves assistant+tool, never an orphan TOOL
-        window.find { it.role == LlmMessage.Role.TOOL } != null
-        window.find { it.role == LlmMessage.Role.ASSISTANT } != null
-        int asstIdx = window.findIndexOf { it.role == LlmMessage.Role.ASSISTANT }
-        int toolIdx = window.findIndexOf { it.role == LlmMessage.Role.TOOL }
-        toolIdx == asstIdx + 1
-        window.find { it.role == LlmMessage.Role.USER } == null
+        // The earlier turn goes whole: user, assistant and tool together, never an orphan TOOL
+        window.find { it.role == LlmMessage.Role.TOOL } == null
+        window.find { it.role == LlmMessage.Role.ASSISTANT } == null
+        window.findAll { it.role == LlmMessage.Role.USER }*.content == ["new-user"]
         def note = window.find { it.metadata?.source == "omitted" }
         note != null
         note.role == LlmMessage.Role.CONTEXT
-        window.indexOf(note) < asstIdx
+    }
+
+    def "buildWindow never trims the turn in progress, even over the message limit"() {
+        given:
+        def conv = LlmConversationImpl.create(null, "default", null)
+        conv.appendUser("the question")
+        LlmMessage asst = LlmMessage.assistant(null)
+        asst.toolCalls = [new LlmToolCall("c1", "request", "{}")]
+        conv.append(asst)
+        conv.appendToolResult("c1", "request", "tool-out")
+        def policy = new WindowPolicy()
+        policy.maxMessages = 2
+        when:
+        def window = conv.buildWindow(policy)
+        then:
+        window*.role.findAll { it != LlmMessage.Role.CONTEXT } == [LlmMessage.Role.USER, LlmMessage.Role.ASSISTANT, LlmMessage.Role.TOOL]
+        window.find { it.metadata?.source == "omitted" } == null
     }
 
     def "buildWindow notes an omitted prefix and keeps the rows"() {
@@ -1318,15 +1351,15 @@ class LlmClientTests extends Specification {
         WriteUiTool tool = new WriteUiTool()
 
         expect:
-        WriteUiTool.normalizeDateDefault(epochMs, "date-time", 0L, locale, central) == "2026-09-28 04:50"
-        WriteUiTool.normalizeDateDefault(epochSec, null, 0L, locale, central) == "2026-09-28 04:50"
-        WriteUiTool.normalizeDateDefault("1790589009290", "timestamp", 0L, locale, central) == "2026-09-28 04:50"
-        WriteUiTool.normalizeDateDefault("now", "date-time", epochMs, locale, central) == "2026-09-28 04:50"
-        WriteUiTool.normalizeDateDefault("NOW", "date", epochMs, locale, central) == "2026-09-28"
-        WriteUiTool.normalizeDateDefault(epochMs, "date", 0L, locale, central) == "2026-09-28"
-        WriteUiTool.normalizeDateDefault("2026-09-28 04:50", "date-time", 0L, locale, central) == "2026-09-28 04:50"
-        WriteUiTool.normalizeDateDefault(10, "date-time", 0L, locale, central) == 10
-        WriteUiTool.normalizeDateDefault("not-a-date", "date-time", 0L, locale, central) == "not-a-date"
+        DateDefaults.normalize(epochMs, "date-time", 0L, locale, central) == "2026-09-28 04:50"
+        DateDefaults.normalize(epochSec, null, 0L, locale, central) == "2026-09-28 04:50"
+        DateDefaults.normalize("1790589009290", "timestamp", 0L, locale, central) == "2026-09-28 04:50"
+        DateDefaults.normalize("now", "date-time", epochMs, locale, central) == "2026-09-28 04:50"
+        DateDefaults.normalize("NOW", "date", epochMs, locale, central) == "2026-09-28"
+        DateDefaults.normalize(epochMs, "date", 0L, locale, central) == "2026-09-28"
+        DateDefaults.normalize("2026-09-28 04:50", "date-time", 0L, locale, central) == "2026-09-28 04:50"
+        DateDefaults.normalize(10, "date-time", 0L, locale, central) == 10
+        DateDefaults.normalize("not-a-date", "date-time", 0L, locale, central) == "not-a-date"
 
         when:
         def enriched = tool.enrichForClient([
@@ -1340,7 +1373,7 @@ class LlmClientTests extends Specification {
         then:
         enriched.fields.find { it.name == "n" }.defaultValue == 10
         enriched.fields.find { it.name == "approvedDate" }.defaultValue ==
-                WriteUiTool.normalizeDateDefault(epochMs, "date-time", 0L, Locale.ROOT, TimeZone.getTimeZone("UTC"))
+                DateDefaults.normalize(epochMs, "date-time", 0L, Locale.ROOT, TimeZone.getTimeZone("UTC"))
         enriched.fields.find { it.name == "day" }.widget == "date-time"
         enriched.fields.find { it.name == "day" }.widgetType == "date"
         enriched.fields.find { it.name == "day" }.defaultValue == "2026-09-28"

@@ -118,12 +118,15 @@ class ServiceEcaRule {
         protected Map<String, Object> results
 
         protected Transaction tx = null
+        /** A sim session never commits for real, so its tx-commit rules must not run against production. */
+        protected final boolean simSession
 
         SecaSynchronization(ServiceEcaRule sec, Map<String, Object> parameters, Map<String, Object> results, ExecutionContextFactoryImpl ecfi) {
             this.ecfi = ecfi
             this.sec = sec
             this.parameters = new HashMap(parameters)
             this.results = new HashMap(results)
+            this.simSession = ecfi.getEci().simSession
         }
 
         void enlist() {
@@ -150,6 +153,10 @@ class ServiceEcaRule {
         }
 
         void runInThreadAndTx() {
+            if (simSession) {
+                logger.info("Skipping tx ECA rule ${sec.when} in sim session")
+                return
+            }
             ExecutionContextImpl.ThreadPoolRunnable runnable = new ExecutionContextImpl.ThreadPoolRunnable(ecfi, {
                 boolean beganTransaction = ecfi.transactionFacade.begin(null)
                 try {

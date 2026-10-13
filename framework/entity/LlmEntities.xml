@@ -86,6 +86,7 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" related="moqui.llm.LlmConversation"/>
         <index name="LLMMSG_CONV_ORD" unique="true">
             <index-field name="conversationId"/><index-field name="ordinal"/></index>
+        <index name="LLMMSG_SENT"><index-field name="sentDate"/></index>
     </entity>
 
     <entity entity-name="LlmCallLog" package="moqui.llm" use="transactional" cache="never" sequence-bank-size="100">
@@ -115,6 +116,7 @@ along with this software (see the LICENSE.md file). If not, see
         <index name="LLMCALL_CONV"><index-field name="conversationId"/></index>
         <index name="LLMCALL_USER_DATE"><index-field name="userId"/><index-field name="startDate"/></index>
         <index name="LLMCALL_PROF_DATE"><index-field name="profileName"/><index-field name="startDate"/></index>
+        <index name="LLMCALL_START"><index-field name="startDate"/></index>
     </entity>
 
     <entity entity-name="LlmSkill" package="moqui.llm" use="transactional">
@@ -158,6 +160,7 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" related="moqui.llm.LlmSkill"/>
         <relationship type="one-nofk" related="moqui.llm.LlmConversation"/>
         <index name="LLMSKILLUSE_SKILL"><index-field name="skillId"/></index>
+        <index name="LLMSKILLUSE_USED"><index-field name="usedDate"/></index>
     </entity>
 
     <entity entity-name="LlmLesson" package="moqui.llm" use="transactional">

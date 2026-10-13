@@ -68,6 +68,16 @@ class LlmConversationTests extends Specification {
         return new LlmClientImpl(ec, profile, tx)
     }
 
+    def "clean#LlmData runs, removes nothing recent, and tolerates a chunked purge"() {
+        when:
+        ec.artifactExecution.disableAuthz()
+        def out = ec.service.sync().name("org.moqui.impl.LlmServices.clean#LlmData").parameter("daysToKeep", 36500).call()
+        then:
+        !ec.message.hasError()
+        out.callLogsRemoved != null
+        out.conversationsRemoved == 0L
+    }
+
     def "create conversation writes LlmConversation row"() {
         when:
         def conv = LlmConversationImpl.create(ec, "default", [canvasId: "c1"])
