@@ -341,6 +341,7 @@ public class LlmFacadeImpl implements LlmFacade {
         public final boolean allowEnterSim;
         public final boolean allowVueSfc;
         public final boolean summarizeConversation;
+        public final int toolResultStringCap;
         public final List<BasicEntityAllow> allowedBasicEntities;
         public final LlmApiConfig apiConfig;
 
@@ -384,6 +385,7 @@ public class LlmFacadeImpl implements LlmFacade {
             boolean allowEnterSim;
             boolean allowVueSfc;
             boolean summarizeConversation;
+            int toolResultStringCap = ToolResultTrim.STRING_CAP;
             List<BasicEntityAllow> allowedBasicEntities = Collections.emptyList();
             LlmApiConfig apiConfig = LlmApiConfig.none();
 
@@ -422,6 +424,7 @@ public class LlmFacadeImpl implements LlmFacade {
             Builder allowEnterSim(boolean v) { this.allowEnterSim = v; return this; }
             Builder allowVueSfc(boolean v) { this.allowVueSfc = v; return this; }
             Builder summarizeConversation(boolean v) { this.summarizeConversation = v; return this; }
+            Builder toolResultStringCap(int v) { this.toolResultStringCap = v; return this; }
             Builder allowedBasicEntities(List<BasicEntityAllow> v) { this.allowedBasicEntities = v; return this; }
             Builder apiConfig(LlmApiConfig v) { this.apiConfig = v; return this; }
 
@@ -464,6 +467,7 @@ public class LlmFacadeImpl implements LlmFacade {
             this.allowEnterSim = b.allowEnterSim;
             this.allowVueSfc = b.allowVueSfc;
             this.summarizeConversation = b.summarizeConversation;
+            this.toolResultStringCap = b.toolResultStringCap > 0 ? b.toolResultStringCap : ToolResultTrim.STRING_CAP;
             this.allowedBasicEntities = b.allowedBasicEntities != null ? b.allowedBasicEntities : Collections.emptyList();
             this.apiConfig = b.apiConfig != null ? b.apiConfig : LlmApiConfig.none();
         }
@@ -504,6 +508,7 @@ public class LlmFacadeImpl implements LlmFacade {
             boolean allowEnterSim = parseBoolean(node.attribute("allow-enter-sim"), false);
             boolean allowVueSfc = parseBoolean(node.attribute("allow-vue-sfc"), false);
             boolean summarizeConversation = parseBoolean(node.attribute("summarize-conversation"), false);
+            int toolResultStringCap = parseInt(node.attribute("tool-result-string-cap"), ToolResultTrim.STRING_CAP);
 
             Map<String, String> extraHeaders = new LinkedHashMap<>();
             for (MNode header : node.children("header")) {
@@ -595,6 +600,7 @@ public class LlmFacadeImpl implements LlmFacade {
                     .allowEnterSim(allowEnterSim)
                     .allowVueSfc(allowVueSfc)
                     .summarizeConversation(summarizeConversation)
+                    .toolResultStringCap(toolResultStringCap)
                     .allowedBasicEntities(Collections.unmodifiableList(allowedBasic))
                     .apiConfig(apiConfig)
                     .build();

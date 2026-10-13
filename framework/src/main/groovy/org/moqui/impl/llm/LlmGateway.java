@@ -224,6 +224,7 @@ public final class LlmGateway {
         if (wantRequest) {
             boolean unprefixed = profile != null && profile.allowUnprefixedRequest;
             LlmTool rt = requestToolForServlet(profile != null ? profile.allowedPaths : null, unprefixed);
+            if (rt instanceof RequestTool && profile != null) ((RequestTool) rt).setStringCap(profile.toolResultStringCap);
             if (rt != null) client.tool(rt);
         }
         if (wantWriteUi && profile != null && profile.allowWriteUi) {

@@ -78,6 +78,17 @@ class ToolResultTrimTests extends Specification {
         !result.containsKey("truncated")
     }
 
+    def "a custom string cap is honored instead of the default"() {
+        given:
+        Map result = [content: "s" * 10000]
+
+        expect:
+        // custom cap 2500 -> 2501 chars (incl. ellipsis)
+        ((Map) ToolResultTrim.limit(result, 8000, 2500)).content.toString().length() == 2501
+        // default 2-arg call still caps at the 400 default -> 401 chars
+        ((Map) ToolResultTrim.limit(result, 8000)).content.toString().length() == 401
+    }
+
     def "error messages block a clean success"() {
         expect:
         ToolResultTrim.hasErrorMessages([messages: [errors: ["not available"]]])

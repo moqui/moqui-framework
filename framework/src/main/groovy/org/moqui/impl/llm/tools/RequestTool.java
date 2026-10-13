@@ -78,8 +78,14 @@ public class RequestTool implements LlmTool {
     }
 
     private final List<LlmFacadeImpl.AllowedPath> allowedPaths = new ArrayList<>();
+    private int stringCap = ToolResultTrim.defaultStringCap();
 
     public RequestTool() { }
+
+    public RequestTool setStringCap(int stringCap) {
+        if (stringCap > 0) this.stringCap = stringCap;
+        return this;
+    }
 
     public RequestTool addAllowedPath(String prefix, String methodsCsv) {
         if (prefix != null && !prefix.isBlank())
@@ -275,7 +281,7 @@ public class RequestTool implements LlmTool {
             Map<String, Object> headers = headersFromStub(wfs);
             json = wrapFormListJson(segments, json, headers);
             if (ToolResultTrim.isSearchActionsPath(segments) || ScreenSearchHints.isMantleSearchActions(eci, segments))
-                json = ToolResultTrim.projectSearchActions(json);
+                json = ToolResultTrim.projectSearchActions(json, stringCap);
             if (isHtmlDump(json, text, wfs.getHttpServletResponseStub().getContentType(), status)) {
                 return withSubmitted(finish(result(400, null, HTML_ERROR, headers), eci), body);
             }

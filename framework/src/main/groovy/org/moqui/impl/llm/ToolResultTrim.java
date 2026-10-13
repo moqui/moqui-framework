@@ -26,7 +26,12 @@ import java.util.Set;
  * A map keeps its keys. No mid-string slice of a JSON document.
  */
 public final class ToolResultTrim {
+    /** Default per-string cap applied while shrinking an over-budget tool result. Override per profile
+     *  with the tool-result-string-cap attribute. */
     static final int STRING_CAP = 400;
+
+    /** Public accessor for the default per-string cap (the constant itself is package-private). */
+    public static int defaultStringCap() { return STRING_CAP; }
     static final int LIST_CAP = 20;
     static final int SEARCH_LIST_CAP = 12;
     private static final Set<String> PRIORITY = new LinkedHashSet<>();
@@ -53,6 +58,10 @@ public final class ToolResultTrim {
      */
     @SuppressWarnings("unchecked")
     public static Object projectSearchActions(Object json) {
+        return projectSearchActions(json, STRING_CAP);
+    }
+
+    public static Object projectSearchActions(Object json, int stringCap) {
         if (!(json instanceof Map)) return json;
         Map<String, Object> src = (Map<String, Object>) json;
         Map<String, Object> kept = new LinkedHashMap<>();
@@ -60,8 +69,8 @@ public final class ToolResultTrim {
             if (!src.containsKey(key) || src.get(key) == null) continue;
             Object value = src.get(key);
             if ("documentList".equals(key) || "productList".equals(key))
-                value = capList(value, SEARCH_LIST_CAP);
-            kept.put(key, shrinkValue(value, STRING_CAP, LIST_CAP));
+                value = capList(value, SEARCH_LIST_CAP, stringCap);
+            kept.put(key, shrinkValue(value, stringCap, LIST_CAP));
         }
         if (kept.isEmpty()) return json;
         return kept;
@@ -71,14 +80,18 @@ public final class ToolResultTrim {
      * @param maxChars maximum serialized size; values at or under this are returned unchanged
      */
     public static Object limit(Object result, int maxChars) {
+        return limit(result, maxChars, STRING_CAP);
+    }
+
+    public static Object limit(Object result, int maxChars, int stringCap) {
         if (result == null || maxChars < 1) return result;
         String raw = json(result);
         if (raw == null || raw.length() <= maxChars) return result;
         if (result instanceof Map) {
-            Map<String, Object> copy = shrinkMap((Map<?, ?>) result, STRING_CAP, LIST_CAP);
+            Map<String, Object> copy = shrinkMap((Map<?, ?>) result, stringCap, LIST_CAP);
             copy.put("truncated", Boolean.TRUE);
             copy.put("size", raw.length());
-            copyPriority((Map<?, ?>) result, copy);
+            copyPriority((Map<?, ?>) result, copy, stringCap);
             fit(copy, maxChars);
             return copy;
         }
@@ -86,14 +99,14 @@ public final class ToolResultTrim {
             Map<String, Object> wrap = new LinkedHashMap<>();
             wrap.put("truncated", Boolean.TRUE);
             wrap.put("size", raw.length());
-            wrap.put("items", capList(result, LIST_CAP));
+            wrap.put("items", capList(result, LIST_CAP, stringCap));
             fit(wrap, maxChars);
             return wrap;
         }
         Map<String, Object> wrap = new LinkedHashMap<>();
         wrap.put("truncated", Boolean.TRUE);
         wrap.put("size", raw.length());
-        String text = raw.length() > STRING_CAP ? raw.substring(0, STRING_CAP) + "…" : raw;
+        String text = raw.length() > stringCap ? raw.substring(0, stringCap) + "…" : raw;
         wrap.put("text", text);
         return wrap;
     }
@@ -147,10 +160,10 @@ public final class ToolResultTrim {
         return drop;
     }
 
-    private static void copyPriority(Map<?, ?> src, Map<String, Object> dest) {
+    private static void copyPriority(Map<?, ?> src, Map<String, Object> dest, int stringCap) {
         for (String key : PRIORITY) {
             if (src.containsKey(key) && src.get(key) != null && !dest.containsKey(key))
-                dest.put(key, shrinkValue(src.get(key), STRING_CAP, LIST_CAP));
+                dest.put(key, shrinkValue(src.get(key), stringCap, LIST_CAP));
         }
     }
 
@@ -162,7 +175,7 @@ public final class ToolResultTrim {
             Object value = e.getValue();
             if ("headers".equals(key)) continue;
             if ("rows".equals(key) || "documentList".equals(key) || "productList".equals(key))
-                value = capList(value, "documentList".equals(key) ? SEARCH_LIST_CAP : listCap);
+                value = capList(value, "documentList".equals(key) ? SEARCH_LIST_CAP : listCap, stringCap);
             else if ("json".equals(key) && value instanceof Map)
                 value = shrinkMap((Map<?, ?>) value, stringCap, listCap);
             else
@@ -182,18 +195,18 @@ public final class ToolResultTrim {
         }
         if (value instanceof Number || value instanceof Boolean) return value;
         if (value instanceof Map) return shrinkMap((Map<?, ?>) value, stringCap, listCap);
-        if (value instanceof List) return capList(value, listCap);
+        if (value instanceof List) return capList(value, listCap, stringCap);
         String s = value.toString();
         if (s.length() > stringCap) s = s.substring(0, stringCap) + "…";
         return s;
     }
 
-    private static Object capList(Object value, int cap) {
-        if (!(value instanceof List)) return shrinkValue(value, STRING_CAP, LIST_CAP);
+    private static Object capList(Object value, int cap, int stringCap) {
+        if (!(value instanceof List)) return shrinkValue(value, stringCap, LIST_CAP);
         List<?> src = (List<?>) value;
         int n = Math.min(src.size(), Math.max(1, cap));
         List<Object> out = new ArrayList<>(n + 1);
-        for (int i = 0; i < n; i++) out.add(shrinkValue(src.get(i), STRING_CAP, cap));
+        for (int i = 0; i < n; i++) out.add(shrinkValue(src.get(i), stringCap, cap));
         if (src.size() > n) {
             Map<String, Object> more = new LinkedHashMap<>();
             more.put("listTruncated", Boolean.TRUE);

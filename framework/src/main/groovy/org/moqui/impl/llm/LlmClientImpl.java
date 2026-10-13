@@ -79,6 +79,7 @@ public class LlmClientImpl implements LlmClient {
     private final List<LlmFacadeImpl.AllowedPath> allowedPaths = new ArrayList<>();
     private Integer maxIterations = null;
     private int toolResultMaxChars = DEFAULT_TOOL_RESULT_MAX_CHARS;
+    private int toolResultStringCap = ToolResultTrim.STRING_CAP;
     private boolean streamingWasPersisted = false;
     private volatile RestClient.RestStream activeStream;
     /** Set when enter_sim persists a proposed skill; cleared after a world-pass admit. */
@@ -100,6 +101,7 @@ public class LlmClientImpl implements LlmClient {
         this.temperature = profile.temperature;
         this.maxTokens = profile.maxTokens;
         this.timeoutSeconds = profile.timeoutSeconds;
+        this.toolResultStringCap = profile.toolResultStringCap;
         if (profile.allowedEntities != null) this.allowedEntities.addAll(profile.allowedEntities);
         if (profile.confNode != null) {
             this.maxIterations = LlmFacadeImpl.parseInteger(profile.confNode.attribute("max-iterations"));
@@ -865,7 +867,7 @@ public class LlmClientImpl implements LlmClient {
     }
 
     Object truncateResult(Object result) {
-        return ToolResultTrim.limit(result, toolResultMaxChars);
+        return ToolResultTrim.limit(result, toolResultMaxChars, toolResultStringCap);
     }
 
     private void applyAllowLists(LlmTool tool) {
