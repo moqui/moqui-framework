@@ -77,7 +77,7 @@ class SystemScreenRenderTests extends Specification {
         "ArtifactHitBins?artifactName=basic&artifactName_op=contains" | "moqui.basic.Enumeration" | "create"
         // Cache screens
         "Cache/CacheList" | "entity.definition" | "artifact.tarpit.hits"
-        "Cache/CacheElements?orderByField=key&cacheName=l10n.message" | '${artifactName}::en_US' | "evictionStrategy"
+        "Cache/CacheElements?orderByField=key&cacheName=l10n.message&pageSize=1000" | '${artifactName}::en_US' | "evictionStrategy"
 
         // Localization screens
         "Localization/Messages" | "Add" | "Añadir"

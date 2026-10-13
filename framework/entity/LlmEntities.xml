@@ -111,6 +111,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="requestJson" type="text-very-long"/>
         <field name="responseJson" type="text-very-long"/>
         <field name="startDate" type="date-time"/>
+        <field name="startDay" type="date"><description>Date part of startDate, so usage can be grouped by day.</description></field>
         <relationship type="one-nofk" related="moqui.llm.LlmConversation"/>
         <relationship type="one-nofk" related="moqui.security.UserAccount"/>
         <index name="LLMCALL_CONV"><index-field name="conversationId"/></index>
@@ -118,6 +119,22 @@ along with this software (see the LICENSE.md file). If not, see
         <index name="LLMCALL_PROF_DATE"><index-field name="profileName"/><index-field name="startDate"/></index>
         <index name="LLMCALL_START"><index-field name="startDate"/></index>
     </entity>
+    <view-entity entity-name="LlmCallUsage" package="moqui.llm" cache="never">
+        <description>Calls, tokens and latency per day, profile, model and user. Rows written before startDay existed have no day and are left out.</description>
+        <member-entity entity-alias="CL" entity-name="moqui.llm.LlmCallLog"/>
+        <alias entity-alias="CL" name="startDay"/><!-- non-function aliases group automatically -->
+        <alias entity-alias="CL" name="profileName"/>
+        <alias entity-alias="CL" name="model"/>
+        <alias entity-alias="CL" name="userId"/>
+        <alias entity-alias="CL" name="wasError"/>
+        <alias entity-alias="CL" name="callCount" field="callId" function="count"/>
+        <alias entity-alias="CL" name="promptTokens" function="sum"/>
+        <alias entity-alias="CL" name="completionTokens" function="sum"/>
+        <alias entity-alias="CL" name="totalTokens" function="sum"/>
+        <alias entity-alias="CL" name="avgDurationMs" field="durationMs" function="avg"/>
+        <alias entity-alias="CL" name="maxDurationMs" field="durationMs" function="max"/>
+        <entity-condition><econdition entity-alias="CL" field-name="startDay" operator="is-not-null"/></entity-condition>
+    </view-entity>
 
     <entity entity-name="LlmSkill" package="moqui.llm" use="transactional">
         <field name="skillId" type="id" is-pk="true"/>

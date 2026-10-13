@@ -761,7 +761,9 @@ public class LlmConversationImpl implements LlmConversation {
         ev.set("durationMs", durationMs);
         ev.set("iteration", iteration);
         ev.set("wasError", wasError ? "Y" : "N");
-        ev.set("startDate", now(ec));
+        java.sql.Timestamp callStart = now(ec);
+        ev.set("startDate", callStart);
+        ev.set("startDay", callStart != null ? new java.sql.Date(callStart.getTime()) : null);
         if (logContent && window != null) {
             List<Map<String, Object>> win = new ArrayList<>();
             for (LlmMessage m : window) {

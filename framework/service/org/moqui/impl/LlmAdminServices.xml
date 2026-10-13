@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<!-- Services behind the System app LLM screens. They hold the rules that raw entity edits would bypass:
+     a shipped skill file owns its name, approval records who approved, and a conversation is deleted with its children. -->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-3.xsd">
+
+    <!-- ===== Skills ===== -->
+    <service verb="approve" noun="LlmSkill">
+        <description>Make a skill Active and mark it human-reviewed. Only human-reviewed skills can set a risk of
+            reversible that skips the confirmation click, so the reviewer picks the risk here.</description>
+        <in-parameters>
+            <parameter name="skillId" required="true"/>
+            <parameter name="riskId"><description>LskReversible, LskConfirm or LskIrreversible. Blank keeps the current risk.</description></parameter>
+        </in-parameters>
+        <actions><script><![CDATA[
+            import org.moqui.impl.llm.SkillIndex
+            def skill = ec.entity.find("moqui.llm.LlmSkill").condition("skillId", skillId).forUpdate(true).useCache(false).one()
+            if (skill == null) { ec.message.addError("Skill ${skillId} not found"); return }
+            if (SkillIndex.isShippedName(ec, skill.name)) {
+                ec.message.addError("A shipped skill file named ${skill.name} owns that name. Edit the file, not this row.")
+                return
+            }
+            if (riskId && !(riskId in ['LskReversible', 'LskConfirm', 'LskIrreversible'])) {
+                ec.message.addError("Unknown risk ${riskId}"); return
+            }
+            skill.statusId = "LsksActive"
+            skill.provenanceId = "LskpHuman"
+            if (riskId) skill.riskId = riskId
+            skill.speaker = ec.user.username
+            skill.warrant = "Approved by ${ec.user.username} on ${ec.l10n.format(ec.user.nowTimestamp, 'yyyy-MM-dd HH:mm')}".toString()
+            skill.update()
+        ]]></script></actions>
+    </service>
+    <service verb="reject" noun="LlmSkill">
+        <in-parameters><parameter name="skillId" required="true"/></in-parameters>
+        <actions><script><![CDATA[
+            def skill = ec.entity.find("moqui.llm.LlmSkill").condition("skillId", skillId).forUpdate(true).useCache(false).one()
+            if (skill == null) { ec.message.addError("Skill ${skillId} not found"); return }
+            skill.statusId = "LsksRejected"
+            skill.update()
+        ]]></script></actions>
+    </service>
+    <service verb="deprecate" noun="LlmSkill">
+        <in-parameters><parameter name="skillId" required="true"/></in-parameters>
+        <actions><script><![CDATA[
+            def skill = ec.entity.find("moqui.llm.LlmSkill").condition("skillId", skillId).forUpdate(true).useCache(false).one()
+            if (skill == null) { ec.message.addError("Skill ${skillId} not found"); return }
+            skill.statusId = "LsksDeprecated"
+            skill.update()
+        ]]></script></actions>
+    </service>
+    <service verb="supersede" noun="LlmSkill">
+        <description>Retire oldSkillId in favor of newSkillId. The new skill records which one it replaced.</description>
+        <in-parameters>
+            <parameter name="oldSkillId" required="true"/>
+            <parameter name="newSkillId" required="true"/>
+        </in-parameters>
+        <actions><script><![CDATA[
+            if (oldSkillId == newSkillId) { ec.message.addError("A skill cannot supersede itself"); return }
+            def oldSkill = ec.entity.find("moqui.llm.LlmSkill").condition("skillId", oldSkillId).forUpdate(true).useCache(false).one()
+            def newSkill = ec.entity.find("moqui.llm.LlmSkill").condition("skillId", newSkillId).forUpdate(true).useCache(false).one()
+            if (oldSkill == null || newSkill == null) { ec.message.addError("Skill not found"); return }
+            oldSkill.statusId = "LsksSuperseded"
+            oldSkill.update()
+            newSkill.supersededSkillId = oldSkillId
+            newSkill.update()
+        ]]></script></actions>
+    </service>
+    <service verb="update" noun="LlmSkillContent">
+        <description>Edit the text of a skill and bump its version. Status and provenance do not change, so an edited
+            skill still goes through approval.</description>
+        <in-parameters>
+            <parameter name="skillId" required="true"/>
+            <parameter name="title"/><parameter name="description"/><parameter name="summary"/>
+            <parameter name="body"/>
+            <parameter name="riskId"/>
+        </in-parameters>
+        <actions><script><![CDATA[
+            import org.moqui.impl.llm.SkillIndex
+            def skill = ec.entity.find("moqui.llm.LlmSkill").condition("skillId", skillId).forUpdate(true).useCache(false).one()
+            if (skill == null) { ec.message.addError("Skill ${skillId} not found"); return }
+            if (SkillIndex.isShippedName(ec, skill.name)) {
+                ec.message.addError("A shipped skill file named ${skill.name} owns that name. Edit the file, not this row.")
+                return
+            }
+            if (riskId && !(riskId in ['LskReversible', 'LskConfirm', 'LskIrreversible'])) {
+                ec.message.addError("Unknown risk ${riskId}"); return
+            }
+            if (body != null && !body.trim()) { ec.message.addError("A skill needs a body"); return }
+            if (title != null) skill.title = title
+            if (description != null) skill.description = description
+            if (summary != null) skill.summary = summary ?: null
+            if (body != null) skill.body = body
+            if (riskId) skill.riskId = riskId
+            skill.version = ((skill.version ?: 0) as Integer) + 1
+            skill.update()
+            if (body != null && body.length() > SkillIndex.BODY_WARN_CHARS)
+                ec.message.addMessage("Body is ${body.length()} characters. Skills over ${SkillIndex.BODY_WARN_CHARS} are costly to inject.", "warning")
+        ]]></script></actions>
+    </service>
+    <service verb="set" noun="LlmLessonStatus">
+        <in-parameters>
+            <parameter name="lessonId" required="true"/>
+            <parameter name="statusId" required="true"><description>LsksActive makes it appear in the skill's prompt. LsksRejected hides it.</description></parameter>
+        </in-parameters>
+        <actions><script><![CDATA[
+            if (!(statusId in ['LsksActive', 'LsksProposed', 'LsksRejected', 'LsksDeprecated'])) {
+                ec.message.addError("Unknown lesson status ${statusId}"); return
+            }
+            def lesson = ec.entity.find("moqui.llm.LlmLesson").condition("lessonId", lessonId).forUpdate(true).useCache(false).one()
+            if (lesson == null) { ec.message.addError("Lesson ${lessonId} not found"); return }
+            lesson.statusId = statusId
+            lesson.update()
+        ]]></script></actions>
+    </service>
+    <service verb="retrieve" noun="LlmSkills">
+        <description>Which skills the agent would retrieve for a request, with scores and the text injected into the prompt.</description>
+        <in-parameters>
+            <parameter name="query"/>
+            <parameter name="limit" type="Integer" default-value="15"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="skills" type="List"/>
+            <parameter name="injectText"/>
+        </out-parameters>
+        <actions><script><![CDATA[
+            import org.moqui.impl.llm.LlmAdmin
+            def result = LlmAdmin.retrieveSkills(ec, query ?: "", limit ?: 15)
+            skills = result.skills
+            injectText = result.injectText
+        ]]></script></actions>
+    </service>
+
+    <!-- ===== Conversations ===== -->
+    <service verb="delete" noun="LlmConversation">
+        <description>Delete a conversation with its messages and call logs. A Streaming conversation must be cancelled first.</description>
+        <in-parameters><parameter name="conversationId" required="true"/></in-parameters>
+        <out-parameters>
+            <parameter name="messagesRemoved" type="Long"/>
+            <parameter name="callLogsRemoved" type="Long"/>
+        </out-parameters>
+        <actions><script><![CDATA[
+            def conv = ec.entity.find("moqui.llm.LlmConversation").condition("conversationId", conversationId).forUpdate(true).useCache(false).one()
+            if (conv == null) { ec.message.addError("Conversation ${conversationId} not found"); return }
+            if (conv.statusId == "LlmcsStreaming") {
+                ec.message.addError("Conversation is Streaming. Cancel it first."); return
+            }
+            callLogsRemoved = ec.entity.find("moqui.llm.LlmCallLog").condition("conversationId", conversationId).deleteAll()
+            messagesRemoved = ec.entity.find("moqui.llm.LlmMessage").condition("conversationId", conversationId).deleteAll()
+            conv.delete()
+        ]]></script></actions>
+    </service>
+
+    <!-- ===== Profiles ===== -->
+    <service verb="get" noun="LlmProfileDetails">
+        <description>Effective profile configuration with credentials removed, plus the runtime switches set outside profiles.</description>
+        <out-parameters>
+            <parameter name="profileDetailList" type="List"/>
+            <parameter name="runtimeSwitches" type="Map"/>
+        </out-parameters>
+        <actions><script><![CDATA[
+            import org.moqui.impl.llm.LlmAdmin
+            profileDetailList = LlmAdmin.profileDetails(ec)
+            runtimeSwitches = LlmAdmin.runtimeSwitches()
+        ]]></script></actions>
+    </service>
+    <service verb="test" noun="LlmProfile" transaction="ignore">
+        <description>Send one tiny request through a profile. It makes a real provider call, so it can cost a little and counts toward the tarpit.</description>
+        <in-parameters><parameter name="profileName" required="true"/></in-parameters>
+        <out-parameters>
+            <parameter name="ok" type="Boolean"/>
+            <parameter name="content"/><parameter name="model"/><parameter name="finishReason"/>
+            <parameter name="error"/><parameter name="httpStatus" type="Integer"/>
+            <parameter name="durationMs" type="Long"/>
+        </out-parameters>
+        <actions><script><![CDATA[
+            import org.moqui.impl.llm.LlmAdmin
+            def r = LlmAdmin.testProfile(ec, profileName)
+            ok = r.ok; content = r.content; model = r.model; finishReason = r.finishReason
+            error = r.error; httpStatus = r.httpStatus; durationMs = r.durationMs
+        ]]></script></actions>
+    </service>
+</services>

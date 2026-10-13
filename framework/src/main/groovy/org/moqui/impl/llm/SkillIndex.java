@@ -239,6 +239,11 @@ public class SkillIndex {
         return doc != null && ("LsksActive".equals(doc.statusId) || "LsksProposed".equals(doc.statusId));
     }
 
+    /** True when a shipped skill file owns this name. Screens use it to refuse edits to a shadowing database row. */
+    public static boolean isShippedName(ExecutionContext ec, String name) {
+        return name != null && shippedByName(ec, name.trim()) != null;
+    }
+
     private static SkillDoc shippedByName(ExecutionContext ec, String name) {
         for (SkillDoc doc : scanShipped(ec)) {
             if (name.equals(doc.name)) return doc;
