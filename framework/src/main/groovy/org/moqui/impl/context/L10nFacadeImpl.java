@@ -201,7 +201,7 @@ public class L10nFacadeImpl implements L10nFacade {
             fractionDigits = 2;
         }
         if (precise) fractionDigits++;
-        eci.getLogger().info("Rounding to " + fractionDigits + " digits.");
+        // eci.getLogger().info("Rounding to " + fractionDigits + " digits.");
         return amount.setScale(fractionDigits, mode);
     }
 
