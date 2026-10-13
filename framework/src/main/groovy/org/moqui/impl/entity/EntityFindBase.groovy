@@ -369,6 +369,16 @@ abstract class EntityFindBase implements EntityFind {
         return pks
     }
 
+    /** True when the only conditions are equality on every primary key field, so the row is identified by key alone. */
+    boolean isPurePkFind() {
+        if (whereEntityCondition != null) return false
+        Map<String, Object> pks = getSimpleMapPrimaryKeys()
+        if (pks == null || pks.isEmpty()) return false
+        int pkCount = pks.size()
+        int condCount = (simpleAndMap != null ? simpleAndMap.size() : 0) + (singleCondField != null ? 1 : 0)
+        return condCount == pkCount
+    }
+
     @Override EntityCondition getHavingEntityCondition() { return havingEntityCondition }
 
     @Override

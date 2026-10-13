@@ -14,14 +14,21 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-3.xsd">
     <service verb="clean" noun="LlmData" authenticate="false" transaction-timeout="600">
-        <description>Purge old LLM call logs, messages, and conversations. Messages first so the LlmMessage FK to LlmConversation is not violated.</description>
-        <in-parameters><parameter name="daysToKeep" type="Integer" default="90"/></in-parameters>
+        <description>Purge old LLM call logs, messages, and conversations, and strip the stored prompt and response text from
+            call logs sooner than the rows are deleted. Messages go first so the LlmMessage FK to LlmConversation is not violated.</description>
+        <in-parameters>
+            <parameter name="daysToKeep" type="Integer" default="90"><description>Rows older than this are deleted.</description></parameter>
+            <parameter name="contentDaysToKeep" type="Integer" default="14"><description>Call logs older than this keep their row
+                (counts, tokens, timing, errors) but lose requestJson and responseJson, which hold full prompts and are the bulky,
+                sensitive part. Use 0 to skip the strip. Values above daysToKeep have no effect.</description></parameter>
+        </in-parameters>
         <out-parameters>
             <parameter name="callLogsRemoved" type="Long"/>
             <parameter name="messagesRemoved" type="Long"/>
             <parameter name="conversationsRemoved" type="Long"/>
+            <parameter name="contentStripped" type="Long"/>
         </out-parameters>
-        <actions><script>
+        <actions><script><![CDATA[
             import org.moqui.context.ExecutionContext
             import org.moqui.entity.EntityCondition
             ExecutionContext ec = context.ec
@@ -29,13 +36,21 @@ along with this software (see the LICENSE.md file). If not, see
             basisCal.add(Calendar.DAY_OF_YEAR, (int) -daysToKeep)
             basisTimestamp = new Timestamp(basisCal.getTimeInMillis())
             // Delete children of old conversations first so the LlmMessage FK cannot fail the job.
+            // A conversation that never got a message has no lastMessageDate, so it ages by createdDate.
             def oldConvs = ec.entity.find("moqui.llm.LlmConversation")
-                    .condition("lastMessageDate", EntityCondition.LESS_THAN, basisTimestamp)
+                    .condition(ec.entity.conditionFactory.makeCondition([
+                        ec.entity.conditionFactory.makeCondition("lastMessageDate", EntityCondition.LESS_THAN, basisTimestamp),
+                        ec.entity.conditionFactory.makeCondition([
+                            ec.entity.conditionFactory.makeCondition("lastMessageDate", EntityCondition.EQUALS, null),
+                            ec.entity.conditionFactory.makeCondition("createdDate", EntityCondition.LESS_THAN, basisTimestamp)
+                        ], EntityCondition.AND)
+                    ], EntityCondition.OR))
                     .disableAuthz().list()
             def oldIds = oldConvs.collect { it.conversationId }.findAll { it }
             callLogsRemoved = 0L
             messagesRemoved = 0L
             conversationsRemoved = 0L
+            contentStripped = 0L
             // Chunked so one IN list never exceeds a database limit (Oracle allows 1000)
             for (List chunk in oldIds.collate(500)) {
                 callLogsRemoved += ec.entity.find("moqui.llm.LlmCallLog")
@@ -57,8 +72,21 @@ along with this software (see the LICENSE.md file). If not, see
             ec.entity.find("moqui.llm.LlmSkillUse")
                     .condition("usedDate", EntityCondition.LESS_THAN, basisTimestamp)
                     .disableAuthz().deleteAll()
-            ec.logger.info("Removed ${callLogsRemoved} LlmCallLog, ${messagesRemoved} LlmMessage, ${conversationsRemoved} LlmConversation records more than ${daysToKeep} days old")
-        </script></actions>
+            if (contentDaysToKeep && contentDaysToKeep > 0 && contentDaysToKeep < daysToKeep) {
+                Calendar contentCal = ec.user.getCalendarSafe()
+                contentCal.add(Calendar.DAY_OF_YEAR, (int) -contentDaysToKeep)
+                Timestamp contentBasis = new Timestamp(contentCal.getTimeInMillis())
+                // Only rows that still carry text, so a rerun does not touch rows it already stripped
+                def stripFind = ec.entity.find("moqui.llm.LlmCallLog")
+                        .condition("startDate", EntityCondition.LESS_THAN, contentBasis)
+                        .condition(ec.entity.conditionFactory.makeCondition([
+                            ec.entity.conditionFactory.makeCondition("requestJson", EntityCondition.NOT_EQUAL, null),
+                            ec.entity.conditionFactory.makeCondition("responseJson", EntityCondition.NOT_EQUAL, null)
+                        ], EntityCondition.OR))
+                contentStripped = stripFind.disableAuthz().updateAll([requestJson: null, responseJson: null])
+            }
+            ec.logger.info("Removed ${callLogsRemoved} LlmCallLog, ${messagesRemoved} LlmMessage, ${conversationsRemoved} LlmConversation records more than ${daysToKeep} days old; stripped prompt and response text from ${contentStripped} call logs more than ${contentDaysToKeep} days old")
+        ]]></script></actions>
     </service>
 
     <!-- Sync wrappers for Service REST (/rest/s1/moqui/llm/...). Do not SSE through these. -->

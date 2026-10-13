@@ -460,8 +460,15 @@ class LlmBrowseTests extends Specification {
         off != null && !off.contains("kind=vue-sfc")
         on.contains("kind=vue-sfc")
         on.contains("module.exports")
-        on.contains("moquiSessionToken")
-        !openUi.contains("vue-sfc")
+        // The sandbox contract: reads through the bridge, and no session token, fetch or $root for the model to use
+        on.contains("this.\$bridge.get(")
+        on.contains("sandbox")
+        on.contains("Do **not** use `fetch`")
+        !on.contains("X-CSRF-Token")
+        !on.contains("this.\$root.moquiSessionToken")
+        // Tenant data is not in the base prompt
+        !on.contains("ZIRET") && !on.contains("POPC_DEFAULT") && !on.contains("/apps/marble/")
+        !openUi.contains("vue-sfc") && !openUi.contains("/apps/marble/")
     }
 
     def "screen_use navigate rejects a transition, another origin, and a screen the user cannot view"() {
@@ -605,6 +612,7 @@ class LlmBrowseTests extends Specification {
         proc.body = "Call run_service create#UserAccount\n## Widgets\nwidget line"
         SkillIndex.SkillDoc card = new SkillIndex.SkillDoc()
         card.name = "marble-party-roles"
+        card.kind = "reference"
         card.title = "Party roles"
         card.description = "How parties relate"
         String cardBody = "CARD-START " + ("c" * 500) + " CARD-END"
@@ -634,6 +642,7 @@ class LlmBrowseTests extends Specification {
         given:
         SkillIndex.SkillDoc card = new SkillIndex.SkillDoc()
         card.name = "marble-long-card"
+        card.kind = "reference"
         card.title = "Long card"
         card.body = "LONG-START " + ("d" * SkillIndex.BODY_WARN_CHARS) + " LONG-END"
 

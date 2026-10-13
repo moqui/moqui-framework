@@ -27,6 +27,12 @@ public interface LlmTool {
 
     Object execute(Map<String, Object> arguments, ExecutionContext ec);
 
+    /**
+     * True when the client should see this tool's arguments as they stream in, before the call is complete.
+     * Used by tools whose arguments are a long document the user watches build, such as a generated screen.
+     */
+    default boolean streamsPartialArguments() { return false; }
+
     default Map<String, Object> enrichForClient(Map<String, Object> arguments, ExecutionContext ec) {
         return arguments;
     }

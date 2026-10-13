@@ -110,6 +110,136 @@ class TransactionCacheDbTests extends Specification {
         ec.entity.find("moqui.test.TestEntity").condition("testId", "TCDUP1").one()?.delete()
     }
 
+    def "a rolled-back transaction that wrote to the sim terminates it, one that only read does not"() {
+        when: "a read-only transaction rolls back"
+        ec.entity.startTxCacheDb(true)
+        ec.entity.find("moqui.test.TestEntity").condition("testId", "NOPE").one()
+        ec.transaction.rollback("test rollback after read", null)
+        ec.transaction.begin(null)
+        def afterRead = ec.entity.find("moqui.test.TestEntity").condition("testId", "NOPE").one()
+
+        then:
+        afterRead == null
+        !((TransactionCacheDb) ((EntityFacadeImpl) ec.entity).getActiveTxCache()).isPoisoned()
+
+        when: "a transaction that wrote rolls back"
+        ec.entity.makeValue("moqui.test.TestEntity").setAll([testId: "TCPOI1", testMedium: "overlay"]).create()
+        ec.transaction.rollback("test rollback after write", null)
+        ec.transaction.begin(null)
+        ec.entity.find("moqui.test.TestEntity").condition("testId", "TCPOI1").one()
+
+        then:
+        def e = thrown(org.moqui.impl.context.SimTerminatedException)
+        e.message.contains("Start a new sim")
+        ((TransactionCacheDb) ((EntityFacadeImpl) ec.entity).getActiveTxCache()).isPoisoned()
+    }
+
+    def "a committed transaction that wrote to the sim keeps it running"() {
+        when:
+        ec.entity.startTxCacheDb(true)
+        ec.entity.makeValue("moqui.test.TestEntity").setAll([testId: "TCCOM1", testMedium: "overlay"]).create()
+        ec.transaction.commit()
+        ec.transaction.begin(null)
+        def found = ec.entity.find("moqui.test.TestEntity").condition("testId", "TCCOM1").one()
+        then:
+        found != null
+        !((TransactionCacheDb) ((EntityFacadeImpl) ec.entity).getActiveTxCache()).isPoisoned()
+    }
+
+    def "flush mode is no longer supported"() {
+        when:
+        ec.entity.startTxCacheDb(false)
+        then:
+        thrown(UnsupportedOperationException)
+        !ec.entity.isTxCacheActive()
+    }
+
+    def "public getConnection is refused in a sim session but not otherwise"() {
+        when:
+        ((ExecutionContextImpl) ec).simSession = true
+        ec.entity.getConnection("transactional")
+        then:
+        thrown(BaseException)
+
+        when:
+        ((ExecutionContextImpl) ec).simSession = false
+        def con = ec.entity.getConnection("transactional")
+        then:
+        con != null
+    }
+
+    def "every moqui.llm entity is classified as production-write, so a new one forces a decision"() {
+        expect:
+        def llmEntities = ((EntityFacadeImpl) ec.entity).getAllEntityNames().findAll { it.startsWith("moqui.llm.") }
+        llmEntities
+        llmEntities.every { TransactionCacheDb.PRODUCTION_ENTITIES.contains(it) }
+        !TransactionCacheDb.PRODUCTION_ENTITIES.contains("moqui.test.TestEntity")
+    }
+
+    def "find by a non-key field sees sim updates and creates, and not the stale production row"() {
+        given:
+        ec.entity.makeValue("moqui.test.TestEntity").setAll([testId: "TCNPK1", testMedium: "npk-orig"]).create()
+        ec.transaction.commit()
+        ec.transaction.begin(null)
+
+        when:
+        ec.entity.startTxCacheDb(true)
+        def ev = ec.entity.find("moqui.test.TestEntity").condition("testId", "TCNPK1").one()
+        ev.testMedium = "npk-changed"
+        ev.update()
+        ec.entity.makeValue("moqui.test.TestEntity").setAll([testId: "TCNPK2", testMedium: "npk-new"]).create()
+        def byNewValue = ec.entity.find("moqui.test.TestEntity").condition("testMedium", "npk-changed").one()
+        def byOldValue = ec.entity.find("moqui.test.TestEntity").condition("testMedium", "npk-orig").one()
+        def byCreated = ec.entity.find("moqui.test.TestEntity").condition("testMedium", "npk-new").one()
+        def keyPlusOther = ec.entity.find("moqui.test.TestEntity").condition("testId", "TCNPK1").condition("testMedium", "npk-orig").one()
+
+        then:
+        byNewValue?.testId == "TCNPK1"
+        byOldValue == null
+        byCreated?.testId == "TCNPK2"
+        // Moqui find-one with a full primary key ignores extra conditions, in production and in the sim
+        keyPlusOther?.testId == "TCNPK1"
+
+        cleanup:
+        if (ec.entity.isTxCacheActive()) ec.entity.stopTxCache()
+        ec.entity.find("moqui.test.TestEntity").condition("testId", "TCNPK1").one()?.delete()
+    }
+
+    def "aggregate view counts production rows and sim changes together, and uses production directly when unchanged"() {
+        given:
+        ec.entity.makeValue("moqui.test.Foo").setAll([fooId: "TCAGG1", fooText: "agg"]).create()
+        ec.entity.makeValue("moqui.test.Bar").setAll([barId: "TCAGGB1", fooId: "TCAGG1", barRank: 1, score: 2]).create()
+        ec.transaction.commit()
+        ec.transaction.begin(null)
+
+        when: "nothing in the view changed in the sim"
+        ec.entity.startTxCacheDb(true)
+        def before = ec.entity.find("moqui.test.FooBar").condition("fooId", "TCAGG1").list()
+
+        then:
+        before.size() == 1
+        before[0].score == 2
+
+        when: "the sim adds a Bar to the same Foo and rank"
+        ec.entity.makeValue("moqui.test.Bar").setAll([barId: "TCAGGB2", fooId: "TCAGG1", barRank: 1, score: 3]).create()
+        def after = ec.entity.find("moqui.test.FooBar").condition("fooId", "TCAGG1").list()
+        def worldScore = null
+        TransactionCacheDb db = (TransactionCacheDb) ((EntityFacadeImpl) ec.entity).getActiveTxCache()
+        db.beginBypass()
+        try { worldScore = ec.entity.find("moqui.test.FooBar").condition("fooId", "TCAGG1").list()[0].score }
+        finally { db.endBypass() }
+
+        then:
+        after.size() == 1
+        after[0].score == 5
+        worldScore == 2
+
+        cleanup:
+        if (ec.entity.isTxCacheActive()) ec.entity.stopTxCache()
+        ec.entity.find("moqui.test.Bar").condition("fooId", "TCAGG1").deleteAll()
+        ec.entity.find("moqui.test.Foo").condition("fooId", "TCAGG1").deleteAll()
+    }
+
     def "HOLD create is not in production"() {
         when:
         ec.entity.startTxCacheDb(true)
@@ -259,23 +389,6 @@ class TransactionCacheDbTests extends Specification {
         cleanup:
         if (ec.entity.isTxCacheActive()) ec.entity.stopTxCache()
         ec.entity.find("moqui.test.TestEntity").condition("testId", "TCCACHE1").one()?.delete()
-    }
-
-    def "FLUSH create appears in production on stop"() {
-        when:
-        ec.entity.startTxCacheDb(false)
-        ec.entity.makeValue("moqui.test.TestEntity").setAll([testId:"TCFLUSH1", testMedium:"flushed"]).create()
-        EntityValue during = worldFind("moqui.test.TestEntity", "testId", "TCFLUSH1")
-        ec.entity.stopTxCache()
-        EntityValue after = ec.entity.find("moqui.test.TestEntity").condition("testId", "TCFLUSH1").one()
-
-        then:
-        during == null
-        after != null
-        after.testMedium == "flushed"
-
-        cleanup:
-        ec.entity.find("moqui.test.TestEntity").condition("testId", "TCFLUSH1").one()?.delete()
     }
 
     def "RestClient is refused in simSession"() {

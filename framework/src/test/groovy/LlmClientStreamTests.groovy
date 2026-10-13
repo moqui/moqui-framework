@@ -173,8 +173,11 @@ class LlmClientStreamTests extends Specification {
         given:
         handler.scenario = "write_ui"
         def listener = new ProtoListener()
+        def request = req()
+        // Partial arguments stream only for a tool that asks for it, which write_ui does
+        request.tools = [org.moqui.llm.LlmTool.writeUi()]
         when:
-        new OpenAiCompatProtocol().chatStream(req(), listener)
+        new OpenAiCompatProtocol().chatStream(request, listener)
         then:
         listener.failure == null
         listener.complete.toolCalls[0].name == "write_ui"
@@ -259,6 +262,19 @@ class LlmClientStreamTests extends Specification {
         listener.complete == null
         listener.deltas == ["Hel"]
         handler.hits.get() == 1
+    }
+
+    def "a tool that does not ask for partial arguments gets none, even with long streamed arguments"() {
+        given:
+        handler.scenario = "write_ui"
+        def listener = new ProtoListener()
+        def request = req()
+        request.tools = [org.moqui.llm.LlmTool.request()]
+        when:
+        new OpenAiCompatProtocol().chatStream(request, listener)
+        then:
+        listener.failure == null
+        listener.toolCallDeltas.isEmpty()
     }
 
     def "tool_call argument chunks without index concatenate onto the current call"() {

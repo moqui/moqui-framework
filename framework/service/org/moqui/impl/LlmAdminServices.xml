@@ -87,6 +87,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="title"/><parameter name="description"/><parameter name="summary"/>
             <parameter name="body"/>
             <parameter name="riskId"/>
+            <parameter name="kind"><description>procedure or reference. Blank leaves it unchanged.</description></parameter>
         </in-parameters>
         <actions><script><![CDATA[
             import org.moqui.impl.llm.SkillIndex
@@ -99,6 +100,8 @@ along with this software (see the LICENSE.md file). If not, see
             if (riskId && !(riskId in ['LskReversible', 'LskConfirm', 'LskIrreversible'])) {
                 ec.message.addError("Unknown risk ${riskId}"); return
             }
+            if (kind && !(kind in ['procedure', 'reference'])) { ec.message.addError("Unknown kind ${kind}"); return }
+            if (kind) skill.kind = kind
             if (body != null && !body.trim()) { ec.message.addError("A skill needs a body"); return }
             if (title != null) skill.title = title
             if (description != null) skill.description = description

@@ -47,6 +47,7 @@ final class LlmJson {
 
     private LlmJson() { }
 
+    /** Writes any object as JSON. A String is taken to be JSON text already and is returned as is, not quoted. */
     static String toJson(Object jsonObject) {
         if (jsonObject instanceof String) return (String) jsonObject;
         try {

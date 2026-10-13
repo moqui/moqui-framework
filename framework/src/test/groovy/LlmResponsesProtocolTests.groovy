@@ -261,7 +261,9 @@ class LlmResponsesProtocolTests extends Specification {
         when:
         handler.scenario = "write_ui"
         def tools = new Listener()
-        new OpenAiResponsesProtocol().chatStream(streamReq(), tools)
+        def toolReq = streamReq()
+        toolReq.tools = [org.moqui.llm.LlmTool.writeUi()]
+        new OpenAiResponsesProtocol().chatStream(toolReq, tools)
 
         then:
         tools.failure == null

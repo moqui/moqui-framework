@@ -1580,7 +1580,7 @@ class EntityFacadeImpl implements EntityFacade {
         PreparedStatement ps = (PreparedStatement) null
         ResultSet rs = (ResultSet) null
         try {
-            connection = getConnection(ed.getEntityGroupName())
+            connection = getConnectionInternal(ed.getEntityGroupName(), false)
             ps = connection.prepareStatement(finalSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)
             for (int i = 0; i < pkSize; i++) {
                 FieldInfo fi = (FieldInfo) pkFieldInfoArray[i]
@@ -1853,7 +1853,7 @@ class EntityFacadeImpl implements EntityFacade {
         EntityDefinition ed = this.getEntityDefinition(entityName)
         this.entityDbMeta.checkTableRuntime(ed)
 
-        Connection con = getConnection(getEntityGroupName(entityName))
+        Connection con = getConnectionInternal(getEntityGroupName(entityName), false)
         PreparedStatement ps
         try {
             FieldInfo[] fiArray
@@ -2071,6 +2071,7 @@ class EntityFacadeImpl implements EntityFacade {
     }
     @Override
     void startTxCacheDb(boolean hold) {
+        if (!hold) throw new UnsupportedOperationException("A TX cache DB that flushes to production is no longer supported. Use hold=true, which never writes to production.")
         ExecutionContextImpl eci = ecfi.getEci()
         if (eci.entityTxCache != null)
             throw new EntityException("A TX cache is already active on this ExecutionContext")
@@ -2089,10 +2090,16 @@ class EntityFacadeImpl implements EntityFacade {
         return eci != null && eci.entityTxCache != null
     }
 
+    /** Public JDBC access for scripts and components. A sim session must not get a production connection, because
+     * whatever it writes through one bypasses the overlay. The entity engine uses getConnectionInternal. */
     @Override Connection getConnection(String groupName) { return getConnection(groupName, false) }
     @Override Connection getConnection(String groupName, boolean useClone) {
-        // Not fenced here: excluded entities (moqui.llm.*, sequences) and the entity engine itself
-        // use this method during sim. sqlFind is the raw-SQL fence.
+        org.moqui.impl.context.SimFence.refuse("Direct JDBC connection (EntityFacade.getConnection)")
+        return getConnectionInternal(groupName, useClone)
+    }
+    /** Unfenced. The entity engine, table checks and the excluded production entities (moqui.llm.*, sequences) use
+     * this during a sim. sqlFind is the raw-SQL fence. */
+    Connection getConnectionInternal(String groupName, boolean useClone) {
         TransactionFacadeImpl tfi = ecfi.transactionFacade
         if (!tfi.isTransactionOperable()) throw new EntityException("Cannot get connection, transaction not in operable status (${tfi.getStatusString()})")
 

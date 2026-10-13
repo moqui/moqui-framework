@@ -63,7 +63,7 @@ public class EntityQueryBuilder implements Runnable {
     public EntityDefinition getMainEd() { return mainEntityDefinition; }
 
     Connection makeConnection(boolean useClone) {
-        connection = efi.getConnection(mainEntityDefinition.getEntityGroupName(), useClone);
+        connection = efi.getConnectionInternal(mainEntityDefinition.getEntityGroupName(), useClone);
         return connection;
     }
 

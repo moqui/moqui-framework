@@ -82,6 +82,9 @@ public class TransactionCacheDb implements EntityTxCache {
     private final ThreadLocal<Integer> bypassDepth = ThreadLocal.withInitial(() -> 0);
     private boolean closed = false;
     private boolean readOnly = false;
+    /** Set when a transaction that wrote to this overlay ended rolled back. Writes are not undone, so the sim must end. */
+    private volatile String poisonedReason = null;
+    private final Set<Object> trackedTransactions = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
 
     static {
         try { Class.forName("org.h2.Driver"); }
@@ -89,6 +92,7 @@ public class TransactionCacheDb implements EntityTxCache {
     }
 
     public TransactionCacheDb(EntityFacadeImpl efi, boolean hold) {
+        if (!hold) throw new UnsupportedOperationException("TransactionCacheDb only supports hold mode, which never writes to production");
         this.efi = efi;
         this.hold = hold;
         String id = UUID.randomUUID().toString().replace("-", "");
@@ -113,10 +117,18 @@ public class TransactionCacheDb implements EntityTxCache {
 
     /** These stay on the real database during sim. Everything else that this cache does not handle is refused. */
     public boolean allowsProductionWrite(EntityDefinition ed) {
-        if (ed == null) return false;
-        String name = ed.getFullEntityName();
-        return name.startsWith("moqui.llm.") || "moqui.entity.SequenceValueItem".equals(name);
+        return ed != null && PRODUCTION_ENTITIES.contains(ed.getFullEntityName());
     }
+
+    /**
+     * Entities that stay on the real database during a sim: the LLM's own records (a sim is itself a conversation with
+     * call logs and may propose a skill) and sequence banks. An explicit list rather than a package prefix, so a new
+     * moqui.llm entity must be classified here or as an overlay entity. LlmEntityClassificationTests enforces that.
+     */
+    public static final Set<String> PRODUCTION_ENTITIES = java.util.Collections.unmodifiableSet(new HashSet<>(java.util.Arrays.asList(
+            "moqui.llm.LlmConversation", "moqui.llm.LlmMessage", "moqui.llm.LlmCallLog",
+            "moqui.llm.LlmSkill", "moqui.llm.LlmSkillUse", "moqui.llm.LlmLesson", "moqui.llm.LlmCallUsage",
+            "moqui.entity.SequenceValueItem")));
 
     public String nextSeq(String seqName) {
         AtomicLong bank = seqBanks.computeIfAbsent(seqName, n -> new AtomicLong(SEQ_START));
@@ -142,6 +154,7 @@ public class TransactionCacheDb implements EntityTxCache {
         if (!handles(ed) || ed.isViewEntity) return false;
         Map<String, Object> key = makeKey(evb);
         if (key == null) return false;
+        noteWrite();
         if (tombstoneKeys.contains(key)) {
             tombstoneKeys.remove(key);
             tombstoneValues.remove(key);
@@ -174,6 +187,7 @@ public class TransactionCacheDb implements EntityTxCache {
         if (!handles(ed) || ed.isViewEntity) return false;
         Map<String, Object> key = makeKey(evb);
         if (key == null) return false;
+        noteWrite();
         if (tombstoneKeys.contains(key)) return true;
         ensureTable(ed);
         if (!existsInH2(evb, ed)) {
@@ -198,6 +212,7 @@ public class TransactionCacheDb implements EntityTxCache {
         if (!handles(ed) || ed.isViewEntity) return false;
         Map<String, Object> key = makeKey(evb);
         if (key == null) return false;
+        noteWrite();
         ensureTable(ed);
         if (dirtyCreateKeys.remove(key)) {
             deleteH2(evb, ed);
@@ -225,6 +240,8 @@ public class TransactionCacheDb implements EntityTxCache {
     public EntityValueBase oneGet(EntityFindBase efb) {
         EntityDefinition ed = efb.getEntityDef();
         if (!handles(ed) || ed.isViewEntity) return null;
+        // A find by name or status, or a key find with extra conditions, cannot be answered from one row by key
+        if (!efb.isPurePkFind()) return null;
         Map<String, Object> pk = efb.getSimpleMapPrimaryKeys();
         if (pk == null || pk.isEmpty()) return null;
         // Build the value first so a String condition for a Timestamp or Long key is converted to the field type
@@ -314,53 +331,17 @@ public class TransactionCacheDb implements EntityTxCache {
         return key != null && dirtyCreateKeys.contains(key);
     }
 
-    /** HOLD reads must not lock production rows. FLUSH still does. */
-    @Override public boolean isKnownLocked(EntityValueBase evb) { return hold; }
+    /** Reads must not lock production rows. */
+    @Override public boolean isKnownLocked(EntityValueBase evb) { return true; }
 
+    /** Nothing to flush: this overlay never writes to production. */
     @Override
-    public void flushCache(boolean clearRead) {
-        if (hold) return;
-        checkOpen();
-        EntityFacadeImpl localEfi = this.efi;
-        try {
-            for (Map<String, Object> key : dirtyCreateKeys) {
-                EntityValueBase evb = loadFromH2ByKey(key);
-                if (evb == null) continue;
-                String group = evb.getEntityDefinition().getEntityGroupName();
-                try (Connection con = localEfi.getConnection(group)) {
-                    evb.basicCreate(con);
-                }
-            }
-            for (Map<String, Object> key : dirtyUpdateKeys) {
-                EntityValueBase evb = loadFromH2ByKey(key);
-                if (evb == null) continue;
-                String group = evb.getEntityDefinition().getEntityGroupName();
-                try (Connection con = localEfi.getConnection(group)) {
-                    evb.basicUpdate(con);
-                }
-            }
-            for (Map<String, Object> key : tombstoneKeys) {
-                EntityValueBase evb = tombstoneValues.get(key);
-                if (evb == null) continue;
-                String group = evb.getEntityDefinition().getEntityGroupName();
-                try (Connection con = localEfi.getConnection(group)) {
-                    evb.deleteExtended(con);
-                }
-            }
-        } catch (Exception e) {
-            throw new EntityException("Error flushing TransactionCacheDb to production", e);
-        }
-        dirtyCreateKeys.clear();
-        dirtyUpdateKeys.clear();
-        tombstoneKeys.clear();
-        tombstoneValues.clear();
-    }
+    public void flushCache(boolean clearRead) { }
 
     @Override
     public void close() {
         if (closed) return;
         try {
-            if (!hold) flushCache(true);
             try (Connection con = DriverManager.getConnection(jdbcUrl, "sa", "");
                  Statement st = con.createStatement()) {
                 st.execute("SHUTDOWN");
@@ -379,6 +360,102 @@ public class TransactionCacheDb implements EntityTxCache {
 
     private void checkOpen() {
         if (closed) throw new EntityException("TransactionCacheDb is closed");
+        String reason = poisonedReason;
+        if (reason != null) throw new SimTerminatedException(reason);
+    }
+
+    public boolean isPoisoned() { return poisonedReason != null; }
+    public String getPoisonedReason() { return poisonedReason; }
+    /** Ends the sim from here on. Every later overlay operation throws SimTerminatedException. */
+    public void poison(String reason) {
+        if (poisonedReason == null) {
+            poisonedReason = reason;
+            logger.warn("Sim overlay terminated: " + reason);
+        }
+    }
+
+    /**
+     * Call before each overlay write. Registers, once per JTA transaction, a callback that terminates the sim if that
+     * transaction ends rolled back, because the overlay writes made in it are not undone. A transaction that never wrote
+     * (a validation error before the first write) is not tracked, so the sim carries on after it.
+     */
+    private void noteWrite() {
+        checkOpen();
+        try {
+            jakarta.transaction.TransactionManager tm = efi.ecfi.transactionFacade.getTransactionManager();
+            if (tm == null || tm.getStatus() != jakarta.transaction.Status.STATUS_ACTIVE) return;
+            jakarta.transaction.Transaction tx = tm.getTransaction();
+            if (tx == null) return;
+            synchronized (trackedTransactions) { if (!trackedTransactions.add(tx)) return; }
+            tx.registerSynchronization(new jakarta.transaction.Synchronization() {
+                @Override public void beforeCompletion() { }
+                @Override public void afterCompletion(int status) {
+                    synchronized (trackedTransactions) { trackedTransactions.remove(tx); }
+                    if (status == jakarta.transaction.Status.STATUS_ROLLEDBACK)
+                        poison("A transaction that wrote to the sim was rolled back, and sim writes are not undone, so the sim state "
+                                + "can no longer be trusted. The sim has been terminated. Start a new sim to continue testing.");
+                }
+            });
+        } catch (SimTerminatedException e) {
+            throw e;
+        } catch (Exception e) {
+            // Could not register: fail closed rather than let a later rollback go unnoticed
+            poison("The sim could not track its transaction (" + e.getMessage() + "), so it has been terminated. Start a new sim.");
+            throw new SimTerminatedException(poisonedReason);
+        }
+    }
+
+    /** True when the sim has created, updated or deleted a row of this entity. */
+    public boolean hasChanges(String fullEntityName) {
+        for (Set<Map<String, Object>> keys : java.util.Arrays.asList(dirtyCreateKeys, dirtyUpdateKeys, tombstoneKeys)) {
+            for (Map<String, Object> key : keys) if (fullEntityName.equals(key.get("_entityName"))) return true;
+        }
+        return false;
+    }
+
+    /**
+     * How an aggregate view (sum, count, group by) is answered during a sim. The overlay normally copies rows for a view
+     * from the production result, which cannot work when the result rows are themselves aggregates.
+     * <ul>
+     * <li>If the sim has changed none of the view's member entities, production's answer is right and is used as is.</li>
+     * <li>If it has changed one, every member entity is copied whole into the overlay (when each is under the copy cap)
+     * and the aggregate is computed there, so production rows and sim changes are both counted.</li>
+     * <li>If a changed view has a member too large to copy, this throws and tells the model what to use instead.</li>
+     * </ul>
+     * @return true when the caller should answer from production, false to answer from the overlay
+     */
+    public boolean answerAggregateViewFromProduction(EntityDefinition viewEd) {
+        if (viewEd == null || !viewEd.isViewEntity || !viewEd.entityInfo.hasFunctionAlias) return false;
+        ArrayList<MNode> members = viewEd.getEntityNode().children("member-entity");
+        if (members == null) return true;
+        boolean changed = false;
+        for (MNode member : members) {
+            EntityDefinition memberEd = efi.getEntityDefinition(member.attribute("entity-name"));
+            if (memberEd != null && hasChanges(memberEd.getFullEntityName())) { changed = true; break; }
+        }
+        if (!changed) return true;
+        beginBypass();
+        try {
+            for (MNode member : members) {
+                EntityDefinition memberEd = efi.getEntityDefinition(member.attribute("entity-name"));
+                if (memberEd == null || memberEd.isViewEntity || !handles(memberEd)) continue;
+                ensureTable(memberEd);
+                long rows = efi.find(memberEd.getFullEntityName()).useCache(false).count();
+                if (rows > COPY_CAP)
+                    throw new EntityException("The aggregate view " + viewEd.getFullEntityName() + " includes "
+                            + memberEd.getFullEntityName() + " (" + rows + " rows), which is too large to copy into the sim "
+                            + "for aggregation after this sim changed data. Use a screen transition or reporting service that "
+                            + "returns the data, or query the underlying entities directly.");
+                EntityList list = efi.find(memberEd.getFullEntityName()).useCache(false).limit(COPY_CAP + 1).list();
+                for (int i = 0; i < list.size(); i++) {
+                    EntityValue ev = list.get(i);
+                    if (ev instanceof EntityValueBase) copyFromProduction((EntityValueBase) ev);
+                }
+            }
+        } finally {
+            endBypass();
+        }
+        return false;
     }
 
     /** Rows deleted in this overlay. They are still returned by production and shrink a copied page. */

@@ -128,6 +128,14 @@ class LlmServlet extends HttpServlet {
                 case LlmGateway.Route.Op.GET_PROFILES:
                     sendJson(response, 200, [profiles: LlmGateway.listProfiles(ec)])
                     return
+                case LlmGateway.Route.Op.READ:
+                    Map<String, Object> read = LlmGateway.readData(ec, request.getParameter("profile"),
+                            request.getParameter("path"), request.getParameter("q"))
+                    int rst = read.get("status") instanceof Number ? ((Number) read.get("status")).intValue() : 200
+                    // The result's own status (a 404 from the screen, say) is data for the caller. The HTTP status says
+                    // whether the read endpoint itself accepted the request.
+                    sendJson(response, rst >= 400 && read.get("error") != null ? rst : 200, read)
+                    return
                 case LlmGateway.Route.Op.LIST_CONVERSATIONS:
                     int pageIndex = 0
                     String pageRaw = request.getParameter("pageIndex")

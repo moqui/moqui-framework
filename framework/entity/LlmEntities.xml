@@ -48,6 +48,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="attributesJson" type="text-long"/>
         <field name="lastMessageDate" type="date-time"/>
         <field name="messageCount" type="number-integer"/>
+        <field name="turnOwner" type="text-short"><description>Id of the Moqui node running the current turn. Set while Streaming, cleared otherwise.</description></field>
+        <field name="turnLeaseThru" type="date-time"><description>The owner renews this every few seconds while its turn runs. After it passes, another node may take the conversation over (the owner died).</description></field>
         <relationship type="one-nofk" related="moqui.security.UserAccount"/>
         <relationship type="one-nofk" related="moqui.server.Visit"/>
         <relationship type="one-nofk" related="moqui.a2a.A2AContext"/>
@@ -149,6 +151,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="speaker" type="text-short"/>
         <field name="warrant" type="text-long"/>
         <field name="sourceLocation" type="text-medium"/>
+        <field name="kind" type="text-short"><description>Blank or procedure: steps the agent can follow and may write with. reference: a background card
+            (concepts, status meanings, demo data) that is read beside a procedure and is never run as steps.</description></field>
         <field name="version" type="number-integer"/>
         <field name="supersededSkillId" type="id"/>
         <field name="worldSuccessCount" type="number-integer"/>

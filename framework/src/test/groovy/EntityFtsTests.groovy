@@ -17,6 +17,9 @@ import org.moqui.context.ExecutionContext
 import org.moqui.entity.EntityCondition
 import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
+import org.moqui.impl.entity.EntityDefinition
+import org.moqui.impl.entity.EntityFacadeImpl
+import org.moqui.impl.entity.FtsDdl
 import org.moqui.impl.entity.FtsSql
 import spock.lang.Shared
 import spock.lang.Specification
@@ -103,6 +106,34 @@ class EntityFtsTests extends Specification {
         mixed.size() == 1
 
         cleanup:
+        ec.entity.find("moqui.test.TestFts").condition("testFtsId", id).deleteAll()
+    }
+
+    def "adding a column to a table with an H2 full-text index does not break finds once the index is rebuilt"() {
+        given:
+        EntityFacadeImpl efi = (EntityFacadeImpl) ec.entity
+        EntityDefinition ed = efi.getEntityDefinition("moqui.test.TestFts")
+        String table = ed.getFullTableName()
+        String id = "FTSALT" + System.currentTimeMillis()
+        ec.entity.makeValue("moqui.test.TestFts").setAll([testFtsId: id, note: "n", body: "searchable alter words"]).create()
+        ec.transaction.commit()
+        ec.transaction.begin(null)
+
+        when: "a column appears, as happens when an entity gains a field in an upgrade"
+        def con = efi.getConnection(ed.getEntityGroupName())
+        con.createStatement().withCloseable { it.execute("ALTER TABLE " + table + " ADD COLUMN FTS_ALTER_TMP VARCHAR(10)") }
+        FtsDdl.ensure(efi, ed, null, true)
+        def found = ec.entity.find("moqui.test.TestFts").condition("body", EntityCondition.LIKE, "%searchable alter%")
+                .condition("testFtsId", id).list()
+
+        then:
+        found.size() == 1
+
+        cleanup:
+        def con2 = efi.getConnection(ed.getEntityGroupName())
+        try { con2.createStatement().withCloseable { it.execute("ALTER TABLE " + table + " DROP COLUMN FTS_ALTER_TMP") } }
+        catch (Throwable ignored) { }
+        FtsDdl.ensure(efi, ed, null, true)
         ec.entity.find("moqui.test.TestFts").condition("testFtsId", id).deleteAll()
     }
 

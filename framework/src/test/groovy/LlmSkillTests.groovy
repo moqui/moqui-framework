@@ -36,6 +36,44 @@ Call run_service
         doc.sourceLocation.contains("create-user-account.md")
     }
 
+    def "a reference card is marked by type, not by name"() {
+        expect:
+        SkillIndex.isReference(SkillIndex.parseMarkdown("---\nname: acme-status-meanings\ntype: reference\n---\nbody", null))
+        SkillIndex.isReference(SkillIndex.parseMarkdown("---\nname: acme-status-meanings\nkind: Reference\n---\nbody", null))
+        // The old rule treated every name starting with marble- as a card
+        !SkillIndex.isReference(SkillIndex.parseMarkdown("---\nname: marble-create-thing\n---\nbody", null))
+        !SkillIndex.isReference(SkillIndex.parseMarkdown("---\nname: create-thing\ntype: procedure\n---\nbody", null))
+        !SkillIndex.isReference(null)
+    }
+
+    def "a database row is a reference card by its kind field"() {
+        given:
+        def doc = new SkillIndex.SkillDoc()
+        doc.name = "marble-anything"
+        expect:
+        !SkillIndex.isReference(doc)
+        when:
+        doc.kind = "reference"
+        then:
+        SkillIndex.isReference(doc)
+    }
+
+    def "the Marble demo data card is shipped as a reference and found for a sales order request"() {
+        given:
+        def ec = org.moqui.Moqui.getExecutionContext()
+        def shipped = SkillIndex.scanShipped(ec).find { it.name == "marble-demo-reference" }
+        def found = shipped != null ? SkillIndex.retrieve(ec, "place a sales order for the retail store", 15) : []
+
+        expect:
+        // Skipped quietly when the MarbleERP component is not installed
+        shipped == null || SkillIndex.isReference(shipped)
+        shipped == null || found.any { it.name == "marble-demo-reference" }
+        shipped == null || shipped.body.contains("ORG_ZIZI_RETAIL")
+
+        cleanup:
+        ec.destroy()
+    }
+
     def "score prefers name match over body"() {
         given:
         def named = SkillIndex.parseMarkdown("---\nname: place-sales-order\ndescription: order\n---\nbody", null)

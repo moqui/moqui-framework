@@ -46,6 +46,11 @@ import java.util.concurrent.CancellationException;
  */
 public class LlmConversationImpl implements LlmConversation {
     private static final Logger logger = LoggerFactory.getLogger(LlmConversationImpl.class);
+    /** Status id as a person reads it: "Streaming", not "LlmcsStreaming". For messages that reach users and models. */
+    static String statusText(String statusId) {
+        return statusId != null && statusId.startsWith("Llmcs") ? statusId.substring(5) : statusId;
+    }
+
     static final String STATUS_ACTIVE = "LlmcsActive";
     static final String STATUS_STREAMING = "LlmcsStreaming";
     static final String STATUS_YIELDED = "LlmcsYielded";
@@ -333,77 +338,7 @@ public class LlmConversationImpl implements LlmConversation {
 
     @Override
     public List<LlmMessage> buildWindow(WindowPolicy p) {
-        WindowPolicy policy = p != null ? p : windowPolicy;
-        if (policy == null) policy = new WindowPolicy();
-        LlmMessage system = null;
-        List<LlmMessage> context = new ArrayList<>();
-        List<LlmMessage> rest = new ArrayList<>();
-        for (LlmMessage m : messages) {
-            if (m == null || m.role == null) continue;
-            if (m.role == LlmMessage.Role.SYSTEM) {
-                if (system == null) system = m;
-            } else if (m.role == LlmMessage.Role.CONTEXT) {
-                if (policy.includeContext) context.add(m);
-            } else {
-                rest.add(m);
-            }
-        }
-        List<LlmMessage> fullRest = rest;
-        rest = trimRest(rest, policy, charsOf(system) + charsOfAll(context));
-        int droppedCount = fullRest.size() - rest.size();
-        List<LlmMessage> window = new ArrayList<>();
-        if (policy.keepSystemFirst && system != null) window.add(system);
-        window.addAll(context);
-        if (droppedCount > 0) window.add(omissionNote(fullRest.subList(0, droppedCount)));
-        window.addAll(rest);
-        return window;
-    }
-
-    /**
-     * Describes a prefix trimRest left out of the prompt. Not stored. Does not quote a message body.
-     * Included even when includeContext is false, because it describes omitted history.
-     */
-    private LlmMessage omissionNote(List<LlmMessage> dropped) {
-        int user = 0;
-        int assistant = 0;
-        int tool = 0;
-        int other = 0;
-        LlmMessage oldestUser = null;
-        for (LlmMessage m : dropped) {
-            if (m.role == LlmMessage.Role.USER) {
-                user++;
-                if (oldestUser == null) oldestUser = m;
-            } else if (m.role == LlmMessage.Role.ASSISTANT) {
-                assistant++;
-            } else if (m.role == LlmMessage.Role.TOOL) {
-                tool++;
-            } else {
-                other++;
-            }
-        }
-        StringBuilder sb = new StringBuilder();
-        sb.append("Earlier messages omitted from this prompt: ").append(dropped.size());
-        sb.append(" (").append(roleCounts(user, assistant, tool, other)).append(").");
-        if (oldestUser != null)
-            sb.append("\nOldest user message: ordinal ").append(oldestUser.ordinal).append(".");
-        logger.warn("LLM window omitted {} messages for conversation {} (user {}, assistant {}, tool {})",
-                dropped.size(), conversationId, user, assistant, tool);
-        return LlmMessage.context("omitted", sb.toString());
-    }
-
-    private static String roleCounts(int user, int assistant, int tool, int other) {
-        StringBuilder sb = new StringBuilder();
-        addCount(sb, "user", user);
-        addCount(sb, "assistant", assistant);
-        addCount(sb, "tool", tool);
-        addCount(sb, "other", other);
-        return sb.toString();
-    }
-
-    private static void addCount(StringBuilder sb, String label, int n) {
-        if (n <= 0) return;
-        if (sb.length() > 0) sb.append(", ");
-        sb.append(label).append(' ').append(n);
+        return WindowBuilder.build(messages, p != null ? p : windowPolicy, conversationId);
     }
 
     @Override
@@ -605,25 +540,31 @@ public class LlmConversationImpl implements LlmConversation {
             if (ev == null) throw new LlmException("Conversation not found: " + conversationId);
             String dbStatus = ev.getString("statusId");
             if (STATUS_YIELDED.equals(dbStatus) && !resumeFromYielded) {
-                throw new LlmException("Conversation is " + dbStatus + " (single-flight)",
+                throw new LlmException("Conversation is " + statusText(dbStatus) + " (single-flight)",
                         null, LlmFinishReason.ERROR, 409, profileName, conversationId);
             }
             // Streaming with a live claim is the real single-flight. A Streaming row and no claim
             // means the turn that set it already left this JVM (request ended, or the process restarted).
             if (STATUS_STREAMING.equals(dbStatus) && turnClaimed()) {
-                throw new LlmException("Conversation is " + dbStatus + " (single-flight)",
+                throw new LlmException("Conversation is " + statusText(dbStatus) + " (single-flight)",
+                        null, LlmFinishReason.ERROR, 409, profileName, conversationId);
+            }
+            // Another node's live lease is the same single-flight, across the cluster
+            if (STATUS_STREAMING.equals(dbStatus) && otherNodeHoldsLease(ec, ev)) {
+                throw new LlmException("Conversation is " + statusText(dbStatus) + " on another node (single-flight)",
                         null, LlmFinishReason.ERROR, 409, profileName, conversationId);
             }
             if (STATUS_STREAMING.equals(dbStatus))
                 logger.warn("Conversation " + conversationId
-                        + " was LlmcsStreaming with no in-flight turn; continuing");
+                        + " was LlmcsStreaming with no live turn or lease; continuing");
             claimTurn();
             statusId = STATUS_STREAMING;
-            writeHeader(ev, false);
+            // The one write that is allowed to leave Cancelled (a new turn after a cancel) and that takes the lease
+            writeHeader(ev, false, true);
         } else {
             if (STATUS_STREAMING.equals(statusId)
                     || (STATUS_YIELDED.equals(statusId) && !resumeFromYielded)) {
-                throw new LlmException("Conversation is " + statusId + " (single-flight)",
+                throw new LlmException("Conversation is " + statusText(statusId) + " (single-flight)",
                         null, LlmFinishReason.ERROR, 409, profileName, conversationId);
             }
             statusId = STATUS_STREAMING;
@@ -633,7 +574,21 @@ public class LlmConversationImpl implements LlmConversation {
     /** Package-visible for the gateway's early 409, before it rewrites context messages. */
     static boolean turnInFlight(ExecutionContext ec, String conversationId) {
         if (ec == null || conversationId == null || !(ec.getLlm() instanceof LlmFacadeImpl)) return false;
-        return ((LlmFacadeImpl) ec.getLlm()).turnClaimed(conversationId);
+        if (((LlmFacadeImpl) ec.getLlm()).turnClaimed(conversationId)) return true;
+        if (!hasEntity(ec)) return false;
+        EntityValue ev = ec.getEntity().find("moqui.llm.LlmConversation")
+                .condition("conversationId", conversationId).useCache(false).one();
+        return ev != null && STATUS_STREAMING.equals(ev.getString("statusId")) && otherNodeHoldsLease(ec, ev);
+    }
+
+    /** True when a different node owns this row's turn and its lease has not run out. */
+    static boolean otherNodeHoldsLease(ExecutionContext ec, EntityValue ev) {
+        if (ec == null || ev == null || !(ec.getLlm() instanceof LlmFacadeImpl)) return false;
+        String owner = ev.getString("turnOwner");
+        Timestamp thru = ev.getTimestamp("turnLeaseThru");
+        if (owner == null || owner.isEmpty() || thru == null) return false;
+        if (owner.equals(((LlmFacadeImpl) ec.getLlm()).getNodeId())) return false;
+        return thru.getTime() > System.currentTimeMillis();
     }
     private boolean turnClaimed() {
         // No facade means we cannot tell a live turn from a leftover row, so keep the strict 409.
@@ -900,7 +855,7 @@ public class LlmConversationImpl implements LlmConversation {
         systemText = header.getString("systemText");
         windowPolicy = WindowPolicy.fromMap(LlmJson.toMap(header.getString("windowPolicyJson")));
         pendingToolCalls.clear();
-        pendingToolCalls.addAll(parseToolCalls(header.getString("pendingToolCallsJson")));
+        pendingToolCalls.addAll(ConversationStore.parseToolCalls(header.getString("pendingToolCallsJson")));
         attributes.clear();
         Map<String, Object> attrs = LlmJson.toMap(header.getString("attributesJson"));
         if (attrs != null) attributes.putAll(attrs);
@@ -917,11 +872,20 @@ public class LlmConversationImpl implements LlmConversation {
         EntityList list = ec.getEntity().find("moqui.llm.LlmMessage")
                 .condition("conversationId", conversationId).orderBy("ordinal").list();
         int size = list.size();
-        for (int i = 0; i < size; i++) messages.add(fromEntity(list.get(i)));
+        for (int i = 0; i < size; i++) messages.add(ConversationStore.fromEntity(list.get(i)));
         if (migratedCanvas) updateHeader();
     }
 
-    private void writeHeader(EntityValue ev, boolean create) {
+    private void writeHeader(EntityValue ev, boolean create) { writeHeader(ev, create, false); }
+
+    /**
+     * @param takeTurn true only from beginTurnStreaming. It may move a Cancelled row back to Streaming and records this
+     * node as the turn owner with a fresh lease. Every other write leaves a Cancelled row Cancelled, because /cancel can
+     * arrive while a turn holds an older in-memory copy that still says Streaming.
+     */
+    private void writeHeader(EntityValue ev, boolean create, boolean takeTurn) {
+        if (!create && !takeTurn && STATUS_CANCELLED.equals(ev.getString("statusId")) && !STATUS_CANCELLED.equals(statusId))
+            statusId = STATUS_CANCELLED;
         ev.set("profileName", profileName);
         ev.set("userId", userId);
         ev.set("visitId", visitId);
@@ -940,6 +904,13 @@ public class LlmConversationImpl implements LlmConversation {
         ev.set("attributesJson", attributes.isEmpty() ? null : LlmJson.toJson(attributes));
         ev.set("lastMessageDate", lastMessageDate);
         ev.set("messageCount", visibleMessageCount(messages));
+        if (takeTurn && ec != null && ec.getLlm() instanceof LlmFacadeImpl) {
+            ev.set("turnOwner", ((LlmFacadeImpl) ec.getLlm()).getNodeId());
+            ev.set("turnLeaseThru", new Timestamp(System.currentTimeMillis() + LlmFacadeImpl.LEASE_SECONDS * 1000L));
+        } else if (!STATUS_STREAMING.equals(statusId)) {
+            ev.set("turnOwner", null);
+            ev.set("turnLeaseThru", null);
+        }
         if (create) ev.create();
         else ev.update();
     }
@@ -977,7 +948,7 @@ public class LlmConversationImpl implements LlmConversation {
             ev.setSequencedIdPrimary();
             m.messageId = ev.getString("messageId");
             ev.set("conversationId", conversationId);
-            fillMessage(ev, m);
+            ConversationStore.fillMessage(ec, ev, m);
             ev.create();
         } else {
             ev = ec.getEntity().find("moqui.llm.LlmMessage").condition("messageId", m.messageId).one();
@@ -985,151 +956,16 @@ public class LlmConversationImpl implements LlmConversation {
                 ev = ec.getEntity().makeValue("moqui.llm.LlmMessage");
                 ev.set("messageId", m.messageId);
                 ev.set("conversationId", conversationId);
-                fillMessage(ev, m);
+                ConversationStore.fillMessage(ec, ev, m);
                 ev.create();
             } else {
-                fillMessage(ev, m);
+                ConversationStore.fillMessage(ec, ev, m);
                 ev.update();
             }
         }
     }
 
-    private void fillMessage(EntityValue ev, LlmMessage m) {
-        ev.set("ordinal", m.ordinal);
-        ev.set("role", m.role != null ? m.role.name() : LlmMessage.Role.USER.name());
-        ev.set("content", m.content);
-        ev.set("name", m.name);
-        ev.set("toolCallId", m.toolCallId);
-        ev.set("toolCallsJson", m.toolCalls == null || m.toolCalls.isEmpty() ? null : LlmJson.toJson(m.toolCalls));
-        ev.set("metadataJson", m.metadata == null || m.metadata.isEmpty() ? null : LlmJson.toJson(m.metadata));
-        ev.set("providerJson", m.providerState == null || m.providerState.isEmpty() ? null : LlmJson.toJson(m.providerState));
-        ev.set("tokenEstimate", tokenEstimate(m.content));
-        ev.set("sentDate", m.sentDate != null ? m.sentDate : now(ec));
-    }
-
-    private static LlmMessage fromEntity(EntityValue ev) {
-        LlmMessage m = new LlmMessage();
-        m.messageId = ev.getString("messageId");
-        Long ord = ev.getLong("ordinal");
-        m.ordinal = ord != null ? ord.intValue() : 0;
-        String role = ev.getString("role");
-        try {
-            m.role = role != null ? LlmMessage.Role.valueOf(role) : LlmMessage.Role.USER;
-        } catch (IllegalArgumentException e) {
-            m.role = LlmMessage.Role.USER;
-        }
-        m.content = ev.getString("content");
-        m.name = ev.getString("name");
-        m.toolCallId = ev.getString("toolCallId");
-        m.toolCalls = parseToolCalls(ev.getString("toolCallsJson"));
-        m.metadata = LlmJson.toMap(ev.getString("metadataJson"));
-        m.providerState = LlmJson.toMap(ev.getString("providerJson"));
-        m.sentDate = ev.getTimestamp("sentDate");
-        return m;
-    }
-
     @SuppressWarnings("unchecked")
-    private static List<LlmToolCall> parseToolCalls(String json) {
-        List<LlmToolCall> out = new ArrayList<>();
-        if (json == null || json.isBlank()) return out;
-        Object obj = LlmJson.toObject(json);
-        if (!(obj instanceof List)) return out;
-        for (Object item : (List<?>) obj) {
-            if (item instanceof LlmToolCall) {
-                out.add((LlmToolCall) item);
-            } else if (item instanceof Map) {
-                Map<String, Object> map = (Map<String, Object>) item;
-                LlmToolCall tc = new LlmToolCall();
-                Object id = map.get("id");
-                Object name = map.get("name");
-                Object args = map.get("arguments");
-                tc.id = id != null ? id.toString() : null;
-                tc.name = name != null ? name.toString() : null;
-                if (args instanceof Map || args instanceof List) tc.arguments = LlmJson.toJson(args);
-                else tc.arguments = args != null ? args.toString() : null;
-                Object exec = map.get("execution");
-                if (exec != null) {
-                    try {
-                        tc.execution = org.moqui.llm.LlmTool.Execution.valueOf(exec.toString().toUpperCase());
-                    } catch (Exception ignored) { }
-                }
-                if (Boolean.TRUE.equals(map.get("confirm")) || "true".equals(String.valueOf(map.get("confirm"))))
-                    tc.confirm = Boolean.TRUE;
-                Object risk = map.get("risk");
-                if (risk != null) tc.risk = risk.toString();
-                Object fields = map.get("providerFields");
-                if (fields instanceof Map) {
-                    tc.providerFields = new LinkedHashMap<>();
-                    for (Map.Entry<?, ?> e : ((Map<?, ?>) fields).entrySet()) {
-                        if (e.getKey() != null) tc.providerFields.put(e.getKey().toString(), e.getValue());
-                    }
-                }
-                out.add(tc);
-            }
-        }
-        return out;
-    }
-
-    private static List<LlmMessage> trimRest(List<LlmMessage> rest, WindowPolicy policy, int reservedChars) {
-        if (rest.isEmpty()) return rest;
-        List<LlmMessage> kept = new ArrayList<>(rest);
-        // The latest user message and everything after it is the turn in progress. It is never trimmed,
-        // or the model would be asked to continue a tool chain that has lost its question.
-        int pinFrom = -1;
-        for (int i = rest.size() - 1; i >= 0; i--) {
-            if (rest.get(i).role == LlmMessage.Role.USER) { pinFrom = i; break; }
-        }
-        int dropped = 0;
-        while (!kept.isEmpty()) {
-            boolean overMessages = policy.maxMessages > 0 && kept.size() > policy.maxMessages;
-            boolean overChars = policy.maxChars > 0 && (reservedChars + charsOfAll(kept)) > policy.maxChars;
-            if (!overMessages && !overChars) break;
-            int drop = 1;
-            if (policy.keepToolPairs) drop = pairLength(kept, 0);
-            if (drop < 1) drop = 1;
-            if (drop > kept.size()) drop = kept.size();
-            if (pinFrom >= 0 && dropped + drop > pinFrom) drop = pinFrom - dropped;
-            if (drop <= 0) break;
-            kept.subList(0, drop).clear();
-            dropped += drop;
-        }
-        // A tool result whose assistant message was trimmed away is rejected by providers
-        while (dropped > 0 && !kept.isEmpty() && kept.get(0).role == LlmMessage.Role.TOOL && (pinFrom < 0 || dropped < pinFrom)) {
-            kept.remove(0);
-            dropped++;
-        }
-        return kept;
-    }
-
-    private static int pairLength(List<LlmMessage> msgs, int i) {
-        LlmMessage first = msgs.get(i);
-        if (first.role == LlmMessage.Role.ASSISTANT && first.toolCalls != null && !first.toolCalls.isEmpty()) {
-            Set<String> ids = new LinkedHashSet<>();
-            for (LlmToolCall tc : first.toolCalls) if (tc != null && tc.id != null) ids.add(tc.id);
-            int n = 1;
-            for (int j = i + 1; j < msgs.size(); j++) {
-                LlmMessage t = msgs.get(j);
-                if (t.role == LlmMessage.Role.TOOL && (t.toolCallId == null || ids.contains(t.toolCallId))) n++;
-                else break;
-            }
-            return n;
-        }
-        return 1;
-    }
-
-    private static int charsOf(LlmMessage m) {
-        if (m == null || m.content == null) return 0;
-        return m.content.length();
-    }
-    private static int charsOfAll(List<LlmMessage> list) {
-        int n = 0;
-        for (LlmMessage m : list) n += charsOf(m);
-        return n;
-    }
-    private static int tokenEstimate(String content) {
-        if (content == null || content.isEmpty()) return 0;
-        return Math.max(1, content.length() / 4);
-    }
     private static boolean sourceEquals(LlmMessage m, String source) {
         if (m.metadata == null) return source == null;
         Object s = m.metadata.get("source");
@@ -1139,7 +975,7 @@ public class LlmConversationImpl implements LlmConversation {
     private static boolean hasEntity(ExecutionContext ec) {
         return ec != null;
     }
-    private static Timestamp now(ExecutionContext ec) {
+    static Timestamp now(ExecutionContext ec) {
         if (ec != null && ec.getUser() != null) return ec.getUser().getNowTimestamp();
         return new Timestamp(System.currentTimeMillis());
     }

@@ -38,7 +38,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * false and reasoning items are replayed from the conversation. Hosted tools are not sent.
  * Encrypted reasoning is minted by one deployment and rejected by another.
  */
-public class OpenAiResponsesProtocol implements LlmProtocol {
+public class OpenAiResponsesProtocol extends HttpLlmProtocol {
     private static final Logger logger = LoggerFactory.getLogger(OpenAiResponsesProtocol.class);
     public static final String DEFAULT_PATH = "/v1/responses";
     static final String INCLUDE_REASONING = "reasoning.encrypted_content";
@@ -50,28 +50,21 @@ public class OpenAiResponsesProtocol implements LlmProtocol {
     @Override public boolean supportsStreaming() { return true; }
     @Override public String defaultPath() { return DEFAULT_PATH; }
 
+    @Override protected Map<String, Object> buildBody(ProtocolRequest request) { return buildRequestBody(request); }
+
     @Override
-    public void chatStream(ProtocolRequest request, ProtocolStreamListener listener) {
-        if (listener == null) throw new IllegalArgumentException("ProtocolStreamListener is required");
-        if (request == null) throw new LlmException("ProtocolRequest is required");
-        if (request.endpointUrl == null || request.endpointUrl.isBlank())
-            throw new LlmException("LLM endpoint url is required", LlmFinishReason.ERROR, 0, request.profileName);
+    protected ProtocolResult parseResponse(int status, String raw, ProtocolRequest request) {
+        return parseBody(status, raw, request.logContent);
+    }
 
-        request.stream = true;
-        String json = LlmJson.toJson(buildRequestBody(request));
-        RestClient restClient = OpenAiCompatProtocol.newChatRestClient(request, json);
-        restClient.acceptContentType("text/event-stream");
-        if (request.timeoutRetry) restClient.timeoutRetry(true);
-
+    @Override
+    protected StreamSession newStreamSession(ProtocolRequest request) {
         StreamAssembler assembler = new StreamAssembler(request);
-        AtomicBoolean finished = new AtomicBoolean(false);
-        restClient.streamSse(new RestClient.SseConsumer() {
-            @Override public boolean onEvent(String event, String data, String id) {
+        return new StreamSession() {
+            @Override public void accept(String event, String data, ProtocolStreamListener listener) {
                 assembler.accept(event, data, listener);
-                return true;
             }
-            @Override public void onComplete() {
-                if (!finished.compareAndSet(false, true)) return;
+            @Override public void complete(ProtocolStreamListener listener) {
                 if (assembler.terminalResult != null) {
                     listener.onComplete(assembler.finish(200));
                 } else if (assembler.hasPartial()) {
@@ -80,46 +73,16 @@ public class OpenAiResponsesProtocol implements LlmProtocol {
                     listener.onComplete(assembler.finish(200));
                 }
             }
-            @Override public void onFailure(Throwable t) {
-                if (!finished.compareAndSet(false, true)) return;
-                int status = OpenAiCompatProtocol.httpStatusOf(t);
-                if (assembler.terminalResult != null && status < 400) {
-                    listener.onComplete(assembler.finish(200));
-                } else if (status >= 400) {
-                    String errorBody = OpenAiCompatProtocol.errorBodyOf(t);
-                    ProtocolResult r = parseBody(status, errorBody != null ? errorBody : t.getMessage(), request.logContent);
-                    if (r.model == null) r.model = request.model;
-                    listener.onComplete(r);
-                } else {
-                    listener.onFailure(t);
-                }
+            @Override public ProtocolResult httpError(int status, Throwable t) {
+                String errorBody = errorBodyOf(t);
+                return parseBody(status, errorBody != null ? errorBody : t.getMessage(), request.logContent);
             }
-        }, request.onStreamOpen);
-    }
-
-    @Override
-    public ProtocolResult chat(ProtocolRequest request) {
-        if (request == null) throw new LlmException("ProtocolRequest is required");
-        if (request.endpointUrl == null || request.endpointUrl.isBlank())
-            throw new LlmException("LLM endpoint url is required", LlmFinishReason.ERROR, 0, request.profileName);
-
-        String json = LlmJson.toJson(buildRequestBody(request));
-        RestClient restClient = OpenAiCompatProtocol.newChatRestClient(request, json);
-        RestClient.RestResponse response;
-        try {
-            response = restClient.call();
-        } catch (BaseException e) {
-            ProtocolResult err = new ProtocolResult(LlmFinishReason.ERROR);
-            err.errorMessage = e.getMessage();
-            err.retryable = request.timeoutRetry && OpenAiCompatProtocol.isTimeout(e);
-            if (logger.isDebugEnabled()) logger.debug("LLM HTTP call failed for profile " + request.profileName, e);
-            return err;
-        }
-        int status = response.getStatusCode();
-        String raw = response.text();
-        ProtocolResult result = parseBody(status, raw, request.logContent);
-        if (result.model == null) result.model = request.model;
-        return result;
+            @Override public void transportFailure(Throwable t, ProtocolStreamListener listener) {
+                // The terminal event arrived and the connection then dropped: the answer is complete
+                if (assembler.terminalResult != null) listener.onComplete(assembler.finish(200));
+                else listener.onFailure(t);
+            }
+        };
     }
 
     public static Map<String, Object> buildRequestBody(ProtocolRequest request) {
@@ -530,7 +493,7 @@ public class OpenAiResponsesProtocol implements LlmProtocol {
             ToolAcc acc = accFor(LlmRetryClassifier.toInt(chunk.get("output_index")), LlmRetryClassifier.str(chunk.get("item_id")));
             Object delta = chunk.get("delta");
             if (delta != null) acc.arguments.append(delta.toString());
-            if (listener != null && "write_ui".equals(acc.name) && acc.arguments.length() - acc.lastDeltaLen >= 48) {
+            if (listener != null && streamsPartialArguments(request, acc.name) && acc.arguments.length() - acc.lastDeltaLen >= 48) {
                 acc.lastDeltaLen = acc.arguments.length();
                 listener.onToolCallDelta(acc.name, acc.arguments.toString());
             }

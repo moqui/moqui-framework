@@ -458,7 +458,7 @@ class TransactionCache implements Synchronization, EntityTxCache {
                     String groupName = ewi.evb.getEntityDefinition().getEntityGroupName()
                     Connection con = connectionByGroup.get(groupName)
                     if (con == null) {
-                        con = efi.getConnection(groupName)
+                        con = efi.getConnectionInternal(groupName, false)
                         connectionByGroup.put(groupName, con)
                     }
 

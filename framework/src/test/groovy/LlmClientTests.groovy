@@ -925,7 +925,7 @@ class LlmClientTests extends Specification {
         int historySize = conv.history.size()
 
         when:
-        List<String> warns = WarnCapture.of(LlmConversationImpl.class) {
+        List<String> warns = WarnCapture.of(Class.forName("org.moqui.impl.llm.WindowBuilder")) {
             conv.buildWindow(policy)
         }
         def window = conv.buildWindow(policy)
@@ -958,7 +958,7 @@ class LlmClientTests extends Specification {
         conv.appendUser("only-body")
 
         when:
-        List<String> warns = WarnCapture.of(LlmConversationImpl.class) {
+        List<String> warns = WarnCapture.of(Class.forName("org.moqui.impl.llm.WindowBuilder")) {
             conv.buildWindow(new WindowPolicy())
         }
         def window = conv.buildWindow(new WindowPolicy())

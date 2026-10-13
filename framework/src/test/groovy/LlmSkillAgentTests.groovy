@@ -581,6 +581,35 @@ ${pad}
         ec.artifactExecution.disableAuthz()
     }
 
+    def "enter_sim returns a terminated result when the sim overlay is poisoned, and nothing reaches production"() {
+        given:
+        String simId = "TERM" + System.currentTimeMillis()
+        def proto = new FakeLlmProtocol()
+        proto.handler = { ProtocolRequest req ->
+            if (isSim(req)) {
+                // Stand in for a rolled-back write: the overlay is poisoned, then the sim agent tries another call
+                ((org.moqui.impl.context.ExecutionContextImpl) ec).entityTxCache?.poison("test: a write was rolled back")
+                String args = '{"serviceName":"create#moqui.test.TestEntity","parameters":{"testId":"' + simId + '","testMedium":"x"}}'
+                return FakeLlmProtocol.toolCalls(new LlmToolCall("s1", "run_service", args))
+            }
+            def last = lastTool(req)
+            if (last?.name == "enter_sim") return FakeLlmProtocol.stop("parent saw the sim result")
+            return FakeLlmProtocol.toolCalls(new LlmToolCall("e1", "enter_sim", '{"goal":"try a write"}'))
+        }
+
+        when:
+        LlmResponse r = agent(proto).user("go").call()
+        def simResult = proto.lastRequest.window.findAll { it.role == LlmMessage.Role.TOOL && it.name == "enter_sim" }[-1].content
+
+        then:
+        r.content == "parent saw the sim result"
+        simResult.contains("sim_terminated")
+        simResult.contains("terminated")
+        simResult.contains("enter_sim again")
+        ec.entity.find("moqui.test.TestEntity").condition("testId", simId).useCache(false).count() == 0
+        !ec.entity.isTxCacheActive()
+    }
+
     def "getByName finds shipped and proposed skills"() {
         given:
         String name = "getbyname-" + System.currentTimeMillis()

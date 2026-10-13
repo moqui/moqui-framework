@@ -49,7 +49,13 @@ public class LlmFacadeImpl implements LlmFacade {
     private final ConcurrentHashMap<String, Boolean> cancelledIds = new ConcurrentHashMap<>();
     /** Conversation ids with a turn running in this JVM. The value is the claim token. */
     private final ConcurrentHashMap<String, Long> activeTurns = new ConcurrentHashMap<>();
-    private static final java.util.concurrent.atomic.AtomicLong activeTurnSeq = new java.util.concurrent.atomic.AtomicLong();
+    private final java.util.concurrent.atomic.AtomicLong activeTurnSeq = new java.util.concurrent.atomic.AtomicLong();
+    /** Identifies this node in LlmConversation.turnOwner. A fresh value per facade, so a restart is a different owner. */
+    private final String nodeId = java.util.UUID.randomUUID().toString();
+    /** A turn's lease runs this long past the last renewal. Another node may take a Streaming conversation only after it. */
+    public static final long LEASE_SECONDS = 90L;
+    private static final long LEASE_RENEW_SECONDS = 20L;
+    private volatile java.util.concurrent.ScheduledExecutorService leaseRenewer = null;
     private final boolean enabledFlag;
     private final String defaultProfileName;
     private boolean anyUrl = false;
@@ -101,6 +107,8 @@ public class LlmFacadeImpl implements LlmFacade {
     }
 
     public void destroy() {
+        java.util.concurrent.ScheduledExecutorService ses = leaseRenewer;
+        if (ses != null) ses.shutdownNow();
         for (ProfileState state : profileByName.values()) {
             try {
                 if (state.requestFactory != null) state.requestFactory.destroy();
@@ -181,6 +189,54 @@ public class LlmFacadeImpl implements LlmFacade {
         return conversationId != null && cancelledIds.containsKey(conversationId);
     }
     /** True while a turn in this JVM has claimed the conversation and not released it. */
+    public String getNodeId() { return nodeId; }
+
+    /** Start the renewal task the first time a turn is claimed. Daemon thread, stopped by destroy(). */
+    private synchronized void ensureLeaseRenewer() {
+        if (leaseRenewer != null) return;
+        java.util.concurrent.ScheduledExecutorService ses = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "llm-lease-renew");
+            t.setDaemon(true);
+            return t;
+        });
+        ses.scheduleWithFixedDelay(this::renewLeasesNow, LEASE_RENEW_SECONDS, LEASE_RENEW_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
+        leaseRenewer = ses;
+    }
+
+    /** Push turnLeaseThru forward for every turn running on this node. Public so tests can drive it. */
+    public void renewLeasesNow() {
+        if (activeTurns.isEmpty()) return;
+        org.moqui.impl.context.ExecutionContextImpl eci = null;
+        // The scheduler thread has no context of its own. A caller that already has one keeps it.
+        boolean ownContext = ecfi.getActiveExecutionContext() == null;
+        boolean authzWasDisabled = false;
+        try {
+            eci = ecfi.getEci();
+            authzWasDisabled = eci.getArtifactExecution().disableAuthz();
+            org.moqui.context.TransactionFacade tf = eci.getTransaction();
+            boolean began = tf.begin(30);
+            try {
+                java.sql.Timestamp thru = new java.sql.Timestamp(System.currentTimeMillis() + LEASE_SECONDS * 1000L);
+                for (String id : new ArrayList<>(activeTurns.keySet())) {
+                    // Only this node's own rows, so a row another node has since taken over is left alone
+                    eci.getEntity().find("moqui.llm.LlmConversation").condition("conversationId", id)
+                            .condition("turnOwner", nodeId).updateAll(java.util.Collections.singletonMap("turnLeaseThru", thru));
+                }
+                tf.commit(began);
+            } catch (Throwable t) {
+                tf.rollback(began, "renew LLM turn leases", t);
+                throw t;
+            }
+        } catch (Throwable t) {
+            logger.warn("Could not renew LLM turn leases: " + t.getMessage());
+        } finally {
+            if (eci != null) {
+                if (ownContext) { try { eci.destroy(); } catch (Throwable ignored) { } }
+                else if (!authzWasDisabled) eci.getArtifactExecution().enableAuthz();
+            }
+        }
+    }
+
     public boolean turnClaimed(String conversationId) {
         return conversationId != null && activeTurns.containsKey(conversationId);
     }
@@ -189,6 +245,7 @@ public class LlmFacadeImpl implements LlmFacade {
         if (conversationId == null || conversationId.isBlank()) return 0L;
         long token = activeTurnSeq.incrementAndGet();
         activeTurns.put(conversationId, token);
+        ensureLeaseRenewer();
         return token;
     }
     public void releaseTurn(String conversationId, long token) {
@@ -287,55 +344,128 @@ public class LlmFacadeImpl implements LlmFacade {
         public final List<BasicEntityAllow> allowedBasicEntities;
         public final LlmApiConfig apiConfig;
 
-        ProfileState(String name, MNode confNode, String url, String path, String endpointUrl, String apiKey,
-                String authHeaderName, String authHeaderValue, String model, String maxTokensParameter,
-                boolean allowTxOverHttp, int timeoutSeconds, float retryInitialSeconds, int retryMax,
-                boolean timeoutRetry, int emptyRetries,
-                Integer maxTokens, Double temperature, boolean logContent,
-                Map<String, String> extraHeaders, Map<String, String> extraQuery,
-                RestClient.PooledRequestFactory requestFactory, LlmProtocol protocol,
-                Set<String> allowedEntities, List<AllowedPath> allowedPaths,
-                boolean allowWriteUi, int ssePingSeconds, String systemLocation, boolean allowClientSystem,
-                boolean allowBrowse, boolean allowRunService, boolean allowUnprefixedRequest,
-                boolean allowEnterSim, boolean allowVueSfc, boolean summarizeConversation,
-                List<BasicEntityAllow> allowedBasicEntities, LlmApiConfig apiConfig) {
-            this.name = name;
-            this.confNode = confNode;
-            this.url = url;
-            this.path = path;
-            this.endpointUrl = endpointUrl;
-            this.apiKey = apiKey;
-            this.authHeaderName = authHeaderName;
-            this.authHeaderValue = authHeaderValue;
-            this.model = model;
-            this.maxTokensParameter = maxTokensParameter;
-            this.allowTxOverHttp = allowTxOverHttp;
-            this.timeoutSeconds = timeoutSeconds;
-            this.retryInitialSeconds = retryInitialSeconds;
-            this.retryMax = retryMax;
-            this.timeoutRetry = timeoutRetry;
-            this.emptyRetries = emptyRetries;
-            this.maxTokens = maxTokens;
-            this.temperature = temperature;
-            this.logContent = logContent;
-            this.extraHeaders = extraHeaders;
-            this.extraQuery = extraQuery;
-            this.requestFactory = requestFactory;
-            this.protocol = protocol;
-            this.allowedEntities = allowedEntities;
-            this.allowedPaths = allowedPaths;
-            this.allowWriteUi = allowWriteUi;
-            this.ssePingSeconds = ssePingSeconds > 0 ? ssePingSeconds : 15;
-            this.systemLocation = systemLocation;
-            this.allowClientSystem = allowClientSystem;
-            this.allowBrowse = allowBrowse;
-            this.allowRunService = allowRunService;
-            this.allowUnprefixedRequest = allowUnprefixedRequest;
-            this.allowEnterSim = allowEnterSim;
-            this.allowVueSfc = allowVueSfc;
-            this.summarizeConversation = summarizeConversation;
-            this.allowedBasicEntities = allowedBasicEntities != null ? allowedBasicEntities : Collections.emptyList();
-            this.apiConfig = apiConfig != null ? apiConfig : LlmApiConfig.none();
+        /**
+         * Builds a ProfileState with defaults for everything a caller does not set, so a profile is written by name rather than
+         * by position in a 38-argument constructor. The defaults are those of a profile with no configuration beyond a name.
+         */
+        static final class Builder {
+            String name;
+            MNode confNode;
+            String url;
+            String path;
+            String endpointUrl;
+            String apiKey = "";
+            String authHeaderName = "Authorization";
+            String authHeaderValue;
+            String model = "";
+            String maxTokensParameter;
+            boolean allowTxOverHttp;
+            int timeoutSeconds = 120;
+            float retryInitialSeconds = 2.0f;
+            int retryMax = 5;
+            boolean timeoutRetry = true;
+            int emptyRetries;
+            Integer maxTokens;
+            Double temperature;
+            boolean logContent;
+            Map<String, String> extraHeaders = Collections.emptyMap();
+            Map<String, String> extraQuery = Collections.emptyMap();
+            RestClient.PooledRequestFactory requestFactory;
+            LlmProtocol protocol;
+            Set<String> allowedEntities = Collections.emptySet();
+            List<AllowedPath> allowedPaths = Collections.emptyList();
+            boolean allowWriteUi;
+            int ssePingSeconds = 15;
+            String systemLocation;
+            boolean allowClientSystem = true;
+            boolean allowBrowse;
+            boolean allowRunService;
+            boolean allowUnprefixedRequest;
+            boolean allowEnterSim;
+            boolean allowVueSfc;
+            boolean summarizeConversation;
+            List<BasicEntityAllow> allowedBasicEntities = Collections.emptyList();
+            LlmApiConfig apiConfig = LlmApiConfig.none();
+
+            Builder name(String v) { this.name = v; return this; }
+            Builder confNode(MNode v) { this.confNode = v; return this; }
+            Builder url(String v) { this.url = v; return this; }
+            Builder path(String v) { this.path = v; return this; }
+            Builder endpointUrl(String v) { this.endpointUrl = v; return this; }
+            Builder apiKey(String v) { this.apiKey = v; return this; }
+            Builder authHeaderName(String v) { this.authHeaderName = v; return this; }
+            Builder authHeaderValue(String v) { this.authHeaderValue = v; return this; }
+            Builder model(String v) { this.model = v; return this; }
+            Builder maxTokensParameter(String v) { this.maxTokensParameter = v; return this; }
+            Builder allowTxOverHttp(boolean v) { this.allowTxOverHttp = v; return this; }
+            Builder timeoutSeconds(int v) { this.timeoutSeconds = v; return this; }
+            Builder retryInitialSeconds(float v) { this.retryInitialSeconds = v; return this; }
+            Builder retryMax(int v) { this.retryMax = v; return this; }
+            Builder timeoutRetry(boolean v) { this.timeoutRetry = v; return this; }
+            Builder emptyRetries(int v) { this.emptyRetries = v; return this; }
+            Builder maxTokens(Integer v) { this.maxTokens = v; return this; }
+            Builder temperature(Double v) { this.temperature = v; return this; }
+            Builder logContent(boolean v) { this.logContent = v; return this; }
+            Builder extraHeaders(Map<String, String> v) { this.extraHeaders = v; return this; }
+            Builder extraQuery(Map<String, String> v) { this.extraQuery = v; return this; }
+            Builder requestFactory(RestClient.PooledRequestFactory v) { this.requestFactory = v; return this; }
+            Builder protocol(LlmProtocol v) { this.protocol = v; return this; }
+            Builder allowedEntities(Set<String> v) { this.allowedEntities = v; return this; }
+            Builder allowedPaths(List<AllowedPath> v) { this.allowedPaths = v; return this; }
+            Builder allowWriteUi(boolean v) { this.allowWriteUi = v; return this; }
+            Builder ssePingSeconds(int v) { this.ssePingSeconds = v; return this; }
+            Builder systemLocation(String v) { this.systemLocation = v; return this; }
+            Builder allowClientSystem(boolean v) { this.allowClientSystem = v; return this; }
+            Builder allowBrowse(boolean v) { this.allowBrowse = v; return this; }
+            Builder allowRunService(boolean v) { this.allowRunService = v; return this; }
+            Builder allowUnprefixedRequest(boolean v) { this.allowUnprefixedRequest = v; return this; }
+            Builder allowEnterSim(boolean v) { this.allowEnterSim = v; return this; }
+            Builder allowVueSfc(boolean v) { this.allowVueSfc = v; return this; }
+            Builder summarizeConversation(boolean v) { this.summarizeConversation = v; return this; }
+            Builder allowedBasicEntities(List<BasicEntityAllow> v) { this.allowedBasicEntities = v; return this; }
+            Builder apiConfig(LlmApiConfig v) { this.apiConfig = v; return this; }
+
+            ProfileState build() { return new ProfileState(this); }
+        }
+
+        ProfileState(Builder b) {
+            this.name = b.name;
+            this.confNode = b.confNode;
+            this.url = b.url;
+            this.path = b.path;
+            this.endpointUrl = b.endpointUrl;
+            this.apiKey = b.apiKey;
+            this.authHeaderName = b.authHeaderName;
+            this.authHeaderValue = b.authHeaderValue;
+            this.model = b.model;
+            this.maxTokensParameter = b.maxTokensParameter;
+            this.allowTxOverHttp = b.allowTxOverHttp;
+            this.timeoutSeconds = b.timeoutSeconds;
+            this.retryInitialSeconds = b.retryInitialSeconds;
+            this.retryMax = b.retryMax;
+            this.timeoutRetry = b.timeoutRetry;
+            this.emptyRetries = b.emptyRetries;
+            this.maxTokens = b.maxTokens;
+            this.temperature = b.temperature;
+            this.logContent = b.logContent;
+            this.extraHeaders = b.extraHeaders;
+            this.extraQuery = b.extraQuery;
+            this.requestFactory = b.requestFactory;
+            this.protocol = b.protocol;
+            this.allowedEntities = b.allowedEntities;
+            this.allowedPaths = b.allowedPaths;
+            this.allowWriteUi = b.allowWriteUi;
+            this.ssePingSeconds = b.ssePingSeconds > 0 ? b.ssePingSeconds : 15;
+            this.systemLocation = b.systemLocation;
+            this.allowClientSystem = b.allowClientSystem;
+            this.allowBrowse = b.allowBrowse;
+            this.allowRunService = b.allowRunService;
+            this.allowUnprefixedRequest = b.allowUnprefixedRequest;
+            this.allowEnterSim = b.allowEnterSim;
+            this.allowVueSfc = b.allowVueSfc;
+            this.summarizeConversation = b.summarizeConversation;
+            this.allowedBasicEntities = b.allowedBasicEntities != null ? b.allowedBasicEntities : Collections.emptyList();
+            this.apiConfig = b.apiConfig != null ? b.apiConfig : LlmApiConfig.none();
         }
 
         static ProfileState fromConf(String name, MNode node, ExecutionContextFactoryImpl ecfi) {
@@ -429,15 +559,45 @@ public class LlmFacadeImpl implements LlmFacade {
             RestClient.PooledRequestFactory rf = new RestClient.PooledRequestFactory("llm-" + name);
             rf.poolSize(poolMax).queueSize(queueSize).init();
 
-            return new ProfileState(name, node, url, path, endpointUrl, apiKey, authHeaderName, authHeaderValue,
-                    model, maxTokensParameter, allowTxOverHttp, timeoutSeconds, retryInitialSeconds, retryMax,
-                    timeoutRetry, emptyRetries, maxTokens, temperature, logContent,
-                    Collections.unmodifiableMap(extraHeaders), Collections.unmodifiableMap(extraQuery),
-                    rf, protocol, Collections.unmodifiableSet(allowedEntities),
-                    Collections.unmodifiableList(allowedPaths), allowWriteUi, ssePingSeconds,
-                    systemLocation, allowClientSystem, allowBrowse, allowRunService, allowUnprefixedRequest,
-                    allowEnterSim, allowVueSfc, summarizeConversation, Collections.unmodifiableList(allowedBasic),
-                    apiConfig);
+            return new Builder()
+                    .name(name)
+                    .confNode(node)
+                    .url(url)
+                    .path(path)
+                    .endpointUrl(endpointUrl)
+                    .apiKey(apiKey)
+                    .authHeaderName(authHeaderName)
+                    .authHeaderValue(authHeaderValue)
+                    .model(model)
+                    .maxTokensParameter(maxTokensParameter)
+                    .allowTxOverHttp(allowTxOverHttp)
+                    .timeoutSeconds(timeoutSeconds)
+                    .retryInitialSeconds(retryInitialSeconds)
+                    .retryMax(retryMax)
+                    .timeoutRetry(timeoutRetry)
+                    .emptyRetries(emptyRetries)
+                    .maxTokens(maxTokens)
+                    .temperature(temperature)
+                    .logContent(logContent)
+                    .extraHeaders(Collections.unmodifiableMap(extraHeaders))
+                    .extraQuery(Collections.unmodifiableMap(extraQuery))
+                    .requestFactory(rf)
+                    .protocol(protocol)
+                    .allowedEntities(Collections.unmodifiableSet(allowedEntities))
+                    .allowedPaths(Collections.unmodifiableList(allowedPaths))
+                    .allowWriteUi(allowWriteUi)
+                    .ssePingSeconds(ssePingSeconds)
+                    .systemLocation(systemLocation)
+                    .allowClientSystem(allowClientSystem)
+                    .allowBrowse(allowBrowse)
+                    .allowRunService(allowRunService)
+                    .allowUnprefixedRequest(allowUnprefixedRequest)
+                    .allowEnterSim(allowEnterSim)
+                    .allowVueSfc(allowVueSfc)
+                    .summarizeConversation(summarizeConversation)
+                    .allowedBasicEntities(Collections.unmodifiableList(allowedBasic))
+                    .apiConfig(apiConfig)
+                    .build();
         }
 
         /** Profile path, or the protocol default when the attribute is omitted. An explicit path is kept. */
@@ -453,23 +613,14 @@ public class LlmFacadeImpl implements LlmFacade {
         /** Test helper: no HTTP pool. */
         public static ProfileState forTest(String name, LlmProtocol protocol, String model,
                 boolean allowTxOverHttp, int emptyRetries, float retryInitialSeconds, int retryMax) {
-            return forTest(name, protocol, model, allowTxOverHttp, emptyRetries, retryInitialSeconds, retryMax,
-                    Collections.emptyList(), false);
+            return testBuilder(name, protocol, model, allowTxOverHttp, emptyRetries, retryInitialSeconds, retryMax).build();
         }
         public static ProfileState forTest(String name, LlmProtocol protocol, String model,
                 boolean allowTxOverHttp, int emptyRetries, float retryInitialSeconds, int retryMax,
                 List<AllowedPath> allowedPaths, boolean allowWriteUi) {
-            if (protocol == null) protocol = new OpenAiCompatProtocol();
-            return new ProfileState(name, null, "http://127.0.0.1", OpenAiCompatProtocol.DEFAULT_PATH,
-                    "http://127.0.0.1/v1/chat/completions", "", "Authorization", null,
-                    model != null ? model : "", "max_tokens", allowTxOverHttp, 120,
-                    retryInitialSeconds, retryMax, true, emptyRetries,
-                    null, null, false,
-                    Collections.emptyMap(), Collections.emptyMap(), null, protocol,
-                    Collections.emptySet(),
-                    allowedPaths != null ? allowedPaths : Collections.emptyList(),
-                    allowWriteUi, 15, null, true, false, false, false, false, false, false,
-                    Collections.emptyList(), LlmApiConfig.none());
+            return testBuilder(name, protocol, model, allowTxOverHttp, emptyRetries, retryInitialSeconds, retryMax)
+                    .allowedPaths(allowedPaths != null ? allowedPaths : Collections.emptyList())
+                    .allowWriteUi(allowWriteUi).allowClientSystem(false).build();
         }
         public static ProfileState forTest(String name, LlmProtocol protocol, String model,
                 boolean allowTxOverHttp, int emptyRetries, float retryInitialSeconds, int retryMax,
@@ -499,17 +650,21 @@ public class LlmFacadeImpl implements LlmFacade {
                 List<AllowedPath> allowedPaths, boolean allowWriteUi, boolean allowUnprefixedRequest,
                 boolean allowBrowse, boolean allowRunService, boolean allowClientSystem, boolean allowEnterSim,
                 boolean summarizeConversation) {
-            if (protocol == null) protocol = new OpenAiCompatProtocol();
-            return new ProfileState(name, null, "http://127.0.0.1", OpenAiCompatProtocol.DEFAULT_PATH,
-                    "http://127.0.0.1/v1/chat/completions", "", "Authorization", null,
-                    model != null ? model : "", "max_tokens", allowTxOverHttp, 120,
-                    retryInitialSeconds, retryMax, true, emptyRetries,
-                    null, null, false,
-                    Collections.emptyMap(), Collections.emptyMap(), null, protocol,
-                    Collections.emptySet(),
-                    allowedPaths != null ? allowedPaths : Collections.emptyList(),
-                    allowWriteUi, 15, null, allowClientSystem, allowBrowse, allowRunService, allowUnprefixedRequest,
-                    allowEnterSim, false, summarizeConversation, Collections.emptyList(), LlmApiConfig.none());
+            return testBuilder(name, protocol, model, allowTxOverHttp, emptyRetries, retryInitialSeconds, retryMax)
+                    .allowedPaths(allowedPaths != null ? allowedPaths : Collections.emptyList())
+                    .allowWriteUi(allowWriteUi).allowUnprefixedRequest(allowUnprefixedRequest).allowBrowse(allowBrowse)
+                    .allowRunService(allowRunService).allowClientSystem(allowClientSystem).allowEnterSim(allowEnterSim)
+                    .summarizeConversation(summarizeConversation).build();
+        }
+
+        /** A local profile with no HTTP pool. Tests and callers that only need a profile shape start here. */
+        static Builder testBuilder(String name, LlmProtocol protocol, String model, boolean allowTxOverHttp,
+                int emptyRetries, float retryInitialSeconds, int retryMax) {
+            return new Builder().name(name).url("http://127.0.0.1").path(OpenAiCompatProtocol.DEFAULT_PATH)
+                    .endpointUrl("http://127.0.0.1/v1/chat/completions").model(model != null ? model : "")
+                    .maxTokensParameter("max_tokens").allowTxOverHttp(allowTxOverHttp).emptyRetries(emptyRetries)
+                    .retryInitialSeconds(retryInitialSeconds).retryMax(retryMax)
+                    .protocol(protocol != null ? protocol : new OpenAiCompatProtocol());
         }
     }
 

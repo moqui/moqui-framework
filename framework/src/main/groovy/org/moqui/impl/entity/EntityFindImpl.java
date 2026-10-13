@@ -56,6 +56,7 @@ public class EntityFindImpl extends EntityFindBase {
             // Actual-entity one(): miss in H2 means copy-on-read from production via onePut in EntityFindBase.
             // View-entity one(): query H2 after copying production members (overlay creates have no production row).
             if (ed.isViewEntity) {
+                if (db.answerAggregateViewFromProduction(ed)) return oneInternal(whereCondition, fieldInfoArray, fieldOptionsArray, null);
                 db.ensureReady(ed);
                 db.beginBypass();
                 try {
@@ -64,6 +65,12 @@ public class EntityFindImpl extends EntityFindBase {
                 } finally {
                     db.endBypass();
                 }
+                return oneInternal(whereCondition, fieldInfoArray, fieldOptionsArray, db);
+            }
+            // Not a pure key lookup (find by name or status, or key plus other conditions): production alone would
+            // miss rows created or changed in the sim and return a stale one. Copy the matches, then ask the overlay.
+            if (!isPurePkFind()) {
+                copyWorkingSet(db, whereCondition, null, new ArrayList<>(), fieldInfoArray, fieldOptionsArray, false);
                 return oneInternal(whereCondition, fieldInfoArray, fieldOptionsArray, db);
             }
         }
@@ -153,6 +160,9 @@ public class EntityFindImpl extends EntityFindBase {
                                                ArrayList<String> orderByExpanded, FieldInfo[] fieldInfoArray,
                                                FieldOrderOptions[] fieldOptionsArray) throws SQLException {
         TransactionCacheDb db = overlayDb();
+        if (db != null && db.answerAggregateViewFromProduction(getEntityDef())) {
+            return iteratorInternal(whereCondition, havingCondition, orderByExpanded, fieldInfoArray, fieldOptionsArray, null, null);
+        }
         if (db != null) {
             copyWorkingSet(db, whereCondition, havingCondition, orderByExpanded, fieldInfoArray, fieldOptionsArray, false);
             return iteratorInternal(whereCondition, havingCondition, orderByExpanded, fieldInfoArray, fieldOptionsArray,
@@ -290,6 +300,9 @@ public class EntityFindImpl extends EntityFindBase {
     public long countExtended(EntityConditionImplBase whereCondition, EntityConditionImplBase havingCondition,
                               FieldInfo[] fieldInfoArray, FieldOrderOptions[] fieldOptionsArray) throws SQLException {
         TransactionCacheDb db = overlayDb();
+        if (db != null && db.answerAggregateViewFromProduction(getEntityDef())) {
+            return countInternal(whereCondition, havingCondition, fieldInfoArray, fieldOptionsArray, null);
+        }
         if (db != null) {
             copyWorkingSet(db, whereCondition, havingCondition, null, fieldInfoArray, fieldOptionsArray, true);
             return countInternal(whereCondition, havingCondition, fieldInfoArray, fieldOptionsArray, db);

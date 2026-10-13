@@ -47,11 +47,6 @@ public class WriteUiTool implements LlmTool {
     // FUTURE: KIND_SCREEN_XML = "screen-xml" (server round-trip compile/render of generated XML screen)
     static final int MAX_SFC_CHARS = 64 * 1024;
     static final int MAX_LANG_CHARS = 64 * 1024;
-    static final Pattern LINK_TAG = Pattern.compile("(?is)<link\\b[^>]*(?:/>|>)(?:\\s*</link>)?");
-    static final Pattern SCRIPT_SRC = Pattern.compile(
-            "(?is)(<script\\b[^>]*?)\\ssrc\\s*=\\s*(?:'[^']*'|\"[^\"]*\"|[^\\s>]+)");
-    static final Pattern STYLE_SRC = Pattern.compile(
-            "(?is)(<style\\b[^>]*?)\\ssrc\\s*=\\s*(?:'[^']*'|\"[^\"]*\"|[^\\s>]+)");
     static final Pattern TEMPLATE_TAG = Pattern.compile("(?is)<template\\b");
     static final Set<String> WIDGETS = new LinkedHashSet<>(Arrays.asList(
             "text-line", "text-area", "drop-down", "date-time", "check", "radio",
@@ -89,46 +84,46 @@ public class WriteUiTool implements LlmTool {
         Map<String, Object> option = new LinkedHashMap<>();
         option.put("type", "object");
         Map<String, Object> optionProps = new LinkedHashMap<>();
-        optionProps.put("key", mapOf("type", "string"));
-        optionProps.put("text", mapOf("type", "string"));
+        optionProps.put("key", CanvasSanitizer.mapOf("type", "string"));
+        optionProps.put("text", CanvasSanitizer.mapOf("type", "string"));
         option.put("properties", optionProps);
         Map<String, Object> field = new LinkedHashMap<>();
         field.put("type", "object");
         field.put("required", Arrays.asList("name", "widget"));
         Map<String, Object> fieldProps = new LinkedHashMap<>();
-        fieldProps.put("name", mapOf("type", "string"));
-        fieldProps.put("label", mapOf("type", "string"));
-        fieldProps.put("help", mapOf("type", "string"));
+        fieldProps.put("name", CanvasSanitizer.mapOf("type", "string"));
+        fieldProps.put("label", CanvasSanitizer.mapOf("type", "string"));
+        fieldProps.put("help", CanvasSanitizer.mapOf("type", "string"));
         fieldProps.put("widget", widget);
         fieldProps.put("widgetType", widgetType);
-        fieldProps.put("required", mapOf("type", "boolean"));
+        fieldProps.put("required", CanvasSanitizer.mapOf("type", "boolean"));
         fieldProps.put("defaultValue", new LinkedHashMap<>());
         Map<String, Object> options = new LinkedHashMap<>();
         options.put("type", "array");
         options.put("items", option);
         fieldProps.put("options", options);
-        fieldProps.put("entityName", mapOf("type", "string"));
-        fieldProps.put("entityField", mapOf("type", "string"));
-        fieldProps.put("entityFindOptions", mapOf("type", "object"));
+        fieldProps.put("entityName", CanvasSanitizer.mapOf("type", "string"));
+        fieldProps.put("entityField", CanvasSanitizer.mapOf("type", "string"));
+        fieldProps.put("entityFindOptions", CanvasSanitizer.mapOf("type", "object"));
         field.put("properties", fieldProps);
         Map<String, Object> prefill = new LinkedHashMap<>();
         prefill.put("type", "object");
         Map<String, Object> prefillProps = new LinkedHashMap<>();
-        prefillProps.put("entityName", mapOf("type", "string"));
-        prefillProps.put("pk", mapOf("type", "object"));
-        prefillProps.put("fromConversation", mapOf("type", "boolean"));
+        prefillProps.put("entityName", CanvasSanitizer.mapOf("type", "string"));
+        prefillProps.put("pk", CanvasSanitizer.mapOf("type", "object"));
+        prefillProps.put("fromConversation", CanvasSanitizer.mapOf("type", "boolean"));
         prefill.put("properties", prefillProps);
         Map<String, Object> fields = new LinkedHashMap<>();
         fields.put("type", "array");
         fields.put("items", field);
         Map<String, Object> props = new LinkedHashMap<>();
-        props.put("title", mapOf("type", "string"));
-        Map<String, Object> instructionProp = mapOf("type", "string");
+        props.put("title", CanvasSanitizer.mapOf("type", "string"));
+        Map<String, Object> instructionProp = CanvasSanitizer.mapOf("type", "string");
         instructionProp.put("description", "One short sentence for the person, or omit. Not the lang program.");
         props.put("instruction", instructionProp);
-        props.put("submitLabel", mapOf("type", "string"));
-        props.put("cancelLabel", mapOf("type", "string"));
-        props.put("formId", mapOf("type", "string"));
+        props.put("submitLabel", CanvasSanitizer.mapOf("type", "string"));
+        props.put("cancelLabel", CanvasSanitizer.mapOf("type", "string"));
+        props.put("formId", CanvasSanitizer.mapOf("type", "string"));
         props.put("prefill", prefill);
         props.put("fields", fields);
         Map<String, Object> kindSchema = new LinkedHashMap<>();
@@ -137,25 +132,25 @@ public class WriteUiTool implements LlmTool {
         kindSchema.put("description", "openui: OpenUI Lang in lang (default when lang is present). "
                 + "vue-sfc: Vue 2 SFC escape hatch. form: legacy xml-form widgets.");
         props.put("kind", kindSchema);
-        Map<String, Object> langProp = mapOf("type", "string");
+        Map<String, Object> langProp = CanvasSanitizer.mapOf("type", "string");
         langProp.put("description", "OpenUI Lang program (kind=openui). One statement per line. root is a Stack of the screen.");
         props.put("lang", langProp);
-        Map<String, Object> sfcProp = mapOf("type", "string");
+        Map<String, Object> sfcProp = CanvasSanitizer.mapOf("type", "string");
         sfcProp.put("description", "Full Vue 2 SFC. Wins over template/script/style. module.exports, not export default.");
         props.put("sfc", sfcProp);
-        Map<String, Object> templateProp = mapOf("type", "string");
+        Map<String, Object> templateProp = CanvasSanitizer.mapOf("type", "string");
         templateProp.put("description", "Vue template inner HTML, or a full <template> block");
         props.put("template", templateProp);
-        Map<String, Object> scriptProp = mapOf("type", "string");
+        Map<String, Object> scriptProp = CanvasSanitizer.mapOf("type", "string");
         scriptProp.put("description", "Vue 2 script body assigning module.exports, or a full <script> block");
         props.put("script", scriptProp);
-        props.put("style", mapOf("type", "string"));
-        props.put("writeThrough", mapOf("type", "boolean"));
+        props.put("style", CanvasSanitizer.mapOf("type", "string"));
+        props.put("writeThrough", CanvasSanitizer.mapOf("type", "boolean"));
         Map<String, Object> col = new LinkedHashMap<>();
         col.put("type", "object");
         Map<String, Object> colProps = new LinkedHashMap<>();
-        colProps.put("name", mapOf("type", "string"));
-        colProps.put("label", mapOf("type", "string"));
+        colProps.put("name", CanvasSanitizer.mapOf("type", "string"));
+        colProps.put("label", CanvasSanitizer.mapOf("type", "string"));
         colProps.put("widget", widget);
         col.put("properties", colProps);
         Map<String, Object> columns = new LinkedHashMap<>();
@@ -164,19 +159,19 @@ public class WriteUiTool implements LlmTool {
         props.put("columns", columns);
         Map<String, Object> rows = new LinkedHashMap<>();
         rows.put("type", "array");
-        rows.put("items", mapOf("type", "object"));
+        rows.put("items", CanvasSanitizer.mapOf("type", "object"));
         props.put("rows", rows);
         Map<String, Object> action = new LinkedHashMap<>();
         action.put("type", "object");
         Map<String, Object> actionProps = new LinkedHashMap<>();
-        actionProps.put("id", mapOf("type", "string"));
-        actionProps.put("label", mapOf("type", "string"));
-        actionProps.put("method", mapOf("type", "string"));
-        actionProps.put("path", mapOf("type", "string"));
-        actionProps.put("primary", mapOf("type", "boolean"));
+        actionProps.put("id", CanvasSanitizer.mapOf("type", "string"));
+        actionProps.put("label", CanvasSanitizer.mapOf("type", "string"));
+        actionProps.put("method", CanvasSanitizer.mapOf("type", "string"));
+        actionProps.put("path", CanvasSanitizer.mapOf("type", "string"));
+        actionProps.put("primary", CanvasSanitizer.mapOf("type", "boolean"));
         Map<String, Object> strArr = new LinkedHashMap<>();
         strArr.put("type", "array");
-        strArr.put("items", mapOf("type", "string"));
+        strArr.put("items", CanvasSanitizer.mapOf("type", "string"));
         actionProps.put("bodyFromFields", strArr);
         actionProps.put("queryFromFields", strArr);
         actionProps.put("bind", strArr);
@@ -213,6 +208,7 @@ public class WriteUiTool implements LlmTool {
         return this;
     }
 
+    @Override public boolean streamsPartialArguments() { return true; }
     @Override public String getName() { return NAME; }
     @Override public String getDescription() {
         return "Present a UI on Assist. Prefer kind=openui with lang (OpenUI Lang; root is a Stack; "
@@ -236,20 +232,20 @@ public class WriteUiTool implements LlmTool {
     @Override
     @SuppressWarnings("unchecked")
     public Map<String, Object> enrichForClient(Map<String, Object> arguments, ExecutionContext ec) {
-        Map<String, Object> out = arguments != null ? deepCopy(arguments) : new LinkedHashMap<>();
+        Map<String, Object> out = arguments != null ? CanvasSanitizer.deepCopy(arguments) : new LinkedHashMap<>();
         out.put("schemaVersion", SCHEMA_VERSION);
-        sanitizeString(out, "title");
-        sanitizeString(out, "instruction");
-        sanitizeString(out, "submitLabel");
-        sanitizeString(out, "cancelLabel");
-        sanitizeString(out, "formId");
+        CanvasSanitizer.sanitizeString(out, "title");
+        CanvasSanitizer.sanitizeString(out, "instruction");
+        CanvasSanitizer.sanitizeString(out, "submitLabel");
+        CanvasSanitizer.sanitizeString(out, "cancelLabel");
+        CanvasSanitizer.sanitizeString(out, "formId");
 
         Object fieldsObj = out.get("fields");
         List<Map<String, Object>> kept = new ArrayList<>();
         if (fieldsObj instanceof List) {
             for (Object item : (List<?>) fieldsObj) {
                 if (!(item instanceof Map)) continue;
-                Map<String, Object> field = deepCopy((Map<String, Object>) item);
+                Map<String, Object> field = CanvasSanitizer.deepCopy((Map<String, Object>) item);
                 String name = str(field.get("name"));
                 String widget = str(field.get("widget"));
                 if (name == null || name.isBlank() || widget == null) continue;
@@ -263,14 +259,14 @@ public class WriteUiTool implements LlmTool {
                 if ("hidden".equals(widget) && HIDDEN_FORBIDDEN.contains(name.toLowerCase(Locale.ROOT))) continue;
                 String wt = str(field.get("widgetType"));
                 if (wt != null && !DATE_TYPES.contains(wt)) field.remove("widgetType");
-                sanitizeString(field, "label");
-                sanitizeString(field, "help");
+                CanvasSanitizer.sanitizeString(field, "label");
+                CanvasSanitizer.sanitizeString(field, "help");
                 Object dv = field.get("defaultValue");
                 if (dv instanceof Map || dv instanceof List) field.remove("defaultValue");
                 else if (dv instanceof CharSequence)
-                    field.put("defaultValue", clean(dv.toString()));
+                    field.put("defaultValue", CanvasSanitizer.clean(dv.toString()));
                 else if (dv != null && !(dv instanceof Number) && !(dv instanceof Boolean))
-                    field.put("defaultValue", clean(dv.toString()));
+                    field.put("defaultValue", CanvasSanitizer.clean(dv.toString()));
                 if ("date-time".equals(widget) && field.containsKey("defaultValue")) {
                     Object normalized = DateDefaults.normalize(field.get("defaultValue"), str(field.get("widgetType")),
                             System.currentTimeMillis(), DateDefaults.dateLocale(ec), DateDefaults.dateZone(ec));
@@ -281,14 +277,14 @@ public class WriteUiTool implements LlmTool {
                     List<Map<String, Object>> cleanOpts = new ArrayList<>();
                     for (Object opt : (List<?>) options) {
                         if (!(opt instanceof Map)) continue;
-                        Map<String, Object> om = deepCopy((Map<String, Object>) opt);
-                        sanitizeString(om, "text");
-                        sanitizeString(om, "key");
-                        cleanOpts.add(keepKeys(om, OPTION_KEYS));
+                        Map<String, Object> om = CanvasSanitizer.deepCopy((Map<String, Object>) opt);
+                        CanvasSanitizer.sanitizeString(om, "text");
+                        CanvasSanitizer.sanitizeString(om, "key");
+                        cleanOpts.add(CanvasSanitizer.keepKeys(om, OPTION_KEYS));
                     }
                     field.put("options", cleanOpts);
                 }
-                kept.add(keepKeys(field, FIELD_KEYS));
+                kept.add(CanvasSanitizer.keepKeys(field, FIELD_KEYS));
             }
         }
         out.put("fields", kept);
@@ -321,15 +317,15 @@ public class WriteUiTool implements LlmTool {
         }
         if (!(out.get("writeThrough") instanceof Boolean)) out.put("writeThrough", Boolean.FALSE);
 
-        out.put("columns", cleanColumns(out.get("columns")));
-        out.put("rows", cleanRows(out.get("rows")));
-        out.put("actions", cleanActions(out.get("actions")));
-        out.put("removeFields", cleanStringList(out.get("removeFields")));
-        out.put("removeActions", cleanStringList(out.get("removeActions")));
+        out.put("columns", CanvasSanitizer.cleanColumns(out.get("columns")));
+        out.put("rows", CanvasSanitizer.cleanRows(out.get("rows")));
+        out.put("actions", CanvasSanitizer.cleanActions(out.get("actions")));
+        out.put("removeFields", CanvasSanitizer.cleanStringList(out.get("removeFields")));
+        out.put("removeActions", CanvasSanitizer.cleanStringList(out.get("removeActions")));
 
         Object prefillObj = out.get("prefill");
         if (prefillObj instanceof Map) {
-            Map<String, Object> prefill = keepKeys(deepCopy((Map<String, Object>) prefillObj), PREFILL_KEYS);
+            Map<String, Object> prefill = CanvasSanitizer.keepKeys(CanvasSanitizer.deepCopy((Map<String, Object>) prefillObj), PREFILL_KEYS);
             String entityName = str(prefill.get("entityName"));
             Object pkObj = prefill.get("pk");
             if (entityName != null && !entityName.isBlank() && pkObj instanceof Map) {
@@ -344,7 +340,7 @@ public class WriteUiTool implements LlmTool {
                 out.put("prefill", prefill);
             }
         }
-        return keepKeys(out, TOP_KEYS);
+        return CanvasSanitizer.keepKeys(out, TOP_KEYS);
     }
 
     /**
@@ -360,13 +356,13 @@ public class WriteUiTool implements LlmTool {
         boolean writeThrough = Boolean.TRUE.equals(next.get("writeThrough")) && last != null;
         Map<String, Object> merged = writeThrough ? mergeCanvas(last, next) : next;
         merged.put("schemaVersion", SCHEMA_VERSION);
-        if (impl != null) impl.setCanvasMap(deepCopy(merged));
+        if (impl != null) impl.setCanvasMap(CanvasSanitizer.deepCopy(merged));
         return merged;
     }
 
     @SuppressWarnings("unchecked")
     static Map<String, Object> mergeCanvas(Map<String, Object> last, Map<String, Object> incoming) {
-        Map<String, Object> out = deepCopy(last);
+        Map<String, Object> out = CanvasSanitizer.deepCopy(last);
         for (String key : Arrays.asList("title", "instruction", "submitLabel", "cancelLabel", "formId")) {
             if (incoming.containsKey(key) && incoming.get(key) != null) out.put(key, incoming.get(key));
         }
@@ -383,7 +379,7 @@ public class WriteUiTool implements LlmTool {
             if (hasLang(incoming)) {
                 String lastLang = str(out.get("lang"));
                 String nextLang = str(incoming.get("lang"));
-                out.put("lang", mergeLang(lastLang, nextLang));
+                out.put("lang", OpenUiLangMerge.mergeLang(lastLang, nextLang));
                 out.remove("langError");
             }
         } else if (KIND_VUE_SFC.equals(nextKind)) {
@@ -407,18 +403,18 @@ public class WriteUiTool implements LlmTool {
             out.remove("lang");
             out.remove("langError");
         }
-        List<Map<String, Object>> fields = mergeByName(asMapList(out.get("fields")), asMapList(incoming.get("fields")),
-                asStringList(incoming.get("removeFields")));
+        List<Map<String, Object>> fields = mergeByName(CanvasSanitizer.asMapList(out.get("fields")), CanvasSanitizer.asMapList(incoming.get("fields")),
+                CanvasSanitizer.asStringList(incoming.get("removeFields")));
         out.put("fields", fields);
         if (incoming.containsKey("columns")) out.put("columns", incoming.get("columns"));
         if (incoming.containsKey("rows")) out.put("rows", incoming.get("rows"));
-        List<Map<String, Object>> actions = mergeByName(asMapList(out.get("actions")), asMapList(incoming.get("actions")),
-                asStringList(incoming.get("removeActions")));
+        List<Map<String, Object>> actions = mergeByName(CanvasSanitizer.asMapList(out.get("actions")), CanvasSanitizer.asMapList(incoming.get("actions")),
+                CanvasSanitizer.asStringList(incoming.get("removeActions")));
         out.put("actions", actions);
         out.remove("removeFields");
         out.remove("removeActions");
         out.put("writeThrough", Boolean.TRUE);
-        return keepKeys(out, TOP_KEYS);
+        return CanvasSanitizer.keepKeys(out, TOP_KEYS);
     }
 
     static List<Map<String, Object>> mergeByName(List<Map<String, Object>> base, List<Map<String, Object>> overlay,
@@ -437,60 +433,6 @@ public class WriteUiTool implements LlmTool {
             byName.put(n, m);
         }
         return new ArrayList<>(byName.values());
-    }
-
-    @SuppressWarnings("unchecked")
-    static List<Map<String, Object>> cleanColumns(Object obj) {
-        List<Map<String, Object>> out = new ArrayList<>();
-        if (!(obj instanceof List)) return out;
-        for (Object item : (List<?>) obj) {
-            if (!(item instanceof Map)) continue;
-            Map<String, Object> col = keepKeys(deepCopy((Map<String, Object>) item), COLUMN_KEYS);
-            sanitizeString(col, "name");
-            sanitizeString(col, "label");
-            String widget = str(col.get("widget"));
-            if (widget != null && !WIDGETS.contains(widget)) col.put("widget", "display");
-            if (str(col.get("name")) != null) out.add(col);
-        }
-        return out;
-    }
-    @SuppressWarnings("unchecked")
-    static List<Map<String, Object>> cleanRows(Object obj) {
-        List<Map<String, Object>> out = new ArrayList<>();
-        if (!(obj instanceof List)) return out;
-        for (Object item : (List<?>) obj) {
-            if (!(item instanceof Map)) continue;
-            Map<String, Object> row = deepCopy((Map<String, Object>) item);
-            for (Map.Entry<String, Object> e : new ArrayList<>(row.entrySet())) {
-                if (e.getValue() instanceof CharSequence)
-                    row.put(e.getKey(), clean(e.getValue().toString()));
-            }
-            out.add(row);
-        }
-        return out;
-    }
-    @SuppressWarnings("unchecked")
-    static List<Map<String, Object>> cleanActions(Object obj) {
-        List<Map<String, Object>> out = new ArrayList<>();
-        if (!(obj instanceof List)) return out;
-        for (Object item : (List<?>) obj) {
-            if (!(item instanceof Map)) continue;
-            Map<String, Object> act = keepKeys(deepCopy((Map<String, Object>) item), ACTION_KEYS);
-            sanitizeString(act, "id");
-            sanitizeString(act, "label");
-            sanitizeString(act, "method");
-            sanitizeString(act, "path");
-            String path = str(act.get("path"));
-            if (path != null && RequestTool.validatePath(path) != null) continue;
-            String method = str(act.get("method"));
-            if (method != null) act.put("method", method.trim().toUpperCase(Locale.ROOT));
-            act.put("bodyFromFields", cleanStringList(act.get("bodyFromFields")));
-            act.put("queryFromFields", cleanStringList(act.get("queryFromFields")));
-            act.put("bind", cleanStringList(act.get("bind")));
-            act.put("dependsOn", cleanStringList(act.get("dependsOn")));
-            if (str(act.get("id")) != null || path != null) out.add(act);
-        }
-        return out;
     }
 
     /** bodyFromFields and bind names that are not fields. The click sends only field values. */
@@ -526,32 +468,6 @@ public class WriteUiTool implements LlmTool {
         }
         return missing;
     }
-    static List<String> cleanStringList(Object obj) {
-        List<String> out = new ArrayList<>();
-        if (!(obj instanceof List)) return out;
-        for (Object item : (List<?>) obj) {
-            if (item == null) continue;
-            String s = clean(item.toString());
-            if (s != null && !s.isBlank()) out.add(s);
-        }
-        return out;
-    }
-    @SuppressWarnings("unchecked")
-    static List<Map<String, Object>> asMapList(Object obj) {
-        List<Map<String, Object>> out = new ArrayList<>();
-        if (!(obj instanceof List)) return out;
-        for (Object item : (List<?>) obj) {
-            if (item instanceof Map) out.add((Map<String, Object>) item);
-        }
-        return out;
-    }
-    static List<String> asStringList(Object obj) {
-        List<String> out = new ArrayList<>();
-        if (!(obj instanceof List)) return out;
-        for (Object item : (List<?>) obj) if (item != null) out.add(item.toString());
-        return out;
-    }
-
     @SuppressWarnings("unchecked")
     private void applyPrefill(Map<String, Object> out, List<Map<String, Object>> fields,
             String entityName, Map<String, Object> pk, ExecutionContext ec) {
@@ -574,7 +490,7 @@ public class WriteUiTool implements LlmTool {
                 Object cur = field.get("defaultValue");
                 if (cur == null || (cur instanceof CharSequence && cur.toString().isEmpty())) {
                     Object val = row.get(name);
-                    if (val instanceof String) val = clean((String) val);
+                    if (val instanceof String) val = CanvasSanitizer.clean((String) val);
                     field.put("defaultValue", val);
                 }
             }
@@ -616,7 +532,7 @@ public class WriteUiTool implements LlmTool {
             out.remove("langError");
             return;
         }
-        String lang = stripLangFences(str(out.get("lang")));
+        String lang = OpenUiLangMerge.stripLangFences(str(out.get("lang")));
         if (lang == null || lang.isBlank()) {
             if (writeThrough) return;
             // Models often label a fields/actions confirm form as openui and omit lang.
@@ -641,97 +557,6 @@ public class WriteUiTool implements LlmTool {
         if (kind == null) out.put("kind", KIND_OPENUI);
         out.put("lang", lang);
         out.remove("langError");
-    }
-
-    /** Merge patch statements onto existing OpenUI Lang by statement id (left of first =). */
-    static String mergeLang(String existing, String patch) {
-        String ex = stripLangFences(existing);
-        String pa = stripLangFences(patch);
-        if (pa == null || pa.isBlank()) return ex;
-        if (ex == null || ex.isBlank()) return pa;
-        LinkedHashMap<String, String> byId = new LinkedHashMap<>();
-        for (String stmt : splitLangStatements(ex)) {
-            String id = langStatementId(stmt);
-            if (id != null) byId.put(id, stmt);
-        }
-        for (String stmt : splitLangStatements(pa)) {
-            String id = langStatementId(stmt);
-            if (id == null) continue;
-            if (isLangNullAssign(stmt)) byId.remove(id);
-            else byId.put(id, stmt);
-        }
-        return String.join("\n", byId.values());
-    }
-
-    static List<String> splitLangStatements(String input) {
-        List<String> stmts = new ArrayList<>();
-        if (input == null) return stmts;
-        int depth = 0;
-        boolean inStr = false;
-        char quote = 0;
-        boolean esc = false;
-        int start = 0;
-        for (int i = 0; i < input.length(); i++) {
-            char c = input.charAt(i);
-            if (esc) { esc = false; continue; }
-            if (c == '\\' && inStr) { esc = true; continue; }
-            if (inStr) {
-                if (c == quote) inStr = false;
-                continue;
-            }
-            if (c == '"' || c == '\'') { inStr = true; quote = c; continue; }
-            if (c == '(' || c == '[' || c == '{') depth++;
-            else if (c == ')' || c == ']' || c == '}') depth = Math.max(0, depth - 1);
-            else if (c == '\n' && depth <= 0) {
-                String stmt = input.substring(start, i).trim();
-                if (!stmt.isEmpty()) stmts.add(stmt);
-                start = i + 1;
-            }
-        }
-        String tail = input.substring(start).trim();
-        if (!tail.isEmpty()) stmts.add(tail);
-        return stmts;
-    }
-
-    static String langStatementId(String stmt) {
-        if (stmt == null) return null;
-        int depth = 0;
-        boolean inStr = false;
-        char quote = 0;
-        boolean esc = false;
-        for (int i = 0; i < stmt.length(); i++) {
-            char c = stmt.charAt(i);
-            if (esc) { esc = false; continue; }
-            if (c == '\\' && inStr) { esc = true; continue; }
-            if (inStr) {
-                if (c == quote) inStr = false;
-                continue;
-            }
-            if (c == '"' || c == '\'') { inStr = true; quote = c; continue; }
-            if (c == '(' || c == '[' || c == '{') depth++;
-            else if (c == ')' || c == ']' || c == '}') depth = Math.max(0, depth - 1);
-            else if (c == '=' && depth == 0) return stmt.substring(0, i).trim();
-        }
-        return null;
-    }
-
-    static boolean isLangNullAssign(String stmt) {
-        if (stmt == null) return false;
-        int eq = stmt.indexOf('=');
-        if (eq < 0) return false;
-        return "null".equals(stmt.substring(eq + 1).trim());
-    }
-
-    static String stripLangFences(String s) {
-        if (s == null) return null;
-        String t = s.trim();
-        if (t.startsWith("```")) {
-            int nl = t.indexOf('\n');
-            if (nl > 0) t = t.substring(nl + 1);
-            if (t.endsWith("```")) t = t.substring(0, t.length() - 3);
-            t = t.trim();
-        }
-        return t;
     }
 
     /**
@@ -786,8 +611,8 @@ public class WriteUiTool implements LlmTool {
         map.remove("sfcError");
     }
     static String assembleSfc(Map<String, Object> in) {
-        String sfc = stripFences(str(in.get("sfc")));
-        if (sfc != null && !sfc.isBlank()) return stripRemoteLoads(sfc);
+        String sfc = CanvasSanitizer.stripFences(str(in.get("sfc")));
+        if (sfc != null && !sfc.isBlank()) return CanvasSanitizer.stripRemoteLoads(sfc);
         String template = str(in.get("template"));
         String script = str(in.get("script"));
         String style = str(in.get("style"));
@@ -815,69 +640,11 @@ public class WriteUiTool implements LlmTool {
             if (startsWithTag(st, "style")) sb.append(st);
             else sb.append("<style>\n").append(style).append("\n</style>");
         }
-        return stripRemoteLoads(sb.toString());
+        return CanvasSanitizer.stripRemoteLoads(sb.toString());
     }
     static boolean startsWithTag(String s, String tag) {
         if (s == null || s.length() < tag.length() + 1 || s.charAt(0) != '<') return false;
         return s.regionMatches(true, 1, tag, 0, tag.length());
     }
-    static String stripFences(String s) {
-        if (s == null) return null;
-        String t = s.trim();
-        if (t.startsWith("```")) {
-            int nl = t.indexOf('\n');
-            if (nl > 0) t = t.substring(nl + 1);
-            if (t.endsWith("```")) t = t.substring(0, t.length() - 3);
-            t = t.trim();
-        }
-        return t;
-    }
-    static String stripRemoteLoads(String sfc) {
-        if (sfc == null) return null;
-        String s = LINK_TAG.matcher(sfc).replaceAll("");
-        s = SCRIPT_SRC.matcher(s).replaceAll("$1");
-        s = STYLE_SRC.matcher(s).replaceAll("$1");
-        return s;
-    }
-    static String clean(String s) {
-        if (s == null) return null;
-        // Strip tags, then unescape so Vue text interpolation does not show &amp;
-        return Parser.unescapeEntities(Jsoup.clean(s, Safelist.none()), false);
-    }
-    static void sanitizeString(Map<String, Object> map, String key) {
-        Object v = map.get(key);
-        if (v instanceof CharSequence) map.put(key, clean(v.toString()));
-    }
-    static Map<String, Object> keepKeys(Map<String, Object> in, Set<String> keys) {
-        Map<String, Object> out = new LinkedHashMap<>();
-        if (in == null) return out;
-        for (String k : keys) {
-            if (in.containsKey(k)) out.put(k, in.get(k));
-        }
-        return out;
-    }
     static String str(Object o) { return o == null ? null : o.toString(); }
-    static Map<String, Object> mapOf(String k, Object v) {
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put(k, v);
-        return m;
-    }
-    @SuppressWarnings("unchecked")
-    static Map<String, Object> deepCopy(Map<String, Object> in) {
-        Map<String, Object> out = new LinkedHashMap<>();
-        if (in == null) return out;
-        for (Map.Entry<String, Object> e : in.entrySet()) {
-            Object v = e.getValue();
-            if (v instanceof Map) out.put(e.getKey(), deepCopy((Map<String, Object>) v));
-            else if (v instanceof List) {
-                List<Object> copy = new ArrayList<>();
-                for (Object item : (List<?>) v) {
-                    if (item instanceof Map) copy.add(deepCopy((Map<String, Object>) item));
-                    else copy.add(item);
-                }
-                out.put(e.getKey(), copy);
-            } else out.put(e.getKey(), v);
-        }
-        return out;
-    }
 }

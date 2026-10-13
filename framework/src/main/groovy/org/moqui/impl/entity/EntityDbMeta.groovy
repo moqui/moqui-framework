@@ -112,7 +112,7 @@ class EntityDbMeta {
 
         boolean beganTx = useTxForMetaData ? efi.ecfi.transactionFacade.begin(300) : false
         try {
-            Connection con = efi.getConnection(groupName)
+            Connection con = efi.getConnectionInternal(groupName, false)
 
             try {
                 DatabaseMetaData dbData = con.getMetaData()
@@ -171,6 +171,7 @@ class EntityDbMeta {
                                 logger.warn("No existing columns found for table ${tableName} entity ${fullEntityName}, not trying to add columns but this is bad, probably a DB meta data issue so we can't check columns")
                             } else {
                                 Set<String> remainingColumns = new HashSet<>(existingColumns)
+                                boolean columnsAdded = false
                                 for (int fii = 0; fii < fieldInfos.size(); fii++) {
                                     FieldInfo fi = (FieldInfo) fieldInfos.get(fii)
                                     if (existingColumns.contains(fi.columnName) || existingColumns.contains(fi.columnName.toLowerCase())) {
@@ -178,12 +179,13 @@ class EntityDbMeta {
                                         remainingColumns.remove(fi.columnName.toLowerCase())
                                     } else {
                                         addColumn(ed, fi, con)
+                                        columnsAdded = true
                                     }
                                 }
                                 remainingColumns.removeAll { FtsDdl.ownedColumn(it as String) }
                                 if (remainingColumns.size() > 0)
                                     logger.warn("Found unknown columns on table ${tableName} for entity ${fullEntityName}: ${remainingColumns}")
-                                FtsDdl.ensure(efi, ed, con)
+                                FtsDdl.ensure(efi, ed, con, columnsAdded)
                             }
 
                             // FUTURE: also check all indexes? on large DBs may take a long time... maybe just warn about?
@@ -226,7 +228,7 @@ class EntityDbMeta {
 
             beganTx = useTxForMetaData ? efi.ecfi.transactionFacade.begin(300) : false
             try {
-                Connection con = efi.getConnection(groupName)
+                Connection con = efi.getConnectionInternal(groupName, false)
 
                 try {
                     DatabaseMetaData dbData = con.getMetaData()
@@ -417,7 +419,7 @@ class EntityDbMeta {
             ArrayList<FieldInfo> mcs = getMissingColumns(ed)
             int mcsSize = mcs.size()
             for (int i = 0; i < mcsSize; i++) addColumn(ed, (FieldInfo) mcs.get(i), null)
-            FtsDdl.ensure(efi, ed)
+            FtsDdl.ensure(efi, ed, null, mcsSize > 0)
             // create foreign keys after checking each to see if it already exists
             if (startup) {
                 createForeignKeys(ed, true, null, null)
@@ -461,7 +463,7 @@ class EntityDbMeta {
             boolean beganTx = useTxForMetaData ? efi.ecfi.transactionFacade.begin(5) : false
             try {
                 try {
-                    con = efi.getConnection(groupName)
+                    con = efi.getConnectionInternal(groupName, false)
                 } catch (EntityException ee) {
                     logger.warn("Could not get connection so treating entity ${ed.fullEntityName} in group ${groupName} as table does not exist: ${ee.toString()}")
                     return false
@@ -575,7 +577,7 @@ class EntityDbMeta {
         ResultSet colSet2 = null
         boolean beganTx = useTxForMetaData ? efi.ecfi.transactionFacade.begin(5) : false
         try {
-            con = efi.getConnection(groupName)
+            con = efi.getConnectionInternal(groupName, false)
             DatabaseMetaData dbData = con.getMetaData()
             // con.setAutoCommit(false)
 
@@ -830,7 +832,7 @@ class EntityDbMeta {
         ResultSet ikSet1 = null
         ResultSet ikSet2 = null
         try {
-            con = efi.getConnection(groupName)
+            con = efi.getConnectionInternal(groupName, false)
             DatabaseMetaData dbData = con.getMetaData()
             Set<String> fieldNames = new HashSet(indexFields)
 
@@ -883,7 +885,7 @@ class EntityDbMeta {
         ResultSet ikSet1 = null
         ResultSet ikSet2 = null
         try {
-            con = efi.getConnection(groupName)
+            con = efi.getConnectionInternal(groupName, false)
             DatabaseMetaData dbData = con.getMetaData()
 
             // don't rely on constraint name, look at related table name, keys
@@ -946,7 +948,7 @@ class EntityDbMeta {
         ResultSet ikSet1 = null
         ResultSet ikSet2 = null
         try {
-            con = efi.getConnection(groupName)
+            con = efi.getConnectionInternal(groupName, false)
             DatabaseMetaData dbData = con.getMetaData()
 
             // don't rely on constraint name, look at related table name, keys
@@ -1200,7 +1202,7 @@ class EntityDbMeta {
                 Statement stmt = null
 
                 try {
-                    con = sharedCon != null ? sharedCon : efi.getConnection(groupName)
+                    con = sharedCon != null ? sharedCon : efi.getConnectionInternal(groupName, false)
                     stmt = con.createStatement()
                     records = stmt.executeUpdate(sql.toString())
                 } finally {

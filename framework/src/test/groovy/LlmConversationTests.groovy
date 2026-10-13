@@ -78,6 +78,53 @@ class LlmConversationTests extends Specification {
         out.conversationsRemoved == 0L
     }
 
+    def "clean#LlmData purges a dateless old conversation by createdDate and strips old call log text but keeps the row"() {
+        given:
+        ec.artifactExecution.disableAuthz()
+        long day = 24L * 3600L * 1000L
+        java.sql.Timestamp old = new java.sql.Timestamp(System.currentTimeMillis() - 100 * day)
+        java.sql.Timestamp mid = new java.sql.Timestamp(System.currentTimeMillis() - 30 * day)
+        java.sql.Timestamp fresh = new java.sql.Timestamp(System.currentTimeMillis() - 1 * day)
+        boolean began = ec.transaction.begin(null)
+        try {
+            // No lastMessageDate: the old purge never matched this row
+            ec.entity.makeValue("moqui.llm.LlmConversation").setAll([conversationId: "CLNTST_OLD", profileName: "default",
+                    statusId: "LlmcsComplete", createdDate: old]).create()
+            ec.entity.makeValue("moqui.llm.LlmConversation").setAll([conversationId: "CLNTST_NEW", profileName: "default",
+                    statusId: "LlmcsComplete", createdDate: fresh]).create()
+            ec.entity.makeValue("moqui.llm.LlmCallLog").setAll([callId: "CLNTST_MID", profileName: "default", startDate: mid,
+                    totalTokens: 5, requestJson: "{\"a\":1}", responseJson: "{\"b\":2}"]).create()
+            ec.entity.makeValue("moqui.llm.LlmCallLog").setAll([callId: "CLNTST_FRESH", profileName: "default", startDate: fresh,
+                    totalTokens: 6, requestJson: "{\"a\":1}", responseJson: "{\"b\":2}"]).create()
+        } finally { if (began) ec.transaction.commit() }
+
+        when:
+        def out = ec.service.sync().name("org.moqui.impl.LlmServices.clean#LlmData")
+                .parameters([daysToKeep: 90, contentDaysToKeep: 14]).call()
+        def mid1 = ec.entity.find("moqui.llm.LlmCallLog").condition("callId", "CLNTST_MID").useCache(false).one()
+        def fresh1 = ec.entity.find("moqui.llm.LlmCallLog").condition("callId", "CLNTST_FRESH").useCache(false).one()
+
+        then:
+        !ec.message.hasError()
+        out.conversationsRemoved >= 1L
+        ec.entity.find("moqui.llm.LlmConversation").condition("conversationId", "CLNTST_OLD").useCache(false).count() == 0
+        ec.entity.find("moqui.llm.LlmConversation").condition("conversationId", "CLNTST_NEW").useCache(false).count() == 1
+        out.contentStripped >= 1L
+        mid1 != null && mid1.requestJson == null && mid1.responseJson == null && mid1.totalTokens == 5
+        fresh1.requestJson != null && fresh1.responseJson != null
+
+        when: "a second run has nothing left to strip"
+        def again = ec.service.sync().name("org.moqui.impl.LlmServices.clean#LlmData")
+                .parameters([daysToKeep: 90, contentDaysToKeep: 14]).call()
+        then:
+        again.contentStripped == 0L
+
+        cleanup:
+        ec.entity.find("moqui.llm.LlmConversation").condition("conversationId", "CLNTST_OLD").deleteAll()
+        ec.entity.find("moqui.llm.LlmConversation").condition("conversationId", "CLNTST_NEW").deleteAll()
+        ec.entity.find("moqui.llm.LlmCallLog").condition("callId", "in", ["CLNTST_MID", "CLNTST_FRESH"]).deleteAll()
+    }
+
     def "create conversation writes LlmConversation row"() {
         when:
         def conv = LlmConversationImpl.create(ec, "default", [canvasId: "c1"])
@@ -545,6 +592,120 @@ class LlmConversationTests extends Specification {
         r.content == "continued"
         loaded.status == LlmConversationImpl.STATUS_COMPLETE
         loaded.history.find { it.role == LlmMessage.Role.USER && it.content == "again" } != null
+    }
+
+    private void setConversationRow(String id, Map<String, Object> fields) {
+        boolean began = ec.transaction.begin(null)
+        try {
+            EntityValue ev = ec.entity.find("moqui.llm.LlmConversation").condition("conversationId", id).forUpdate(true).useCache(false).one()
+            fields.each { k, v -> ev.set(k, v) }
+            ev.update()
+        } finally { if (began) ec.transaction.commit() }
+    }
+    private EntityValue conversationRow(String id) {
+        return ec.entity.find("moqui.llm.LlmConversation").condition("conversationId", id).useCache(false).one()
+    }
+
+    def "a live lease held by another node is single-flight, and an expired one can be taken over"() {
+        given:
+        def conv = LlmConversationImpl.create(ec, "assist", [purpose: "assist"])
+        String id = conv.conversationId
+        if (ec.transaction.isTransactionInPlace()) ec.transaction.commit()
+        LlmFacadeImpl facade = (LlmFacadeImpl) ec.getLlm()
+        setConversationRow(id, [statusId: LlmConversationImpl.STATUS_STREAMING, turnOwner: "other-node",
+                turnLeaseThru: new Timestamp(System.currentTimeMillis() + 60000L)])
+        def blocked = new FakeLlmProtocol(failIfInvoked: true)
+
+        when:
+        client(blocked).conversation(id).user("hi").call()
+        then:
+        LlmException busy = thrown()
+        busy.httpStatus == 409
+        blocked.chatCount == 0
+        LlmConversationImpl.turnInFlight(ec, id)
+
+        when: "the owner died and its lease ran out"
+        setConversationRow(id, [turnLeaseThru: new Timestamp(System.currentTimeMillis() - 1000L)])
+        def proto = new FakeLlmProtocol()
+        proto.results = [FakeLlmProtocol.stop("took over")]
+        def r = client(proto).conversation(id).user("again").call()
+        def row = conversationRow(id)
+
+        then:
+        !LlmConversationImpl.turnInFlight(ec, id)
+        r.content == "took over"
+        row.statusId == LlmConversationImpl.STATUS_COMPLETE
+        row.turnOwner == null
+        row.turnLeaseThru == null
+        !facade.turnClaimed(id)
+    }
+
+    def "a running turn owns the row with a lease that renewal pushes forward"() {
+        given:
+        def conv = LlmConversationImpl.create(ec, "assist", [purpose: "assist"])
+        String id = conv.conversationId
+        if (ec.transaction.isTransactionInPlace()) ec.transaction.commit()
+        LlmFacadeImpl facade = (LlmFacadeImpl) ec.getLlm()
+        def mine = LlmConversationImpl.load(ec, id, true)
+
+        when:
+        mine.persistIsolated { mine.beginTurnStreaming() }
+        def started = conversationRow(id)
+        setConversationRow(id, [turnLeaseThru: new Timestamp(System.currentTimeMillis() + 1000L)])
+        facade.renewLeasesNow()
+        def renewed = conversationRow(id)
+
+        then:
+        started.statusId == LlmConversationImpl.STATUS_STREAMING
+        started.turnOwner == facade.nodeId
+        started.turnLeaseThru.time > System.currentTimeMillis() + 60000L
+        renewed.turnOwner == facade.nodeId
+        renewed.turnLeaseThru.time > System.currentTimeMillis() + 60000L
+
+        when: "a row another node has taken over is not renewed by this node"
+        setConversationRow(id, [turnOwner: "other-node", turnLeaseThru: new Timestamp(System.currentTimeMillis() + 5000L)])
+        facade.renewLeasesNow()
+        def untouched = conversationRow(id)
+
+        then:
+        untouched.turnOwner == "other-node"
+        untouched.turnLeaseThru.time < System.currentTimeMillis() + 10000L
+
+        cleanup:
+        mine.releaseTurnClaim()
+    }
+
+    def "a cancel is not overwritten by a turn holding an older copy, and a new turn after a cancel still works"() {
+        given:
+        def conv = LlmConversationImpl.create(ec, "assist", [purpose: "assist"])
+        String id = conv.conversationId
+        if (ec.transaction.isTransactionInPlace()) ec.transaction.commit()
+        def running = LlmConversationImpl.load(ec, id, true)
+        running.persistIsolated { running.beginTurnStreaming() }
+        def canceller = LlmConversationImpl.load(ec, id, true)
+
+        when:
+        canceller.cancel()
+        // The turn keeps working from its in-memory copy, which still says Streaming
+        running.persistIsolated { running.appendInternal(LlmMessage.user("late write from the old copy")) }
+        def row = conversationRow(id)
+
+        then:
+        row.statusId == LlmConversationImpl.STATUS_CANCELLED
+        row.turnOwner == null
+
+        when:
+        running.releaseTurnClaim()
+        def proto = new FakeLlmProtocol()
+        proto.results = [FakeLlmProtocol.stop("after the cancel")]
+        def r = client(proto).conversation(id).user("next").call()
+
+        then:
+        r.content == "after the cancel"
+        conversationRow(id).statusId == LlmConversationImpl.STATUS_COMPLETE
+
+        cleanup:
+        running.releaseTurnClaim()
     }
 
     def "new conversation stores low, a later turn keeps high, and max is 400"() {

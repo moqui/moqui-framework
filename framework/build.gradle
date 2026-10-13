@@ -225,6 +225,7 @@ test {
     include '**/LlmTraceTests.class'
     include '**/EntityFtsTests.class'
     include '**/LlmAdminScreenTests.class'
+    include '**/LlmReadEndpointTests.class'
     include '**/A2A*Tests.class'
 
     systemProperty 'moqui.runtime', '../runtime'

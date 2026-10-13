@@ -145,8 +145,16 @@ public class EnterSimTool implements LlmTool {
                 }
             }
         } catch (Throwable t) {
-            logger.warn("enter_sim nested agent failed", t);
-            result.put("error", "sim_failed");
+            org.moqui.impl.context.SimTerminatedException terminated = findTerminated(t);
+            if (terminated != null) {
+                logger.warn("enter_sim terminated: " + terminated.getMessage());
+                result.put("error", "sim_terminated");
+                result.put("terminated", Boolean.TRUE);
+                result.put("reason", terminated.getMessage());
+            } else {
+                logger.warn("enter_sim nested agent failed", t);
+                result.put("error", "sim_failed");
+            }
         } finally {
             Object proposed = result.get("proposedSkillName");
             Object err = result.get("error");
@@ -188,7 +196,21 @@ public class EnterSimTool implements LlmTool {
         return out;
     }
 
+    private static org.moqui.impl.context.SimTerminatedException findTerminated(Throwable t) {
+        for (Throwable cur = t; cur != null; cur = cur.getCause()) {
+            if (cur instanceof org.moqui.impl.context.SimTerminatedException)
+                return (org.moqui.impl.context.SimTerminatedException) cur;
+            if (cur.getCause() == cur) break;
+        }
+        return null;
+    }
+
     public static String simExitHint(Map<String, Object> result) {
+        if (result != null && Boolean.TRUE.equals(result.get("terminated"))) {
+            return "The sim was terminated because a write could not be rolled back cleanly, so its state can no longer be "
+                    + "trusted. Sim writes never reached production. Nothing from this sim was kept. Call enter_sim again to "
+                    + "start a new sim for more testing, and avoid repeating the step that failed.";
+        }
         Object name = result != null ? result.get("proposedSkillName") : null;
         Object id = result != null ? result.get("proposedSkillId") : null;
         Object status = result != null ? result.get("proposedSkillStatus") : null;

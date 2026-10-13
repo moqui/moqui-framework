@@ -54,6 +54,8 @@ public class SkillIndex {
 
     public static class SkillDoc {
         public String name, title, description, summary, body, risk, sourceLocation, skillId, statusId, provenanceId;
+        /** procedure (blank) or reference. Set from the type front-matter key of a shipped file or the LlmSkill kind field. */
+        public String kind;
         public Map<String, String> frontMatter = new LinkedHashMap<>();
     }
 
@@ -95,6 +97,9 @@ public class SkillIndex {
         doc.description = nz(doc.frontMatter.get("description"));
         String summary = nz(doc.frontMatter.get("summary"));
         doc.summary = summary.isEmpty() ? null : summary;
+        String kind = nz(doc.frontMatter.get("type"));
+        if (kind.isEmpty()) kind = nz(doc.frontMatter.get("kind"));
+        doc.kind = kind.isEmpty() ? null : kind.toLowerCase(Locale.ROOT);
         doc.risk = nz(doc.frontMatter.get("risk"));
         if (doc.risk.isEmpty()) doc.risk = "confirm";
         doc.statusId = "LsksActive";
@@ -265,9 +270,9 @@ public class SkillIndex {
         }
     }
 
-    /** True for concept cards such as marble-party-roles. They are not write playbooks. */
+    /** True for concept cards, marked `type: reference` in a shipped file or kind=reference on the row. They are not write playbooks. */
     public static boolean isReference(SkillDoc doc) {
-        return doc != null && doc.name != null && doc.name.startsWith("marble-");
+        return doc != null && "reference".equalsIgnoreCase(doc.kind);
     }
 
     /**
@@ -501,6 +506,7 @@ public class SkillIndex {
         d.sourceLocation = ev.getString("sourceLocation");
         d.statusId = ev.getString("statusId");
         d.provenanceId = ev.getString("provenanceId");
+        d.kind = ev.getString("kind");
         String riskId = ev.getString("riskId");
         if ("LskReversible".equals(riskId)) d.risk = "reversible";
         else if ("LskIrreversible".equals(riskId)) d.risk = "irreversible";
@@ -529,7 +535,15 @@ public class SkillIndex {
                     .set("worldSuccessCount", 0)
                     .set("simSuccessCount", 0);
             ev.setSequencedIdPrimary();
-            return ev.create();
+            try {
+                return ev.create();
+            } catch (org.moqui.entity.EntityException e) {
+                // Two sims proposing the same name at once: the unique index on name lets one win. Use the winner's row.
+                EntityValue winner = ec.getEntity().find("moqui.llm.LlmSkill")
+                        .condition("name", doc.name.trim()).useCache(false).one();
+                if (winner != null) return winner;
+                throw e;
+            }
         });
     }
 

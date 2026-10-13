@@ -431,6 +431,26 @@ final class LlmAgentLoop {
     }
 
     Object executeOne(LlmToolCall call, boolean confirmed) {
+        Object result = executeOneUnchecked(call, confirmed);
+        throwIfSimTerminated();
+        return result;
+    }
+
+    /**
+     * A transaction that wrote to the sim overlay and rolled back poisons it, and the overlay cannot undo writes.
+     * Stop the nested loop here instead of letting the model keep working in a state that production would not reach.
+     */
+    private void throwIfSimTerminated() {
+        if (!(client.ec instanceof ExecutionContextImpl)) return;
+        ExecutionContextImpl eci = (ExecutionContextImpl) client.ec;
+        if (!eci.simSession) return;
+        Object cache = eci.entityTxCache;
+        if (cache instanceof org.moqui.impl.context.TransactionCacheDb
+                && ((org.moqui.impl.context.TransactionCacheDb) cache).isPoisoned())
+            throw new org.moqui.impl.context.SimTerminatedException(((org.moqui.impl.context.TransactionCacheDb) cache).getPoisonedReason());
+    }
+
+    private Object executeOneUnchecked(LlmToolCall call, boolean confirmed) {
         if (!SkillUseGate.allowed(client, call.name)) return SkillUseGate.refusal();
         if (!confirmed) {
             SkillRiskGate.Decision decision = SkillRiskGate.decide(client, call);

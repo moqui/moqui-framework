@@ -259,7 +259,7 @@ public class EntityJavaUtil {
         public final EntityDatasourceFactory datasourceFactory;
         public final boolean isEntityDatasourceFactoryImpl;
         public final boolean isView, isDynamicView, isInvalidViewEntity;
-        final boolean hasFunctionAlias;
+        public final boolean hasFunctionAlias;
         public final boolean createOnly, createOnlyFields;
         final boolean optimisticLock, needsAuditLog, needsEncrypt;
         public final String useCache;
