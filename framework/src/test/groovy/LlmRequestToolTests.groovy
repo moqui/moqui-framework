@@ -123,18 +123,6 @@ class LlmRequestToolTests extends Specification {
         result.text.contains("not /qapps")
     }
 
-    def "GET FindAsset form-list jsonPath returns JSON array"() {
-        when:
-        def result = LlmTool.request().execute(
-                [method: "GET", path: "/apps/marble/Asset/Asset/FindAsset/actions/ListAssets",
-                 query: [productId: "10297"]], ec)
-        then:
-        result.status == 200
-        result.json instanceof Map
-        result.json.rows instanceof List
-        result.text == null || !result.text.toString().toLowerCase().contains("<html")
-    }
-
     def "GET ArtifactHitBins without find params is empty; AT_SERVICE returns rows wrapper"() {
         when:
         def empty = LlmTool.request().execute(

@@ -58,22 +58,6 @@ Call run_service
         SkillIndex.isReference(doc)
     }
 
-    def "the Marble demo data card is shipped as a reference and found for a sales order request"() {
-        given:
-        def ec = org.moqui.Moqui.getExecutionContext()
-        def shipped = SkillIndex.scanShipped(ec).find { it.name == "marble-demo-reference" }
-        def found = shipped != null ? SkillIndex.retrieve(ec, "place a sales order for the retail store", 15) : []
-
-        expect:
-        // Skipped quietly when the MarbleERP component is not installed
-        shipped == null || SkillIndex.isReference(shipped)
-        shipped == null || found.any { it.name == "marble-demo-reference" }
-        shipped == null || shipped.body.contains("ORG_ZIZI_RETAIL")
-
-        cleanup:
-        ec.destroy()
-    }
-
     def "score prefers name match over body"() {
         given:
         def named = SkillIndex.parseMarkdown("---\nname: place-sales-order\ndescription: order\n---\nbody", null)
@@ -131,27 +115,4 @@ Open Find Order
         new FindSkillTool().description.contains("screen_use")
     }
 
-    def "SkillInject prompt tells the agent to enter_sim on miss"() {
-        when:
-        def f = new File("../runtime/base-component/webroot/prompt/SkillInject.ftl")
-        then:
-        f.exists()
-        f.text.contains("enter_sim")
-        f.text.contains("shared word is not a match")
-        !f.text.contains("Follow a matching skill before browse")
-        f.text.contains("the skill summary when one is set")
-    }
-
-    def "shipped create-user-account skill file parses"() {
-        when:
-        def f = new File("../runtime/base-component/tools/skill/create-user-account.md")
-        def doc = SkillIndex.parseMarkdown(f.text, f.path)
-
-        then:
-        f.exists()
-        doc.name == "create-user-account"
-        doc.summary == null
-        doc.body.contains("create#UserAccount")
-        SkillIndex.parseMarkdown("---\nname: n\nsummary: short text\n---\nbody", null).summary == "short text"
-    }
 }

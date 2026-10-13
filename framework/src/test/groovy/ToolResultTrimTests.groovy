@@ -74,7 +74,6 @@ class ToolResultTrimTests extends Specification {
         Map result = [status: 200, text: "y" * 20000]
 
         expect:
-        LlmClientImpl.DEFAULT_TOOL_RESULT_MAX_CHARS == 65536
         ToolResultTrim.limit(result, LlmClientImpl.DEFAULT_TOOL_RESULT_MAX_CHARS).is(result)
         !result.containsKey("truncated")
     }

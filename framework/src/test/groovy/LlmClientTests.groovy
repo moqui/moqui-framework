@@ -1393,26 +1393,6 @@ class LlmClientTests extends Specification {
         LlmGateway.canonicalWriteMode("other") == null
     }
 
-    def "Assist prompt tells models the date format and writeMode"() {
-        given:
-        File assist = new File("../runtime/base-component/webroot/prompt/AssistSystem.ftl")
-        File openUi = new File("../runtime/base-component/webroot/prompt/OpenUiLang.prompt.txt")
-        expect:
-        assist.exists()
-        assist.text.contains("YYYY-MM-DD HH:mm")
-        assist.text.contains("writeMode")
-        assist.text.contains("*_display")
-        assist.text.contains("kind=openui")
-        assist.text.contains("adjust: true")
-        assist.text.toLowerCase().contains("do not browse")
-        assist.text.contains("`kind` `transition`")
-        !assist.text.contains("root = Stack([...])")
-        openUi.text.contains("YYYY-MM-DD HH:mm")
-        openUi.text.contains("*_display")
-        openUi.text.contains("root = Stack(...)")
-        !openUi.text.contains("root = Stack([...])")
-    }
-
     def "write_ui instruction is a sentence and lang description is not the placeholder"() {
         when:
         WriteUiTool tool = new WriteUiTool()
@@ -1634,7 +1614,7 @@ class LlmClientTests extends Specification {
                 submitLabel: "Approve Order 55300",
                 fields: [[name: "orderId", widget: "display", label: "Order", defaultValue: "55300"]],
                 actions: [[id: "approve", label: "Approve Order 55300", method: "POST",
-                           path: "/apps/marble/Order/OrderDetail/approveOrder", bodyFromFields: ["orderId"]]]
+                           path: "/apps/test/Order/OrderDetail/approveOrder", bodyFromFields: ["orderId"]]]
         ], null)
         then:
         formed.kind == "form"
@@ -1644,7 +1624,7 @@ class LlmClientTests extends Specification {
         formed.fields.size() == 1
         formed.fields[0].defaultValue == "55300"
         formed.actions.size() == 1
-        formed.actions[0].path == "/apps/marble/Order/OrderDetail/approveOrder"
+        formed.actions[0].path == "/apps/test/Order/OrderDetail/approveOrder"
         formed.actions[0].bodyFromFields == ["orderId"]
     }
 

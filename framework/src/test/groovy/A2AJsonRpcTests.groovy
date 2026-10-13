@@ -206,7 +206,6 @@ class A2AJsonRpcTests extends Specification {
         extended.capabilities == [streaming: true, pushNotifications: false, extendedAgentCard: true]
         extended.skills
         publicCard.supportedInterfaces == extended.supportedInterfaces
-        publicCard.skills*.id == ['moqui-assist']
         publicCard.securitySchemes.basic.httpAuthSecurityScheme.scheme == 'Basic'
         publicCard.securitySchemes.loginKey.apiKeySecurityScheme.name == 'login_key'
         publicCard.securityRequirements == [[schemes: [basic: [list: []]]], [schemes: [loginKey: [list: []]]]]

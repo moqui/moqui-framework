@@ -141,47 +141,38 @@ Other production notes:
 - Purge old rows with `org.moqui.impl.LlmServices.clean#LlmData`. `daysToKeep` (default 90) deletes conversations,
   messages and call logs; `contentDaysToKeep` (default 14, 0 skips it) clears only the stored prompt and response text
   of older call logs and keeps the row. The `clean_LlmData_daily` ServiceJob is in the seed-initial data, active, 2 AM
-  nightly. Existing databases get it through a missing-only data load.
+  nightly.
 - System app: System > LLM has conversations (with messages, provider calls, skill use and state), calls, daily usage,
   skills (review queue, edit, approve, supersede, lessons), a retrieval test, and a read-only view of each profile
   with a connection test. All of it is ADMIN access like the rest of the System app. Conversation detail and call
   detail show full prompts and responses when the profile has `log-content="true"`.
 - Skills a sim proposes stay Proposed until a person approves them in System > LLM > Skills. Only human-approved skills
   can set `risk: reversible` to skip the confirmation click. Set the `llm_skill_auto_admit` property or environment
-  variable to `true` to restore automatic promotion after one successful write (single-tenant setups only).
-- `LlmSkill.kind` (`procedure`, the default, or `reference`) replaces the old rule that treated every skill named
-  `marble-*` as a reference card. A shipped skill file sets it with a `type: reference` front-matter key. **Databases that
-  loaded the MarbleERP reference rows before this change have no `kind`, so those four cards act as procedures until the
-  MarbleERP skill data is loaded again.** Facts about the Ziziwork demo company moved out of the base Assist prompt into
-  the shipped MarbleERP skill `marble-demo-reference`.
-- Generated Vue screens (`write_ui` kind `vue-sfc`, `allow-vue-sfc`, off by default) now run in a sandboxed frame instead of in the
-  Assist page. The frame has an opaque origin and a CSP with no network, so it cannot use the session, cookies, storage or the
-  CSRF token, and its only way out is a validated message channel. Generated code reads data with
-  `this.$bridge.get(path, query)`, which goes to the new read-only `GET /llm/v1/read` endpoint. That endpoint runs the
-  profile's `request` tool as the user and refuses a path that would change data. **This is a contract change for existing
-  generated screens:** code that used `fetch`, `$.ajax`, `this.$root`, the CSRF token or an `m-*` widget other than
-  `m-text-line`, `m-drop-down`, `m-date-time`, `m-display`, `m-date-period` and `m-container-box` no longer works, and
-  reports an error. Writes happen only through the canvas actions the page runs from a click. See
+  variable to `true` to promote a sim skill automatically after one successful write (single-tenant setups only).
+- Generated Vue screens (`write_ui` kind `vue-sfc`, `allow-vue-sfc`, off by default) run in a sandboxed frame with an opaque
+  origin and a CSP with no network, so they cannot use the session, cookies, storage or the CSRF token, and the only way out
+  is a validated message channel. Generated code reads data with `this.$bridge.get(path, query)`, which goes to the read-only
+  `GET /llm/v1/read` endpoint. That endpoint runs the profile's `request` tool as the user and refuses a path that would
+  change data. Code that uses `fetch`, `$.ajax`, `this.$root`, the CSRF token or an `m-*` widget other than `m-text-line`,
+  `m-drop-down`, `m-date-time`, `m-display`, `m-date-period` and `m-container-box` reports an error. Writes happen only
+  through the canvas actions the page runs from a click. See
   `runtime/base-component/webroot/screen/webroot/js/assist/README_SANDBOX.txt`.
 - Turn lease: `LlmConversation.turnOwner` and `turnLeaseThru` make single-flight hold across several Moqui nodes. The
   node running a turn renews its lease every 20 seconds (90 second lease). Another node takes a Streaming conversation
   over only after the lease runs out. Cancel is also noticed across nodes, by polling the stored status. Node clocks
   should agree to within a few seconds, which clustered deployments already need.
-- Sim (`TransactionCacheDb`): writes are no longer undone when a transaction rolls back. If a transaction that wrote to the
-  sim rolls back, the sim is terminated with `SimTerminatedException` and the agent is told to start a new one. A failure
-  before any write (a validation error) does not end the sim. The flush-to-production mode
-  (`EntityFacade.startTxCacheDb(false)`) is removed and now throws `UnsupportedOperationException`. The public
-  `EntityFacade.getConnection(...)` is refused in a sim session, because a JDBC connection bypasses the overlay.
-  Aggregate view entities are answered from production until the sim changes one of their member entities, then from a
-  full copy of the members.
+- Sim (`TransactionCacheDb`): if a transaction that wrote to the sim rolls back, the sim is terminated with
+  `SimTerminatedException` and the agent is told to start a new one. A failure before any write (a validation error) does
+  not end the sim. `EntityFacade.getConnection(...)` is refused in a sim session, because a JDBC connection bypasses the
+  overlay. Aggregate view entities are answered from production until the sim changes one of their member entities, then
+  from a full copy of the members.
 - Browser clients: `fetch` POST + `ReadableStream`, not `EventSource` (`EventSource` is GET-only and cannot
   send JSON, CSRF, or Authorization). CSRF on servlet POST (`X-CSRF-Token` / `moquiSessionToken`) unless
   `moqui.request.authenticated` (successful Basic / `login_key`).
 - `/cancel` while Streaming or Yielded returns 200 and aborts the in-flight RestStream; other statuses 409.
   `POST /chat` or `/resume` while Streaming is 409 (Yielded must resume). SSE pings every
   `sse-ping-seconds` (default 15).
-- Blank `api-key` omits auth. RestClient redacts `Authorization`, `api-key`, and `x-api-key` on LLM calls.
-- Credential-looking query parameters (key, token, secret, sig, auth, password) and header names are masked in RestClient
+- Credential-looking query parameters (key, token, secret, sig, auth, password) and header names (including `Authorization`, `api-key` and `x-api-key`) are masked in RestClient
   logs and exception messages, and logged error bodies are capped at 2000 characters.
 - **RestClient behavior change:** a response's `headers()` is still a map from header name to a list of values, but each
   list element is now one received header line exactly as sent (Jetty `HttpField.getValue()`), where it used to be

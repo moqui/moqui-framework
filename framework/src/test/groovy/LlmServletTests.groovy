@@ -143,9 +143,9 @@ class LlmServletTests extends Specification {
         !ScreenUseTool.submitAllowed("m-form", "POST", false)
         new ScreenUseTool().enrichForClient([action: "watch"], null).until == "either"
         new ScreenUseTool().enrichForClient([action: "watch", until: "forever"], null).error == "bad_until"
-        def ctx = ScreenUseTool.contextText([path: "/qapps/marble/Order/FindOrder", title: "Find Order",
+        def ctx = ScreenUseTool.contextText([path: "/qapps/test/Order/FindOrder", title: "Find Order",
                 parameters: [customerPartyId: "1", password: "secret"]])
-        ctx.contains("/qapps/marble/Order/FindOrder")
+        ctx.contains("/qapps/test/Order/FindOrder")
         ctx.contains("***")
         !ctx.contains("secret")
 
