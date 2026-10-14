@@ -205,15 +205,33 @@ class SecurityIntegrityTests extends Specification {
         given:
         def conn = new org.moqui.impl.util.ElFinderConnector(ec, "dbresource://mantle/content", "v0_")
         when:
-        String locDots = conn.getLocation(conn.hash("../secret"))
         String locAbs = conn.getLocation(conn.hash("/etc/passwd"))
         String locOk = conn.getLocation(conn.hash("docs/readme.txt"))
+        conn.getLocation(conn.hash("../secret"))
         then:
-        locDots == "dbresource://mantle/content"
-        !locDots.contains("..")
         locAbs == "dbresource://mantle/content/etc/passwd"
         !locAbs.contains("..")
         locOk == "dbresource://mantle/content/docs/readme.txt"
+        thrown(org.moqui.impl.util.ElFinderConnector.TargetException)
+    }
+
+    @Unroll
+    def "ElFinder joinUnderRoot rejects #label"() {
+        given:
+        def conn = new org.moqui.impl.util.ElFinderConnector(ec, root, "v0_")
+        when:
+        conn.joinUnderRoot(unhashed)
+        then:
+        thrown(org.moqui.impl.util.ElFinderConnector.TargetException)
+        where:
+        label                     | root                          | unhashed
+        "parent segment"          | "dbresource://mantle/content" | "../secret"
+        "nested parents"          | "dbresource://mantle/content" | "a/b/../../../secret"
+        "backslash separators"    | "dbresource://mantle/content" | "..\\secret"
+        "scheme-like segment"     | "dbresource://mantle/content" | "component://webroot/screen"
+        "other scheme segment"    | "dbresource://mantle/content" | "file:/etc/passwd"
+        "traversal in the middle" | "dbresource://mantle/content" | "docs/../../secret"
+        "file root parent"        | "file:runtime"                | "../conf/MoquiProductionConf.xml"
     }
 
     @Unroll
@@ -228,18 +246,47 @@ class SecurityIntegrityTests extends Specification {
         !loc.contains("..")
         where:
         label                     | root                          | unhashed                              | expected
-        "parent segment"          | "dbresource://mantle/content" | "../secret"                           | "dbresource://mantle/content"
-        "nested parents"          | "dbresource://mantle/content" | "a/b/../../../secret"                 | "dbresource://mantle/content"
         "absolute path"           | "dbresource://mantle/content" | "/etc/passwd"                         | "dbresource://mantle/content/etc/passwd"
-        "backslash separators"    | "dbresource://mantle/content" | "..\\secret"                          | "dbresource://mantle/content"
-        "scheme-like segment"     | "dbresource://mantle/content" | "component://webroot/screen"          | "dbresource://mantle/content"
-        "other scheme segment"    | "dbresource://mantle/content" | "file:/etc/passwd"                    | "dbresource://mantle/content"
         "dot segment"             | "dbresource://mantle/content" | "./docs/readme.txt"                   | "dbresource://mantle/content/docs/readme.txt"
-        "traversal in the middle" | "dbresource://mantle/content" | "docs/../../secret"                   | "dbresource://mantle/content"
         "empty"                   | "dbresource://mantle/content" | ""                                    | "dbresource://mantle/content"
         "root slash"              | "dbresource://mantle/content" | "/"                                   | "dbresource://mantle/content"
         "root sentinel"           | "dbresource://mantle/content" | "root"                                | "dbresource://mantle/content"
-        "file root parent"        | "file:runtime"                | "../conf/MoquiProductionConf.xml"     | "file:runtime"
+    }
+
+    def "ElFinder malformed target hash is errFileNotFound, never the root"() {
+        given:
+        def conn = new org.moqui.impl.util.ElFinderConnector(ec, "dbresource://mantle/content", "v0_")
+        when:
+        ec.context.cmd = "rm"
+        ec.context.target = "v0_"
+        ec.context.otherParameters = [targets: ["zz", conn.hash("../secret")]]
+        conn.runCommand()
+        then:
+        ec.context.responseMap?.error == "errFileNotFound"
+        cleanup:
+        ec.context.remove("cmd")
+        ec.context.remove("target")
+        ec.context.remove("otherParameters")
+        ec.context.remove("responseMap")
+    }
+
+    def "ElFinder rm, rename and put are refused on the root"() {
+        given:
+        def conn = new org.moqui.impl.util.ElFinderConnector(ec, "dbresource://mantle/content", "v0_")
+        when:
+        ec.context.cmd = cmd
+        ec.context.target = conn.hash("root")
+        ec.context.otherParameters = [targets: [conn.hash("root")], name: "x", content: "x"]
+        conn.runCommand()
+        then:
+        ec.context.responseMap?.error
+        cleanup:
+        ec.context.remove("cmd")
+        ec.context.remove("target")
+        ec.context.remove("otherParameters")
+        ec.context.remove("responseMap")
+        where:
+        cmd << ["rm", "rename", "put"]
     }
 
     def "ElFinder joinUnderRoot allows a normal nested path"() {
