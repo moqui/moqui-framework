@@ -136,6 +136,23 @@ and clarifies security details that have been more scattered and less formal.
   comparing them to the parameter map.
 - HMAC replay cache is `type="distributed"` (effective when a distributed
   factory is configured).
+- `XmlAction.checkCondition` ran the condition script twice; it now runs once.
+- System message HMAC signatures (`SmatHmacSha256`, `SmatHmacSha256Timestamp`)
+  are compared in constant time.
+- ElFinder: a target that does not decode or that leaves the resource root is
+  now `errFileNotFound` instead of falling back to the root, and `rm`, `rename`
+  and `put` on the root itself are refused.
+- `ArtifactHit.parameterString` leaves out parameters by case-insensitive name
+  match for passwords, secrets, tokens, credentials, API keys, OTP/auth codes
+  and `sql`, not just names containing lowercase `password`.
+- Entity-auto services with the unimplemented verbs `update-expire`,
+  `delete-expire`, `find` and `find-one` now throw instead of silently doing nothing.
+- `get#EntitySyncData` applies each entity's own `includeFilterList` (before it
+  used the service-level parameter), which changes which records sync.
+- `SimpleEtl.addConfiguration` transformers now run (the copied configuration
+  was not marked as having transformers).
+- `Header.html.ftl` (webroot) emits a script or style sheet once when both the
+  theme and the screen name it.
 
 ## Release 4.0.0 - 27 Feb 2026
 
