@@ -129,6 +129,38 @@ class EntityFindTests extends Specification {
         noEnums.size() == 0
     }
 
+    def "maxRows does not leak onto pooled PreparedStatement"() {
+        // A find that sets maxRows leaves that limit on the cached (pooled) PreparedStatement.
+        // A later find with identical SQL but no maxRows must not inherit the stale limit.
+        // Both finds produce the same SQL text (maxRows uses JDBC setMaxRows, not SQL), so the
+        // Bitronix statement cache returns the same PreparedStatement for the second find.
+        // Uses the non-cached TestEntity so the finds actually hit the DB / pooled statement.
+        setup:
+        for (int i = 1; i <= 5; i++)
+            ec.entity.makeValue("moqui.test.TestEntity")
+                    .setAll([testId: "MAXR" + i, testNumberInteger: 9999, testMedium: "maxRows test " + i])
+                    .createOrUpdate()
+
+        when:
+        // first find sets maxRows on the (pooled) PreparedStatement for this SQL;
+        // fetchSize<=maxRows so the statement is valid on databases (like H2) that require it
+        EntityList limited = ec.entity.find("moqui.test.TestEntity")
+                .condition("testNumberInteger", 9999).orderBy("testId").maxRows(2).fetchSize(2).list()
+        // second find reuses the same cached statement (identical SQL) with no maxRows: it must
+        // NOT inherit the stale maxRows=2 (which would truncate to 2 rows, or on H2 make the
+        // default fetchSize=100 exceed maxRows and throw)
+        EntityList full = ec.entity.find("moqui.test.TestEntity")
+                .condition("testNumberInteger", 9999).orderBy("testId").list()
+
+        then:
+        limited.size() == 2
+        full.size() == 5
+
+        cleanup:
+        for (int i = 1; i <= 5; i++)
+            ec.entity.makeValue("moqui.test.TestEntity").set("testId", "MAXR" + i).delete()
+    }
+
     def "auto cache clear for list"() {
         // update the testMedium and make sure we get the new value
         when:
