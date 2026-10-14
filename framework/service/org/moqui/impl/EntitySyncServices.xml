@@ -225,7 +225,7 @@ along with this software (see the LICENSE.md file). If not, see
                         find.condition("lastUpdatedStamp", EntityCondition.LESS_THAN_EQUAL_TO, new Timestamp(splitThruLong))
 
                         List includeCondList = []
-                        for (Map filterMap in includeFilterList)
+                        for (Map filterMap in (entryMap.includeFilterList ?: []))
                             includeCondList.add(ec.entity.conditionFactory.makeCondition(filterMap))
                         if (includeCondList)
                             find.condition(ec.entity.conditionFactory.makeCondition(includeCondList, EntityCondition.OR))
