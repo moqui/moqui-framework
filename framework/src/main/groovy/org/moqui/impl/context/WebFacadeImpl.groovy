@@ -1218,7 +1218,7 @@ class WebFacadeImpl implements WebFacade {
 
                 String signature = WebUtilities.hmacSha256Base64(sharedSecret, messageText)
 
-                if (headerValue != signature) {
+                if (!java.security.MessageDigest.isEqual(headerValue.getBytes(StandardCharsets.UTF_8), signature.getBytes(StandardCharsets.UTF_8))) {
                     logger.warn("System message receive HMAC verify header value ${headerValue} calculated ${signature} did not match for remote ${systemMessageRemoteId}")
                     response.sendError(HttpServletResponse.SC_FORBIDDEN, "HMAC verify failed for remote system ${systemMessageRemoteId}")
                     return
@@ -1260,7 +1260,7 @@ class WebFacadeImpl implements WebFacade {
                 // The text body of the request
                 String signature = WebUtilities.hmacSha256Hex(sharedSecret, timestamp + "." + messageText)
 
-                if (incomingSignature != signature) {
+                if (incomingSignature == null || !java.security.MessageDigest.isEqual(incomingSignature.getBytes(StandardCharsets.UTF_8), signature.getBytes(StandardCharsets.UTF_8))) {
                     logger.warn("System message receive HMAC verify header value ${incomingSignature} calculated ${signature} did not match for remote ${systemMessageRemoteId}")
                     response.sendError(HttpServletResponse.SC_FORBIDDEN, "HMAC verify failed for remote system ${systemMessageRemoteId}")
                     return

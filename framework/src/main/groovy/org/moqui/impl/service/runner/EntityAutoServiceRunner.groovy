@@ -87,13 +87,13 @@ class EntityAutoServiceRunner implements ServiceRunner {
             } else if ("store".equals(sd.verb)) {
                 storeEntity(eci, ed, parameters, result, sd.getOutParameterNames())
             } else if ("update-expire".equals(sd.verb)) {
-                // TODO
+                throw new ServiceException("In entity-auto type service ${sd.serviceName} the verb update-expire is not implemented")
             } else if ("delete-expire".equals(sd.verb)) {
-                // TODO
+                throw new ServiceException("In entity-auto type service ${sd.serviceName} the verb delete-expire is not implemented")
             } else if ("find".equals(sd.verb)) {
-                // TODO
+                throw new ServiceException("In entity-auto type service ${sd.serviceName} the verb find is not implemented")
             } else if ("find-one".equals(sd.verb)) {
-                // TODO
+                throw new ServiceException("In entity-auto type service ${sd.serviceName} the verb find-one is not implemented")
             }
         } catch (BaseException e) {
             throw new ServiceException("Error doing entity-auto operation for entity [${ed.fullEntityName}] in service [${sd.serviceName}]", e)
