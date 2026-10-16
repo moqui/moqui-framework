@@ -328,6 +328,7 @@ public class ContextJavaUtil {
         public final long moquiTxId = moquiTxIdLast.incrementAndGet();
         public Exception transactionBegin = null;
         public Long transactionBeginStartTime = null;
+        public org.moqui.util.DeterministicClock.Operation deterministicOperation;
         public int transactionTimeout = 60;
         public RollbackInfo rollbackOnlyInfo = null;
 

@@ -23,6 +23,7 @@ import org.moqui.impl.context.ContextJavaUtil.EntityRecordLock
 import org.moqui.impl.context.ContextJavaUtil.RollbackInfo
 import org.moqui.impl.context.ContextJavaUtil.TxStackInfo
 import org.moqui.util.MNode
+import org.moqui.util.DeterministicClock
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -65,8 +66,11 @@ class TransactionFacadeImpl implements TransactionFacade {
         transactionFacadeNode.setSystemExpandAttributes(true)
         useLockTrack = "true".equals(transactionFacadeNode.attribute("use-lock-track"))
         useStatementTimeout = "true".equals(transactionFacadeNode.attribute("use-statement-timeout"))
+        if (DeterministicClock.isEnabled() && useStatementTimeout)
+            throw new IllegalStateException('Threaded JDBC statement timeouts are unsupported in deterministic mode; use transaction timeouts')
 
         if (transactionFacadeNode.hasChild("transaction-jndi")) {
+            if (DeterministicClock.isEnabled()) throw new IllegalStateException('Externally managed JNDI transactions are unsupported in deterministic mode')
             this.populateTransactionObjectsJndi()
         } else if (transactionFacadeNode.hasChild("transaction-internal")) {
             // initialize internal
@@ -144,7 +148,8 @@ class TransactionFacadeImpl implements TransactionFacade {
         TxStackInfo txStackInfo = getTxStackInfo()
         Long time = txStackInfo != null ? (Long) txStackInfo.transactionBeginStartTime : (Long) null
         if (time == null && isTraceEnabled) logger.trace("No transaction begin start time, transaction in place? [${this.isTransactionInPlace()}]", new BaseException("Empty transactionBeginStackList location"))
-        return time
+        return DeterministicClock.isEnabled() && getTxStackInfo().deterministicOperation != null ?
+                getTxStackInfo().deterministicOperation.time : time
     }
 
     protected LinkedList<TxStackInfo> getTxStackInfoList() {
@@ -202,7 +207,7 @@ class TransactionFacadeImpl implements TransactionFacade {
     protected final static boolean requireNewThread = true
     Object runRequireNew(Integer timeout, String rollbackMessage, boolean beginTx, boolean threadReuseEci, Closure closure) {
         Object result = null
-        if (requireNewThread) {
+        if (requireNewThread && !DeterministicClock.isEnabled()) {
             // if there is a timeout for this thread wait 10x the timeout (so multiple seconds by 10k instead of 1k)
             long threadWait = timeout != null ? timeout * 10000 : 60000
 
@@ -363,12 +368,35 @@ class TransactionFacadeImpl implements TransactionFacade {
             }
         }
 
+        DeterministicClock.Operation operation = null
+        if (DeterministicClock.isEnabled()) {
+            List<Map<String, String>> stack = new ArrayList<>()
+            ExecutionContextImpl eci = ecfi.activeContext.get()
+            if (eci != null) {
+                for (org.moqui.context.ArtifactExecutionInfo aei in eci.artifactExecutionFacade.getStack()) {
+                    stack.add([type:aei.getTypeEnum().name(),
+                            sub_type:((ArtifactExecutionInfoImpl) aei).actionDetail ?: '', name:aei.getName()] as Map<String, String>)
+                }
+            }
+            operation = DeterministicClock.get().begin(stack, true)
+        }
+        boolean started = false
+        boolean initialized = false
         try {
             // NOTE: Since JTA 1.1 setTransactionTimeout() is local to the thread, so this doesn't need to be synchronized.
             if (timeout != null) ut.setTransactionTimeout(timeout)
             ut.begin()
+            started = true
 
             TxStackInfo txStackInfo = getTxStackInfo()
+            txStackInfo.deterministicOperation = operation
+            if (operation != null) {
+                final DeterministicClock.Operation txOperation = operation
+                tm.getTransaction().registerSynchronization(new Synchronization() {
+                    @Override void beforeCompletion() { }
+                    @Override void afterCompletion(int status) { txOperation.completionStatus = status }
+                })
+            }
             txStackInfo.transactionBegin = new Exception("Tx Begin Placeholder")
             txStackInfo.transactionBeginStartTime = System.currentTimeMillis()
             if (timeout != null) txStackInfo.transactionTimeout = timeout
@@ -382,14 +410,25 @@ class TransactionFacadeImpl implements TransactionFacade {
             }
             */
 
+            initialized = true
             return true
         } catch (NotSupportedException e) {
             throw new TransactionException("Could not begin transaction (could be a nesting problem)", e)
         } catch (SystemException e) {
             throw new TransactionException("Could not begin transaction", e)
         } finally {
-            // make sure the timeout always gets reset to the default
-            if (timeout != null) ut.setTransactionTimeout(0)
+            try {
+                // make sure the timeout always gets reset to the default
+                if (timeout != null) ut.setTransactionTimeout(0)
+            } finally {
+                if (operation != null && !initialized) {
+                    try { if (started) ut.rollback() }
+                    finally {
+                        getTxStackInfo().deterministicOperation = null
+                        operation.complete('begin_failed')
+                    }
+                }
+            }
         }
     }
 
@@ -446,8 +485,23 @@ class TransactionFacadeImpl implements TransactionFacade {
                 }
             }
 
-            txStackInfo.clearCurrent()
+            try { completeDeterministic(txStackInfo) }
+            finally { txStackInfo.clearCurrent() }
+            drainDeterministicWork()
         }
+    }
+
+    private void completeDeterministic(TxStackInfo info) {
+        DeterministicClock.Operation operation = info.deterministicOperation
+        if (operation == null) return
+        info.deterministicOperation = null
+        String outcome = operation.completionStatus == Status.STATUS_COMMITTED ? 'committed' :
+                (operation.completionStatus == Status.STATUS_ROLLEDBACK ? 'rolled_back' : 'unknown')
+        operation.complete(outcome)
+    }
+    void drainDeterministicWork() {
+        if (DeterministicClock.isEnabled() && ecfi.workerPool instanceof DeterministicExecutor)
+            ((DeterministicExecutor) ecfi.workerPool).drain()
     }
 
     @Override
@@ -493,7 +547,9 @@ class TransactionFacadeImpl implements TransactionFacade {
             // NOTE: should this really be in finally? maybe we only want to do this if there is a successful rollback
             // to avoid removing things that should still be there, or maybe here in finally it will match up the adds
             // and removes better
-            txStackInfo.clearCurrent()
+            try { completeDeterministic(txStackInfo) }
+            finally { txStackInfo.clearCurrent() }
+            drainDeterministicWork()
         }
     }
 
@@ -546,6 +602,7 @@ class TransactionFacadeImpl implements TransactionFacade {
             txStackInfo.closeTxConnections()
 
             Transaction tx = tm.suspend()
+            if (txStackInfo.deterministicOperation != null) txStackInfo.deterministicOperation.suspended = true
             // only do these after successful suspend
             pushTxStackInfo(tx, new Exception("Transaction Suspend Location"))
 
@@ -569,6 +626,7 @@ class TransactionFacadeImpl implements TransactionFacade {
                 tm.resume(txStackInfo.suspendedTx)
                 // only do this after successful resume
                 popTxStackInfo()
+                if (getTxStackInfo().deterministicOperation != null) getTxStackInfo().deterministicOperation.suspended = false
             } else {
                 logger.warn("No transaction suspended, so not resuming")
             }

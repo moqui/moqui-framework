@@ -588,7 +588,7 @@ public class LlmConversationImpl implements LlmConversation {
         Timestamp thru = ev.getTimestamp("turnLeaseThru");
         if (owner == null || owner.isEmpty() || thru == null) return false;
         if (owner.equals(((LlmFacadeImpl) ec.getLlm()).getNodeId())) return false;
-        return thru.getTime() > System.currentTimeMillis();
+        return thru.getTime() > org.moqui.util.DeterministicClock.nowMillis();
     }
     private boolean turnClaimed() {
         // No facade means we cannot tell a live turn from a leftover row, so keep the strict 409.
@@ -906,7 +906,7 @@ public class LlmConversationImpl implements LlmConversation {
         ev.set("messageCount", visibleMessageCount(messages));
         if (takeTurn && ec != null && ec.getLlm() instanceof LlmFacadeImpl) {
             ev.set("turnOwner", ((LlmFacadeImpl) ec.getLlm()).getNodeId());
-            ev.set("turnLeaseThru", new Timestamp(System.currentTimeMillis() + LlmFacadeImpl.LEASE_SECONDS * 1000L));
+            ev.set("turnLeaseThru", new Timestamp(org.moqui.util.DeterministicClock.nowMillis() + LlmFacadeImpl.LEASE_SECONDS * 1000L));
         } else if (!STATUS_STREAMING.equals(statusId)) {
             ev.set("turnOwner", null);
             ev.set("turnLeaseThru", null);
@@ -977,7 +977,7 @@ public class LlmConversationImpl implements LlmConversation {
     }
     static Timestamp now(ExecutionContext ec) {
         if (ec != null && ec.getUser() != null) return ec.getUser().getNowTimestamp();
-        return new Timestamp(System.currentTimeMillis());
+        return new Timestamp(org.moqui.util.DeterministicClock.nowMillis());
     }
     private static String newInMemoryId() {
         return UUID.randomUUID().toString().replace("-", "");

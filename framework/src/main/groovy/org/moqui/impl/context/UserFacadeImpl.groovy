@@ -349,9 +349,11 @@ class UserFacadeImpl implements UserFacade {
 
     @Override TimeZone getTimeZone() { return currentInfo.tzCache }
     Calendar getCalendarSafe() {
-        return Calendar.getInstance(currentInfo.tzCache != null ? currentInfo.tzCache : TimeZone.getDefault(),
+        Calendar calendar = Calendar.getInstance(currentInfo.tzCache != null ? currentInfo.tzCache : TimeZone.getDefault(),
                 currentInfo.localeCache != null ? currentInfo.localeCache :
                         (request != null ? request.getLocale() : Locale.getDefault()))
+        if (org.moqui.util.DeterministicClock.isEnabled()) calendar.setTimeInMillis(org.moqui.util.DeterministicClock.nowMillis())
+        return calendar
     }
     @Override void setTimeZone(TimeZone tz) {
         if (currentInfo.userAccount != null) {
@@ -466,6 +468,7 @@ class UserFacadeImpl implements UserFacade {
 
     @Override Timestamp getNowTimestamp() {
         // NOTE: review Timestamp and nowTimestamp use, have things use this by default (except audit/etc where actual date/time is needed
+        if (org.moqui.util.DeterministicClock.isEnabled()) return new Timestamp(org.moqui.util.DeterministicClock.nowMillis())
         return ((Object) this.effectiveTime != null) ? this.effectiveTime : new Timestamp(System.currentTimeMillis())
     }
 
@@ -835,7 +838,7 @@ class UserFacadeImpl implements UserFacade {
     }
     static boolean hasPermissionById(String userId, String userPermissionId, Timestamp whenTimestamp, ExecutionContextImpl eci) {
         if (!userId) return false
-        if ((Object) whenTimestamp == null) whenTimestamp = new Timestamp(System.currentTimeMillis())
+        if ((Object) whenTimestamp == null) whenTimestamp = new Timestamp(org.moqui.util.DeterministicClock.nowMillis())
         return (eci.getEntity().find("moqui.security.UserPermissionCheck")
                 .condition([userId:userId, userPermissionId:userPermissionId] as Map<String, Object>).useCache(true).disableAuthz().list()
                 .filterByDate("groupFromDate", "groupThruDate", whenTimestamp)
@@ -852,7 +855,7 @@ class UserFacadeImpl implements UserFacade {
     static boolean isInGroupById(String userId, String userGroupId, Timestamp whenTimestamp, ExecutionContextImpl eci) {
         if (userGroupId == "ALL_USERS") return true
         if (!userId) return false
-        if ((Object) whenTimestamp == null) whenTimestamp = new Timestamp(System.currentTimeMillis())
+        if ((Object) whenTimestamp == null) whenTimestamp = new Timestamp(org.moqui.util.DeterministicClock.nowMillis())
         return (eci.getEntity().find("moqui.security.UserGroupMember").condition("userId", userId).condition("userGroupId", userGroupId)
                 .useCache(true).disableAuthz().list().filterByDate("fromDate", "thruDate", whenTimestamp)) as boolean
     }

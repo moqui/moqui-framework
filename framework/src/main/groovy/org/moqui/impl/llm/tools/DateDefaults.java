@@ -121,12 +121,16 @@ public final class DateDefaults {
         } catch (DateTimeParseException ignored) { }
         try {
             LocalTime lt = LocalTime.parse(s, DateTimeFormatter.ofPattern("HH:mm:ss", locale));
-            return lt.atDate(LocalDate.now(zone)).atZone(zone).toInstant().toEpochMilli();
+            return lt.atDate(today(zone)).atZone(zone).toInstant().toEpochMilli();
         } catch (DateTimeParseException ignored) { }
         try {
             LocalTime lt = LocalTime.parse(s, DateTimeFormatter.ofPattern("HH:mm", locale));
-            return lt.atDate(LocalDate.now(zone)).atZone(zone).toInstant().toEpochMilli();
+            return lt.atDate(today(zone)).atZone(zone).toInstant().toEpochMilli();
         } catch (DateTimeParseException ignored) { }
         return null;
+    }
+    private static LocalDate today(ZoneId zone) {
+        return org.moqui.util.DeterministicClock.isEnabled() ?
+                java.time.Instant.ofEpochMilli(org.moqui.util.DeterministicClock.nowMillis()).atZone(zone).toLocalDate() : LocalDate.now(zone);
     }
 }

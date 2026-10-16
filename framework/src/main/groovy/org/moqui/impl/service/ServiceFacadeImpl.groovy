@@ -87,6 +87,7 @@ class ServiceFacadeImpl implements ServiceFacade {
     }
 
     private ThreadPoolExecutor makeWorkerPool() {
+        if (org.moqui.util.DeterministicClock.isEnabled()) return new org.moqui.impl.context.DeterministicExecutor(ecfi)
         MNode serviceFacadeNode = ecfi.confXmlRoot.first("service-facade")
 
         int jobQueueMax = (serviceFacadeNode.attribute("job-queue-max") ?: "0") as int
@@ -117,6 +118,7 @@ class ServiceFacadeImpl implements ServiceFacade {
         // get distributed ExecutorService
         String distEsFactoryName = serviceFacadeNode.attribute("distributed-factory")
         if (distEsFactoryName) {
+            if (org.moqui.util.DeterministicClock.isEnabled()) throw new IllegalStateException('Distributed executors are unsupported in deterministic mode')
             logger.info("Getting Async Distributed Service ExecutorService (using ToolFactory ${distEsFactoryName})")
             ToolFactory<ExecutorService> esToolFactory = ecfi.getToolFactory(distEsFactoryName)
             if (esToolFactory == null) {
@@ -132,6 +134,8 @@ class ServiceFacadeImpl implements ServiceFacade {
 
         // setup service job runner
         long jobRunnerRate = (serviceFacadeNode.attribute("scheduled-job-check-time") ?: "60") as long
+        if (jobRunnerRate > 0L && org.moqui.util.DeterministicClock.isEnabled())
+            throw new IllegalStateException('Deterministic mode requires service-facade scheduled-job-check-time="0"; periodic jobs are unsupported')
         if (jobRunnerRate > 0L) {
             // wait before first run to make sure all is loaded and we're past an initial activity burst
             long initialDelay = 120L
@@ -614,6 +618,7 @@ class ServiceFacadeImpl implements ServiceFacade {
     // ==========================
 
     synchronized LoadRunner getLoadRunner() {
+        if (org.moqui.util.DeterministicClock.isEnabled()) throw new IllegalStateException('Concurrent load runner is unsupported in deterministic mode')
         if (loadRunner == null) loadRunner = new LoadRunner(ecfi)
         return loadRunner
     }

@@ -1276,6 +1276,7 @@ class EntityFacadeImpl implements EntityFacade {
     }
     // used in services
     int runSqlUpdateConf(CharSequence sql, Map<String, String> confMap) {
+        if (org.moqui.util.DeterministicClock.isEnabled()) throw new IllegalStateException('External configuration SQL connections are unsupported in deterministic mode')
         // only do one DB meta data operation at a time; may lock above before checking for existence of something to make sure it doesn't get created twice
         int records = 0
         ecfi.transactionFacade.runRequireNew(30, "Error in DB meta data change", false, true, {
@@ -1313,6 +1314,7 @@ class EntityFacadeImpl implements EntityFacade {
     */
     // used in services
     long runSqlCountConf(CharSequence from, CharSequence where, Map<String, String> confMap) {
+        if (org.moqui.util.DeterministicClock.isEnabled()) throw new IllegalStateException('External configuration SQL connections are unsupported in deterministic mode')
         StringBuilder sqlSb = new StringBuilder("SELECT COUNT(*) FROM ").append(from).append(" WHERE ").append(where)
         XAConnection xacon = null
         Connection con = null
@@ -1465,6 +1467,9 @@ class EntityFacadeImpl implements EntityFacade {
      * For cached queries this is about 50% faster (6M/s vs 4M/s) for non-cached queries only about 10% faster (500K vs 450K) */
     @Override
     EntityValue fastFindOne(String entityName, Boolean useCache, boolean disableAuthz, Object... values) {
+        if (org.moqui.impl.context.DeterministicTransaction.needed(ecfi.transactionFacade))
+            return org.moqui.impl.context.DeterministicTransaction.entity(ecfi, entityName, 'one',
+                    { -> fastFindOne(entityName, useCache, disableAuthz, values) } as java.util.concurrent.Callable<EntityValue>)
         ExecutionContextImpl ec = ecfi.getEci()
         ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
         boolean enableAuthz = disableAuthz ? !aefi.disableAuthz() : false
@@ -1619,6 +1624,11 @@ class EntityFacadeImpl implements EntityFacade {
     @Override
     void createBulk(List<EntityValue> valueList) {
         if (valueList == null || valueList.isEmpty()) return
+        if (org.moqui.impl.context.DeterministicTransaction.needed(ecfi.transactionFacade)) {
+            org.moqui.impl.context.DeterministicTransaction.entity(ecfi, valueList.get(0).resolveEntityName(), 'create',
+                    { -> createBulk(valueList); return null } as java.util.concurrent.Callable<Object>)
+            return
+        }
 
         EntityValue firstEv = (EntityValue) valueList.get(0)
         String groupName = getEntityGroupName(firstEv.resolveEntityName())
@@ -2101,6 +2111,8 @@ class EntityFacadeImpl implements EntityFacade {
      * this during a sim. sqlFind is the raw-SQL fence. */
     Connection getConnectionInternal(String groupName, boolean useClone) {
         TransactionFacadeImpl tfi = ecfi.transactionFacade
+        if (org.moqui.impl.context.DeterministicTransaction.needed(tfi))
+            throw new IllegalStateException('Deterministic JDBC access requires an explicit facade transaction; uninstrumented autocommit is forbidden')
         if (!tfi.isTransactionOperable()) throw new EntityException("Cannot get connection, transaction not in operable status (${tfi.getStatusString()})")
 
         String groupToUse = useClone ? getDatasourceCloneName(groupName) : groupName

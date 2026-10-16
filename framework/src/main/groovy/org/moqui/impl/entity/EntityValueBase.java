@@ -639,6 +639,8 @@ public abstract class EntityValueBase implements EntityValue {
 
     @Override
     public EntityValue createOrUpdate() {
+        if (org.moqui.impl.context.DeterministicTransaction.needed(getEntityFacadeImpl().ecfi.transactionFacade))
+            return org.moqui.impl.context.DeterministicTransaction.entity(getEntityFacadeImpl().ecfi, entityName, "store", this::createOrUpdate);
         EntityDefinition ed = getEntityDefinition();
         boolean pkModified = false;
         if (isFromDb) {
@@ -1514,6 +1516,8 @@ public abstract class EntityValueBase implements EntityValue {
 
     @Override
     public EntityValue create() {
+        if (org.moqui.impl.context.DeterministicTransaction.needed(getEntityFacadeImpl().ecfi.transactionFacade))
+            return org.moqui.impl.context.DeterministicTransaction.entity(getEntityFacadeImpl().ecfi, entityName, "create", this::create);
         final EntityDefinition ed = getEntityDefinition();
         final EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo;
         final EntityFacadeImpl efi = getEntityFacadeImpl();
@@ -1526,7 +1530,8 @@ public abstract class EntityValueBase implements EntityValue {
 
         // set lastUpdatedStamp
         final Long time = ecfi.transactionFacade.getCurrentTransactionStartTime();
-        Long lastUpdatedLong = time != null && time > 0 ? time : System.currentTimeMillis();
+        Long lastUpdatedLong = org.moqui.util.DeterministicClock.isEnabled() ? org.moqui.util.DeterministicClock.nowMillis() :
+                (time != null && time > 0 ? time : System.currentTimeMillis());
         FieldInfo lastUpdatedStampInfo = ed.entityInfo.lastUpdatedStampInfo;
         if (lastUpdatedStampInfo != null && valueMapInternal.getByIString(lastUpdatedStampInfo.name, lastUpdatedStampInfo.index) == null)
             valueMapInternal.putByIString(lastUpdatedStampInfo.name, new Timestamp(lastUpdatedLong), lastUpdatedStampInfo.index);
@@ -1599,6 +1604,8 @@ public abstract class EntityValueBase implements EntityValue {
 
     @Override
     public EntityValue update() {
+        if (org.moqui.impl.context.DeterministicTransaction.needed(getEntityFacadeImpl().ecfi.transactionFacade))
+            return org.moqui.impl.context.DeterministicTransaction.entity(getEntityFacadeImpl().ecfi, entityName, "update", this::update);
         final EntityDefinition ed = getEntityDefinition();
         final EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo;
         final EntityFacadeImpl efi = getEntityFacadeImpl();
@@ -1688,7 +1695,8 @@ public abstract class EntityValueBase implements EntityValue {
             // set lastUpdatedStamp
             if (!modifiedLastUpdatedStamp && lastUpdatedStampInfo != null) {
                 final Long time = ecfi.transactionFacade.getCurrentTransactionStartTime();
-                long lastUpdatedLong = time != null && time > 0 ? time : System.currentTimeMillis();
+                long lastUpdatedLong = org.moqui.util.DeterministicClock.isEnabled() ? org.moqui.util.DeterministicClock.nowMillis() :
+                        (time != null && time > 0 ? time : System.currentTimeMillis());
                 valueMapInternal.putByIString(lastUpdatedStampInfo.name, new Timestamp(lastUpdatedLong), lastUpdatedStampInfo.index);
                 nonPkFieldArray[nonPkFieldArrayIndex] = lastUpdatedStampInfo;
                 // never gets used after this point, but if ever does will need to: nonPkFieldArrayIndex++
@@ -1764,6 +1772,8 @@ public abstract class EntityValueBase implements EntityValue {
 
     @Override
     public EntityValue delete() {
+        if (org.moqui.impl.context.DeterministicTransaction.needed(getEntityFacadeImpl().ecfi.transactionFacade))
+            return org.moqui.impl.context.DeterministicTransaction.entity(getEntityFacadeImpl().ecfi, entityName, "delete", this::delete);
         final EntityDefinition ed = getEntityDefinition();
         final EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo;
         final EntityFacadeImpl efi = getEntityFacadeImpl();
@@ -1816,6 +1826,8 @@ public abstract class EntityValueBase implements EntityValue {
 
     @Override
     public boolean refresh() {
+        if (org.moqui.impl.context.DeterministicTransaction.needed(getEntityFacadeImpl().ecfi.transactionFacade))
+            return org.moqui.impl.context.DeterministicTransaction.entity(getEntityFacadeImpl().ecfi, entityName, "refresh", this::refresh);
         final EntityDefinition ed = getEntityDefinition();
         final EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo;
         final EntityFacadeImpl efi = getEntityFacadeImpl();

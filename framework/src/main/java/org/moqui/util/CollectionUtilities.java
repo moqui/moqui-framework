@@ -117,7 +117,7 @@ public class CollectionUtilities {
         if (fromDateName == null || fromDateName.isEmpty()) fromDateName = "fromDate";
         if (thruDateName == null || thruDateName.isEmpty()) thruDateName = "thruDate";
         // no access to ec.user here, so this should always be passed in, but just in case
-        if (compareStamp == null) compareStamp = new Timestamp(System.currentTimeMillis());
+        if (compareStamp == null) compareStamp = new Timestamp(DeterministicClock.nowMillis());
 
         Iterator<Map> theIterator = theList.iterator();
         while (theIterator.hasNext()) {

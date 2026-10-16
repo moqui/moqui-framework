@@ -41,6 +41,7 @@ import org.moqui.resource.UrlResourceReference
 import org.moqui.impl.context.ContextJavaUtil.ArtifactBinInfo
 import org.moqui.impl.context.ContextJavaUtil.ArtifactStatsInfo
 import org.moqui.impl.context.ContextJavaUtil.ArtifactHitInfo
+import org.moqui.util.DeterministicClock
 import org.moqui.impl.context.ContextJavaUtil.CustomScheduledExecutor
 import org.moqui.impl.context.ContextJavaUtil.ScheduledRunnableInfo
 import org.moqui.impl.entity.EntityFacadeImpl
@@ -164,6 +165,9 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
      * or by init methods in a servlet or context filter or OSGi component or Spring component or whatever.
      */
     ExecutionContextFactoryImpl() {
+        DeterministicClock.Operation bootstrap = DeterministicClock.bootstrap()
+        boolean initialized = false
+        try {
         initStartTime = System.currentTimeMillis()
         // 1609900441000 (decimal 13 chars) = 176D58B3DA8 (hex 11 chars) take 7 means leave off 4 hex chars which is 65536ms which is ~1 minute (ie server start time round floor to ~1 min)
         initStartHex = Long.toHexString(initStartTime).take(7)
@@ -253,10 +257,20 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         // Subscribers see the factory only after init finishes. The appender must not call back into Moqui during static init.
         MoquiLog4jAppender.bind(this)
         logger.info("Execution Context Factory initialized in ${(System.currentTimeMillis() - initStartTime)/1000} seconds")
+        initialized = true
+        } finally {
+            if (bootstrap != null) {
+                try { destroyActiveExecutionContext(); transactionFacade?.drainDeterministicWork() }
+                finally { bootstrap.complete(initialized ? 'committed' : 'rolled_back') }
+            }
+        }
     }
 
     /** This constructor takes the runtime directory path and conf file path directly. */
     ExecutionContextFactoryImpl(String runtimePathParm, String confPathParm) {
+        DeterministicClock.Operation bootstrap = DeterministicClock.bootstrap()
+        boolean initialized = false
+        try {
         initStartTime = System.currentTimeMillis()
         // 1609900441000 (decimal 13 chars) = 176D58B3DA8 (hex 11 chars) take 7 means leave off 4 hex chars which is 65536ms which is ~1 minute (ie server start time round floor to ~1 min)
         initStartHex = Long.toHexString(initStartTime).take(7)
@@ -317,6 +331,13 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         MoquiLog4jAppender.bind(this)
         logger.info("Execution Context Factory initialized in ${(System.currentTimeMillis() - initStartTime)/1000} seconds")
+        initialized = true
+        } finally {
+            if (bootstrap != null) {
+                try { destroyActiveExecutionContext(); transactionFacade?.drainDeterministicWork() }
+                finally { bootstrap.complete(initialized ? 'committed' : 'rolled_back') }
+            }
+        }
     }
 
     protected void reconfigureLog4j() {
@@ -462,6 +483,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     private ThreadPoolExecutor makeWorkerPool() {
+        if (DeterministicClock.isEnabled()) return new DeterministicExecutor(this)
         MNode toolsNode = confXmlRoot.first('tools')
 
         int workerQueueSize = (toolsNode.attribute("worker-queue") ?: "65536") as int
@@ -481,6 +503,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                 workQueue, new ContextJavaUtil.WorkerThreadFactory())
     }
     boolean waitWorkerPoolEmpty(int retryLimit) {
+        if (DeterministicClock.isEnabled()) transactionFacade.drainDeterministicWork()
         ThreadPoolExecutor jobWorkerPool = serviceFacade.jobWorkerPool
         int count = 0
         while (count < retryLimit && (workerPool.getQueue().size() > 0 || workerPool.getActiveCount() > 0 ||
@@ -502,6 +525,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         return executor
     }
     void scheduleAtFixedRate(Runnable command, long initialDelaySeconds, long periodSeconds) {
+        if (DeterministicClock.isEnabled()) throw new IllegalStateException('Periodic application jobs are unsupported in deterministic mode')
         // NOTE: actually returns an inaccessible class: ScheduledThreadPoolExecutor$ScheduledFutureTask
         ScheduledFuture scheduledFuture = this.scheduledExecutor.scheduleAtFixedRate(command, initialDelaySeconds, periodSeconds, TimeUnit.SECONDS)
         this.scheduledRunnableList.add(new ScheduledRunnableInfo(command, periodSeconds))
@@ -528,6 +552,17 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     }
 
     private void preFacadeInit() {
+        if (DeterministicClock.isEnabled()) {
+            // Mode-level exclusions are announced before any facade or application work starts.
+            logger.warn('DETERMINISTIC MODE: autonomous scheduled job polling, Elastic clients/logging/index startup, and persisted artifact-hit/bin statistics are DISABLED. Explicit job/distributed/periodic requests fail; async services run inline. See DETERMINISTIC.md.')
+            confXmlRoot.first('service-facade').attributes.put('scheduled-job-check-time', '0')
+            for (MNode cluster in confXmlRoot.first('elastic-facade').children('cluster')) cluster.attributes.put('url', '')
+            for (MNode webapp in confXmlRoot.first('webapp-list').children('webapp')) {
+                for (MNode filter in webapp.children('filter')) {
+                    if (filter.attribute('class') == 'org.moqui.impl.webapp.ElasticRequestLogFilter') filter.attributes.put('enabled', 'false')
+                }
+            }
+        }
         // save the current configuration in a file for debugging/reference
         File confSaveFile = new File(runtimePath + "/log/MoquiActualConf.xml")
         try {
@@ -633,8 +668,12 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         }
 
         // schedule DeferredHitInfoFlush (every 5 seconds, after 10 second init delay)
-        DeferredHitInfoFlush dhif = new DeferredHitInfoFlush(this)
-        this.scheduleAtFixedRate(dhif, 10, 5)
+        if (DeterministicClock.isEnabled()) {
+            logger.warn('Deterministic mode: periodic artifact-hit flush disabled with artifact statistics persistence')
+        } else {
+            DeferredHitInfoFlush dhif = new DeferredHitInfoFlush(this)
+            this.scheduleAtFixedRate(dhif, 10, 5)
+        }
 
         // all config loaded, save memory by clearing the parsed MNode cache, especially for production mode
         MNode.clearParsedNodeCache()
@@ -746,6 +785,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
                         logger.info("Loaded [${records}] records (with types from empty-db-load: ${emptyDbLoad}) in ${(System.currentTimeMillis() - startTime)/1000} seconds.")
                     } catch (Throwable t) {
+                        if (DeterministicClock.isEnabled()) throw t
                         logger.error("Error loading empty DB data (with types: ${emptyDbLoad})", t)
                     }
 
@@ -783,6 +823,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
                     logger.info("Loaded [${records}] records (with types from on-start-load-types: [${onStartLoadTypes}] components: [${onStartLoadComponents ?: 'all'}]) in ${(System.currentTimeMillis() - startTime)/1000} seconds.")
                 } catch (Throwable t) {
+                    if (DeterministicClock.isEnabled()) throw t
                     logger.error("Error loading on-start DB data (with types: [${onStartLoadTypes}] components: [${onStartLoadComponents ?: 'all'}])", t)
                 }
 
@@ -829,8 +870,12 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
             return
         }
 
+        if (DeterministicClock.isEnabled()) destroyActiveExecutionContext()
+        DeterministicClock.Operation shutdown = DeterministicClock.bootstrap()
+        boolean shutDown = false
+        try {
         // persist any remaining bins in artifactHitBinByType
-        Timestamp currentTimestamp = new Timestamp(System.currentTimeMillis())
+        Timestamp currentTimestamp = new Timestamp(DeterministicClock.nowMillis())
         List<ArtifactStatsInfo> asiList = new ArrayList<>(artifactStatsInfoByType.values())
         artifactStatsInfoByType.clear()
         ArtifactExecutionFacadeImpl aefi = getEci().artifactExecutionFacade
@@ -917,11 +962,14 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         MoquiLog4jAppender.unbind(this)
         // use System.out directly for this as logger may already be stopped
         System.out.println("Moqui ExecutionContextFactory Destroyed")
+        shutDown = true
+        } finally { if (shutdown != null) shutdown.complete(shutDown ? 'committed' : 'rolled_back') }
     }
     @Override boolean isDestroyed() { return destroyed }
 
     /** Trigger ECF destroy and re-init in another thread, after short wait */
     void triggerDynamicReInit() {
+        if (DeterministicClock.isEnabled()) throw new IllegalStateException('Use synchronous factory restart in deterministic mode')
         Thread.start("EcfiReInit", {
             sleep(2000) // wait 2 seconds
             Moqui.dynamicReInit(ExecutionContextFactoryImpl.class, internalServletContext)
@@ -1023,7 +1071,13 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     ExecutionContextImpl getEci() {
         // the ExecutionContextImpl cast here looks funny, but avoids Groovy using a slow castToType call
         ExecutionContextImpl ec = (ExecutionContextImpl) activeContext.get()
-        if (ec != null) return ec
+        if (ec != null) {
+            if (DeterministicClock.isEnabled() && !DeterministicClock.get().hasTime()) ec.deterministicOperation = DeterministicClock.bootstrap()
+            return ec
+        }
+        DeterministicClock.Operation operation = null
+        if (DeterministicClock.isEnabled() && !DeterministicClock.get().hasTime()) operation = DeterministicClock.bootstrap()
+        try {
 
         Thread currentThread = Thread.currentThread()
         if (logger.traceEnabled) logger.trace("Creating new ExecutionContext in thread [${currentThread.id}:${currentThread.name}]")
@@ -1031,7 +1085,12 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         ec = new ExecutionContextImpl(this, currentThread)
         this.activeContext.set(ec)
         this.activeContextMap.put(currentThread.id, ec)
+        ec.deterministicOperation = operation
         return ec
+        } catch (Throwable t) {
+            if (operation != null) operation.complete('rolled_back')
+            throw t
+        }
     }
 
     void destroyActiveExecutionContext() {
@@ -1045,6 +1104,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     /** Using an EC in multiple threads is dangerous as much of the ECI is not designed to be thread safe. */
     void useExecutionContextInThread(ExecutionContextImpl eci) {
+        if (DeterministicClock.isEnabled()) throw new IllegalStateException('Sharing an ExecutionContext across threads is unsupported in deterministic mode')
         ExecutionContextImpl curEc = activeContext.get()
         if (curEc != null) curEc.destroy()
         activeContext.set(eci)
@@ -1486,6 +1546,8 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     void countArtifactHit(ArtifactType artifactTypeEnum, String artifactSubType, String artifactName,
               Map<String, Object> parameters, long startTime, double runningTimeMillis, Long outputSize) {
+        // Explicit mode-level feature exclusion, announced at startup (never queues or drops requested app work).
+        if (DeterministicClock.isEnabled()) return
         boolean isEntity = ArtifactExecutionInfo.AT_ENTITY.is(artifactTypeEnum) || (artifactSubType != null && artifactSubType.startsWith('entity'))
         // don't count the ones this calls
         if (isEntity && entitiesToSkipHitCount.contains(artifactName)) return

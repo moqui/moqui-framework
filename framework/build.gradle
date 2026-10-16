@@ -247,6 +247,18 @@ test {
     beforeTest { descriptor -> logger.lifecycle("Running test: ${descriptor}") }
 }
 
+tasks.register('deterministicTest', Test) {
+    description = 'Isolated deterministic protocol and real H2 transaction tests'
+    inputs.files(tasks.jar)
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath + files(projectDir.absolutePath)
+    useJUnitPlatform()
+    include '**/Deterministic*Tests.class'
+    maxParallelForks = 1
+    systemProperty 'moqui.runtime', rootProject.file('runtime').absolutePath
+    testLogging { events 'passed', 'failed'; showStandardStreams = true }
+}
+
 jar {
     // this is necessary otherwise jar won't build when war plugin is applied
     enabled = true

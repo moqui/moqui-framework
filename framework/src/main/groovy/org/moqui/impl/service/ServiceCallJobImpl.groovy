@@ -76,6 +76,7 @@ class ServiceCallJobImpl extends ServiceCallImpl implements ServiceCallJob {
 
     @Override
     String run() throws ServiceException {
+        if (org.moqui.util.DeterministicClock.isEnabled()) throw new IllegalStateException('Service jobs are unsupported in deterministic mode; use async services')
         ExecutionContextFactoryImpl ecfi = sfi.ecfi
         ExecutionContextImpl eci = ecfi.getEci()
         if (eci != null && eci.simSession)

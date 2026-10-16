@@ -62,11 +62,12 @@ public class MoquiStart {
     // private final static boolean reportJarsUnused = true;
 
     public static void main(String[] args) throws IOException {
-        // now grab the first arg and see if it is a known command
-        String firstArg = args.length > 0 ? args[0] : "";
+        // The deterministic flag is global and may precede the command (eg --deterministic load).
+        List<String> argList = new ArrayList<>(Arrays.asList(args));
+        if (argList.remove("--deterministic")) System.setProperty("MOQUI_DETERMINISTIC", "true");
+        String firstArg = argList.isEmpty() ? "" : argList.get(0);
 
-        // make a list of arguments
-        List<String> argList = Arrays.asList(args);
+        // make a map of arguments
         Map<String, String> argMap = new LinkedHashMap<>();
         for (String arg: argList) {
             // run twice to allow one or two dashes
@@ -101,6 +102,7 @@ public class MoquiStart {
             System.out.println("Executable WAR : java -jar moqui.war [command] [arguments]");
             System.out.println("Expanded WAR   : java -cp . MoquiStart [command] [arguments]");
             System.out.println("help, -? ---- Help (this text)");
+            System.out.println("--deterministic -- Coordinator-assigned transaction time (requires MOQUI_DETERMINISTIC_* settings)");
             System.out.println("load -------- Run data loader");
             System.out.println("    types=<type>[,<type>] ------- Data types to load (can be anything, common are: seed, seed-initial, install, demo, ...)");
             System.out.println("    components=<name>[,<name>] -- Component names to load for data types; if none specified loads from all");

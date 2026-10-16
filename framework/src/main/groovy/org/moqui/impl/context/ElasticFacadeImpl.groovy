@@ -84,6 +84,8 @@ class ElasticFacadeImpl implements ElasticFacade {
 
             String clusterName = clusterNode.attribute("name")
             String clusterUrl = clusterNode.attribute("url")
+            if (clusterUrl && org.moqui.util.DeterministicClock.isEnabled())
+                throw new IllegalStateException('Deterministic mode requires explicit empty elastic-facade cluster URLs; autonomous Elastic logging/index startup is unsupported')
             logger.info("Initializing ElasticFacade Client for cluster ${clusterName} at ${clusterUrl}")
 
             if (clientByClusterName.containsKey(clusterName)) {

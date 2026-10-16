@@ -400,7 +400,7 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                 eci.getService().sync().name("create", "moqui.security.ArtifactAuthzFailure").parameters(
                         [artifactName:aeii.getName(), artifactTypeEnumId:artifactTypeEnum.name(),
                         authzActionEnumId:aeii.getActionEnum().name(), userId:userId,
-                        failureDate:new Timestamp(System.currentTimeMillis()), isDeny:"Y"]).disableAuthz().call()
+                        failureDate:new Timestamp(org.moqui.util.DeterministicClock.nowMillis()), isDeny:"Y"]).disableAuthz().call()
 
                 return false
             }
@@ -451,7 +451,7 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                     eci.service.sync().name("create", "moqui.security.ArtifactAuthzFailure").parameters(
                             [artifactName:aeii.getName(), artifactTypeEnumId:artifactTypeEnum.name(),
                              authzActionEnumId:aeii.getActionEnum().name(), userId:userId,
-                             failureDate:new Timestamp(System.currentTimeMillis()), isDeny:"N"]).call()
+                             failureDate:new Timestamp(org.moqui.util.DeterministicClock.nowMillis()), isDeny:"N"]).call()
                 } finally {
                     if (!alreadyDisabled) enableAuthz()
                 }
@@ -479,7 +479,7 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
             // record and check velocity limit (tarpit)
             boolean recordHitTime = false
             long lockForSeconds = 0L
-            long checkTime = System.currentTimeMillis()
+            long checkTime = org.moqui.util.DeterministicClock.nowMillis()
             // if (artifactTypeEnumId == "AT_XML_SCREEN")
             //     logger.warn("TOREMOVE about to check tarpit [${tarpitKey}], userGroupIdSet=${userGroupIdSet}, artifactTarpitList=${artifactTarpitList}")
 
@@ -519,7 +519,7 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
             }
             if (recordHitTime) {
                 if (hitTimeList == null) { hitTimeList = new ArrayList<Long>(); eci.tarpitHitCache.put(tarpitKey, hitTimeList) }
-                hitTimeList.add(System.currentTimeMillis())
+                hitTimeList.add(org.moqui.util.DeterministicClock.nowMillis())
                 // logger.warn("TOREMOVE recorded hit time for [${tarpitKey}], now has ${hitTimeList.size()} hits")
 
                 // check the ArtifactTarpitLock for the current artifact attempt before seeing if there is a new lock to create
@@ -531,7 +531,7 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
                         .filterByCondition(efi.getConditionFactory().makeCondition('releaseDateTime', ComparisonOperator.GREATER_THAN, ufi.getNowTimestamp()), true)
                 if (tarpitLockList.size() > 0) {
                     Timestamp releaseDateTime = tarpitLockList.get(0).getTimestamp('releaseDateTime')
-                    int retryAfterSeconds = ((releaseDateTime.getTime() - System.currentTimeMillis())/1000).intValue()
+                    int retryAfterSeconds = ((releaseDateTime.getTime() - org.moqui.util.DeterministicClock.nowMillis())/1000).intValue()
                     throw new ArtifactTarpitException("User ${userId} has accessed ${aeii.getTypeDescription()} ${aeii.getName()} too many times and may not again until ${eci.l10nFacade.format(releaseDateTime, 'yyyy-MM-dd HH:mm:ss')} (retry after ${retryAfterSeconds} seconds)".toString(), retryAfterSeconds)
                 }
             }

@@ -37,7 +37,7 @@ import java.util.concurrent.locks.ReentrantLock
 class EntityDbMeta {
     protected final static Logger logger = LoggerFactory.getLogger(EntityDbMeta.class)
 
-    static final boolean useTxForMetaData = false
+    final boolean useTxForMetaData = org.moqui.util.DeterministicClock.isEnabled()
 
     // this keeps track of when tables are checked and found to exist or are created
     protected HashMap<String, Timestamp> entityTablesChecked = new HashMap<>()
@@ -209,6 +209,7 @@ class EntityDbMeta {
                         entityTablesChecked.put(fullEntityName, new Timestamp(System.currentTimeMillis()))
                         entityTablesExist.put(fullEntityName, true)
                     } catch (Throwable t) {
+                        if (org.moqui.util.DeterministicClock.isEnabled()) throw t
                         logger.error("Error ${tableExists ? 'updating' : 'creating'} table for for entity ${entityName}", t)
                     }
                 }
@@ -827,6 +828,9 @@ class EntityDbMeta {
         return dropped
     }
     Boolean indexExists(EntityDefinition ed, String indexName, Collection<String> indexFields) {
+        if (org.moqui.impl.context.DeterministicTransaction.needed(efi.ecfi.transactionFacade))
+            return org.moqui.impl.context.DeterministicTransaction.run(efi.ecfi.transactionFacade,
+                    { -> indexExists(ed, indexName, indexFields) } as java.util.concurrent.Callable<Boolean>)
         String groupName = ed.getEntityGroupName()
         Connection con = null
         ResultSet ikSet1 = null
@@ -879,6 +883,9 @@ class EntityDbMeta {
     }
 
     Boolean foreignKeyExists(EntityDefinition ed, RelationshipInfo relInfo) {
+        if (org.moqui.impl.context.DeterministicTransaction.needed(efi.ecfi.transactionFacade))
+            return org.moqui.impl.context.DeterministicTransaction.run(efi.ecfi.transactionFacade,
+                    { -> foreignKeyExists(ed, relInfo) } as java.util.concurrent.Callable<Boolean>)
         String groupName = ed.getEntityGroupName()
         EntityDefinition relEd = relInfo.relatedEd
         Connection con = null
@@ -942,6 +949,9 @@ class EntityDbMeta {
         }
     }
     String getForeignKeyName(EntityDefinition ed, RelationshipInfo relInfo) {
+        if (org.moqui.impl.context.DeterministicTransaction.needed(efi.ecfi.transactionFacade))
+            return org.moqui.impl.context.DeterministicTransaction.run(efi.ecfi.transactionFacade,
+                    { -> getForeignKeyName(ed, relInfo) } as java.util.concurrent.Callable<String>)
         String groupName = ed.getEntityGroupName()
         EntityDefinition relEd = relInfo.relatedEd
         Connection con = null
@@ -1192,6 +1202,9 @@ class EntityDbMeta {
 
     final ReentrantLock sqlLock = new ReentrantLock()
     Integer runSqlUpdate(CharSequence sql, String groupName, Connection sharedCon) {
+        if (org.moqui.util.DeterministicClock.isEnabled() && sharedCon != null) {
+            try (Statement statement = sharedCon.createStatement()) { return statement.executeUpdate(sql.toString()) }
+        }
         // only do one DB meta data operation at a time; may lock above before checking for existence of something to make sure it doesn't get created twice
         sqlLock.lock()
         Integer records = null
@@ -1211,6 +1224,7 @@ class EntityDbMeta {
                 }
             })
         } catch (Throwable t) {
+            if (org.moqui.util.DeterministicClock.isEnabled()) throw t
             logger.error("SQL Exception while executing the following SQL [${sql.toString()}]: ${t.toString()}")
         } finally {
             sqlLock.unlock()
@@ -1253,7 +1267,7 @@ class EntityDbMeta {
                         dbms:dbmsDefault.join(",")])
         }
 
-        String dateStr = efi.ecfi.l10n.format(new Timestamp(System.currentTimeMillis()), "yyyyMMdd")
+        String dateStr = efi.ecfi.l10n.format(new Timestamp(org.moqui.util.DeterministicClock.nowMillis()), "yyyyMMdd")
         int changeSetIdx = 1
         Set<String> entityNames = efi.getAllEntityNames(filterRegexp)
 

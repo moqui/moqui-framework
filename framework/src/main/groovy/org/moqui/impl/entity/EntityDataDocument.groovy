@@ -357,7 +357,7 @@ class EntityDataDocument {
         EntityFind mainFind = makeDataDocumentFind(ddi, fromUpdateStamp, thruUpdatedStamp)
         if (condition != null) mainFind.condition(condition)
 
-        Timestamp docTimestamp = thruUpdatedStamp != (Timestamp) null ? thruUpdatedStamp : new Timestamp(System.currentTimeMillis())
+        Timestamp docTimestamp = thruUpdatedStamp != (Timestamp) null ? thruUpdatedStamp : new Timestamp(org.moqui.util.DeterministicClock.nowMillis())
         String docTsString = docTimestamp.toInstant().atZone(ZoneOffset.UTC.normalized()).format(DateTimeFormatter.ISO_INSTANT)
 
         Map<String, Map> documentMapMap = ddi.hasAllPrimaryPks ? new LinkedHashMap<String, Map>() : null

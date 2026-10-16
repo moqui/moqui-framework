@@ -193,6 +193,8 @@ public class LlmFacadeImpl implements LlmFacade {
 
     /** Start the renewal task the first time a turn is claimed. Daemon thread, stopped by destroy(). */
     private synchronized void ensureLeaseRenewer() {
+        if (org.moqui.util.DeterministicClock.isEnabled())
+            throw new IllegalStateException("LLM streaming turn lease renewal is unsupported in deterministic mode");
         if (leaseRenewer != null) return;
         java.util.concurrent.ScheduledExecutorService ses = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "llm-lease-renew");
@@ -216,7 +218,7 @@ public class LlmFacadeImpl implements LlmFacade {
             org.moqui.context.TransactionFacade tf = eci.getTransaction();
             boolean began = tf.begin(30);
             try {
-                java.sql.Timestamp thru = new java.sql.Timestamp(System.currentTimeMillis() + LEASE_SECONDS * 1000L);
+                java.sql.Timestamp thru = new java.sql.Timestamp(org.moqui.util.DeterministicClock.nowMillis() + LEASE_SECONDS * 1000L);
                 for (String id : new ArrayList<>(activeTurns.keySet())) {
                     // Only this node's own rows, so a row another node has since taken over is left alone
                     eci.getEntity().find("moqui.llm.LlmConversation").condition("conversationId", id)

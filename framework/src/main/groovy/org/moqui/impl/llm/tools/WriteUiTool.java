@@ -269,7 +269,7 @@ public class WriteUiTool implements LlmTool {
                     field.put("defaultValue", CanvasSanitizer.clean(dv.toString()));
                 if ("date-time".equals(widget) && field.containsKey("defaultValue")) {
                     Object normalized = DateDefaults.normalize(field.get("defaultValue"), str(field.get("widgetType")),
-                            System.currentTimeMillis(), DateDefaults.dateLocale(ec), DateDefaults.dateZone(ec));
+                            org.moqui.util.DeterministicClock.nowMillis(), DateDefaults.dateLocale(ec), DateDefaults.dateZone(ec));
                     if (normalized != null) field.put("defaultValue", normalized);
                 }
                 Object options = field.get("options");

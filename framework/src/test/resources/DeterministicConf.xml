@@ -1,0 +1,16 @@
+<moqui-conf>
+    <tools>
+        <tool-factory class="org.moqui.impl.tools.H2ServerToolFactory" disabled="true"/>
+    </tools>
+    <cache-list warm-on-start="false"/>
+    <service-facade scheduled-job-check-time="0"/>
+    <elastic-facade><cluster name="default" url=""/></elastic-facade>
+    <server-stats>
+        <artifact-stats type="AT_XML_SCREEN" persist-bin="false" persist-hit="false"/>
+        <artifact-stats type="AT_XML_SCREEN_CONTENT" persist-bin="false" persist-hit="false"/>
+        <artifact-stats type="AT_XML_SCREEN_TRANS" persist-bin="false" persist-hit="false"/>
+        <artifact-stats type="AT_SERVICE" persist-bin="false" persist-hit="false"/>
+        <artifact-stats type="AT_LLM" persist-bin="false" persist-hit="false"/>
+        <artifact-stats type="AT_ENTITY" persist-bin="false" persist-hit="false"/>
+    </server-stats>
+</moqui-conf>

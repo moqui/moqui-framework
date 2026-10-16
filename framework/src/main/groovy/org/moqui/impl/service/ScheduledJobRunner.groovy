@@ -82,6 +82,7 @@ class ScheduledJobRunner implements Runnable {
         }
     }
     void runInternal() {
+        if (org.moqui.util.DeterministicClock.isEnabled()) throw new IllegalStateException('Scheduled jobs are unsupported in deterministic mode')
         ZonedDateTime now = ZonedDateTime.now()
         long nowMillis = now.toInstant().toEpochMilli()
         Timestamp nowTimestamp = new Timestamp(nowMillis)

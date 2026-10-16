@@ -77,7 +77,7 @@ public class EntityListImpl implements EntityList {
         if (fromCache) return this.cloneList().filterByDate(fromDateName, thruDateName, moment);
 
         // default to now
-        long momentLong = moment != null ? moment.getTime() : System.currentTimeMillis();
+        long momentLong = moment != null ? moment.getTime() : org.moqui.util.DeterministicClock.nowMillis();
         long momentDateLong = new Date(momentLong).getTime();
         if (fromDateName == null || fromDateName.length() == 0) fromDateName = "fromDate";
         if (thruDateName == null || thruDateName.length() == 0) thruDateName = "thruDate";

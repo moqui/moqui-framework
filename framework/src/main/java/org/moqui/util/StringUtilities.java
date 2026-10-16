@@ -448,7 +448,9 @@ public class StringUtilities {
 
     public static ArrayList<String> getYearList(int years) {
         ArrayList<String> yearList = new ArrayList<>(years);
-        int startYear = Calendar.getInstance().get(Calendar.YEAR);
+        Calendar now = Calendar.getInstance();
+        if (DeterministicClock.isEnabled()) now.setTimeInMillis(DeterministicClock.nowMillis());
+        int startYear = now.get(Calendar.YEAR);
         for (int i = 0; i < years; i++) yearList.add(Integer.toString(startYear + i));
         return yearList;
     }
