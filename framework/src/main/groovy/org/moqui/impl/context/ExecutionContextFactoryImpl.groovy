@@ -127,6 +127,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     private final EnumMap<ArtifactType, Boolean> artifactPersistHitByTypeEnum = new EnumMap<ArtifactType, Boolean>(ArtifactType.class)
     private final EnumMap<ArtifactType, Boolean> artifactPersistBinByTypeEnum = new EnumMap<ArtifactType, Boolean>(ArtifactType.class)
     final ConcurrentLinkedQueue<ArtifactHitInfo> deferredHitInfoQueue = new ConcurrentLinkedQueue<ArtifactHitInfo>()
+    private final ConcurrentLinkedQueue<EntityValue> deferredHitBinQueue = new ConcurrentLinkedQueue<>()
 
     /** The SecurityManager for Apache Shiro */
     protected SecurityManager internalSecurityManager
@@ -554,7 +555,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     private void preFacadeInit() {
         if (DeterministicClock.isEnabled()) {
             // Mode-level exclusions are announced before any facade or application work starts.
-            logger.warn('DETERMINISTIC MODE: autonomous scheduled job polling, Elastic clients/logging/index startup, and persisted artifact-hit/bin statistics are DISABLED. Explicit job/distributed/periodic requests fail; async services run inline. See DETERMINISTIC.md.')
+            logger.warn('DETERMINISTIC MODE: autonomous scheduled job polling and Elastic clients/logging/index startup are DISABLED. Artifact statistics are collected normally and persisted synchronously at factory shutdown. Explicit job/distributed/periodic requests fail; async services run inline. See DETERMINISTIC.md.')
             confXmlRoot.first('service-facade').attributes.put('scheduled-job-check-time', '0')
             for (MNode cluster in confXmlRoot.first('elastic-facade').children('cluster')) cluster.attributes.put('url', '')
             for (MNode webapp in confXmlRoot.first('webapp-list').children('webapp')) {
@@ -669,7 +670,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         // schedule DeferredHitInfoFlush (every 5 seconds, after 10 second init delay)
         if (DeterministicClock.isEnabled()) {
-            logger.warn('Deterministic mode: periodic artifact-hit flush disabled with artifact statistics persistence')
+            logger.info('Deterministic mode: artifact hits and completed bins are queued for synchronous shutdown persistence; no background statistics writer')
         } else {
             DeferredHitInfoFlush dhif = new DeferredHitInfoFlush(this)
             this.scheduleAtFixedRate(dhif, 10, 5)
@@ -881,6 +882,16 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         ArtifactExecutionFacadeImpl aefi = getEci().artifactExecutionFacade
         boolean enableAuthz = !aefi.disableAuthz()
         try {
+            if (DeterministicClock.isEnabled()) {
+                // No background writer: retain every completed bin and hit until serial shutdown.
+                EntityValue completedBin
+                while ((completedBin = deferredHitBinQueue.peek()) != null) {
+                    completedBin.setSequencedIdPrimary().create()
+                    deferredHitBinQueue.poll()
+                }
+                DeferredHitInfoFlush flush = new DeferredHitInfoFlush(this)
+                while (!deferredHitInfoQueue.isEmpty()) flush.flushQueue(deferredHitInfoQueue)
+            }
             for (ArtifactStatsInfo asi in asiList) {
                 if (asi.curHitBin == null) continue
                 EntityValue ahb = asi.curHitBin.makeAhbValue(this, currentTimestamp)
@@ -1546,8 +1557,6 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     void countArtifactHit(ArtifactType artifactTypeEnum, String artifactSubType, String artifactName,
               Map<String, Object> parameters, long startTime, double runningTimeMillis, Long outputSize) {
-        // Explicit mode-level feature exclusion, announced at startup (never queues or drops requested app work).
-        if (DeterministicClock.isEnabled()) return
         boolean isEntity = ArtifactExecutionInfo.AT_ENTITY.is(artifactTypeEnum) || (artifactSubType != null && artifactSubType.startsWith('entity'))
         // don't count the ones this calls
         if (isEntity && entitiesToSkipHitCount.contains(artifactName)) return
@@ -1655,6 +1664,10 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
                     if (isTraceEnabled) logger.trace("Created ${createListSize} ArtifactHit records in ${System.currentTimeMillis() - startTime}ms")
                     break
                 } catch (Throwable t) {
+                    if (DeterministicClock.isEnabled()) {
+                        queue.addAll(createList)
+                        throw t // Never swallow, discard, or retry a failed deterministic operation.
+                    }
                     logger.error("Error saving ArtifactHits, retrying (${retryCount})", t)
                     retryCount--
                 }
@@ -1676,12 +1689,16 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         // otherwise, persist the old and create a new one
         EntityValue ahb = abi.makeAhbValue(this, new Timestamp(binStartTime + hitBinLengthMillis))
-        eci.runInWorkerThread({
-            ArtifactExecutionFacadeImpl aefi = getEci().artifactExecutionFacade
-            boolean enableAuthz = !aefi.disableAuthz()
-            try { ahb.setSequencedIdPrimary().create() }
-            finally { if (enableAuthz) aefi.enableAuthz() }
-        })
+        if (DeterministicClock.isEnabled()) {
+            deferredHitBinQueue.add(ahb)
+        } else {
+            eci.runInWorkerThread({
+                ArtifactExecutionFacadeImpl aefi = getEci().artifactExecutionFacade
+                boolean enableAuthz = !aefi.disableAuthz()
+                try { ahb.setSequencedIdPrimary().create() }
+                finally { if (enableAuthz) aefi.enableAuthz() }
+            })
+        }
 
         statsInfo.curHitBin = new ArtifactBinInfo(statsInfo, startTime)
     }

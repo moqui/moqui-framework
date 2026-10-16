@@ -149,11 +149,42 @@ class DeterministicIntegrationTests extends Specification {
         ec.destroy(); ec = null
         assert acquired.await(10, TimeUnit.SECONDS)
         other.join(10000)
+        ec = factory.getEci()
+        ec.artifactExecution.disableAuthz()
+        // Exercise a rollover without sleeps; collection must retain all hits and both bins.
+        long statsStart = System.currentTimeMillis()
+        factory.countArtifactHit(ArtifactExecutionInfo.AT_SERVICE, 'sync', 'statistics-persistence-test',
+                [password:'DO_NOT_PERSIST', label:'visible'], statsStart, 10d, 1L)
+        factory.countArtifactHit(ArtifactExecutionInfo.AT_SERVICE, 'sync', 'statistics-persistence-test',
+                null, statsStart + 1L, 20d, 2L)
+        factory.countArtifactHit(ArtifactExecutionInfo.AT_SERVICE, 'sync', 'statistics-persistence-test',
+                null, statsStart + 900001L, 30d, 3L)
+        assert factory.deferredHitInfoQueue.size() >= 3
+        assert ec.entity.find('moqui.server.ArtifactHit').condition('artifactName', 'statistics-persistence-test').count() == 0
+        assert ec.entity.find('moqui.server.ArtifactHitBin').condition('artifactName', 'statistics-persistence-test').count() == 0
+        ec.destroy(); ec = null
         factory.destroy()
         factory = null
         long lastSequence = events.findAll { it.event == 'begin' }.last().sequence
         int linesBeforeRestart = log.readLines().size()
         factory = new ExecutionContextFactoryImpl(System.getProperty('moqui.runtime'), 'conf/MoquiDeterministicTestConf.xml')
+        ec = factory.getEci()
+        ec.artifactExecution.disableAuthz()
+        def savedHits = ec.entity.find('moqui.server.ArtifactHit').condition('artifactName', 'statistics-persistence-test').list()
+        def savedBins = ec.entity.find('moqui.server.ArtifactHitBin').condition('artifactName', 'statistics-persistence-test').list()
+        assert savedHits.size() == 3
+        assert savedHits*.runningTimeMillis.sort() == [10, 20, 30]
+        assert savedHits*.outputSize.sort() == [1, 2, 3]
+        assert savedHits.any { it.parameterString == 'label=visible' }
+        assert !savedHits.toString().contains('DO_NOT_PERSIST')
+        assert savedBins.size() == 2
+        assert savedBins*.hitCount.sort() == [1, 2]
+        assert savedBins*.totalTimeMillis.sum() == 60
+        // The real pushed/popped service above must also be counted and persisted, not just synthetic test hits.
+        assert ec.entity.find('moqui.server.ArtifactHit').condition('artifactName', 'deterministic-test').count() == 1
+        def actualBins = ec.entity.find('moqui.server.ArtifactHitBin').condition('artifactName', 'deterministic-test').list()
+        assert actualBins*.hitCount.sum() == 1
+        ec.destroy(); ec = null
         factory.destroy(); factory = null
         then:
         log.readLines().size() > linesBeforeRestart

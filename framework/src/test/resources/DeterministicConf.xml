@@ -9,7 +9,7 @@
         <artifact-stats type="AT_XML_SCREEN" persist-bin="false" persist-hit="false"/>
         <artifact-stats type="AT_XML_SCREEN_CONTENT" persist-bin="false" persist-hit="false"/>
         <artifact-stats type="AT_XML_SCREEN_TRANS" persist-bin="false" persist-hit="false"/>
-        <artifact-stats type="AT_SERVICE" persist-bin="false" persist-hit="false"/>
+        <artifact-stats type="AT_SERVICE" persist-bin="true" persist-hit="true"/>
         <artifact-stats type="AT_LLM" persist-bin="false" persist-hit="false"/>
         <artifact-stats type="AT_ENTITY" persist-bin="false" persist-hit="false"/>
     </server-stats>

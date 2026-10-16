@@ -132,14 +132,23 @@ def main():
         assert len(records) == len(events), (len(records), len(events))
         begins = [e for e in events if e['event'] == 'begin']
         assert len({e['sequence'] for e in begins}) == len(begins)
+        statistics = None
         if args.postgres:
             # Confirm writes really reached this fresh PostgreSQL instance (no copied/seeded database).
             count = subprocess.check_output(['docker', 'exec', container, 'psql', '-U', 'moqui', '-Atc',
                                              'select count(*) from enumeration'], text=True, stderr=subprocess.DEVNULL).strip()
             assert int(count) > 0
+            saved = subprocess.check_output(['docker', 'exec', container, 'psql', '-U', 'moqui', '-Atc',
+                "select (select count(*) from artifact_hit), count(*), coalesce(sum(hit_count),0), "
+                "count(*) filter (where artifact_name like '%Login%') from artifact_hit_bin"],
+                text=True, stderr=subprocess.DEVNULL).strip()
+            statistics = dict(zip(('artifact_hits', 'artifact_bins', 'bin_hit_count', 'login_bins'),
+                                  map(int, saved.split('|'))))
+            assert all(value > 0 for value in statistics.values()), statistics
         summary = {'database': 'postgres18' if args.postgres else 'h2-memory', 'http': statuses,
                    'operations': len(begins), 'outcomes': dict(collections.Counter(
-                       e['outcome'] for e in events if e['event'] == 'complete')), 'uncompleted': len(active)}
+                       e['outcome'] for e in events if e['event'] == 'complete')), 'uncompleted': len(active),
+                   'persisted_statistics': statistics}
         (evidence / 'summary.json').write_text(json.dumps(summary, indent=2) + '\n')
         print(json.dumps(summary))
     finally:
