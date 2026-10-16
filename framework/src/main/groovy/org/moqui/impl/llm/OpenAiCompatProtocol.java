@@ -267,7 +267,6 @@ public class OpenAiCompatProtocol extends HttpLlmProtocol {
         private String model;
         private Map<String, Object> usageMap;
         private Map<String, Object> error;
-        private final StringBuilder raw = new StringBuilder();
 
         StreamAssembler(ProtocolRequest request) {
             this.request = request;
@@ -277,10 +276,6 @@ public class OpenAiCompatProtocol extends HttpLlmProtocol {
 
         void accept(String data, ProtocolStreamListener listener) {
             if (data == null || data.isBlank()) return;
-            if (logContent) {
-                if (raw.length() > 0) raw.append('\n');
-                raw.append(data);
-            }
             Map<String, Object> chunk;
             try {
                 chunk = LlmJson.toMap(data);
@@ -430,7 +425,7 @@ public class OpenAiCompatProtocol extends HttpLlmProtocol {
             choices.add(choice);
             body.put("choices", choices);
 
-            String rawJson = logContent && raw.length() > 0 ? raw.toString() : (t != null ? t.getMessage() : null);
+            String rawJson = logContent ? LlmJson.toJson(body) : (t != null ? t.getMessage() : null);
             ProtocolResult r = LlmRetryClassifier.classify(httpStatus, body, rawJson);
             if (r.model == null) r.model = model != null ? model : requestModel;
             if (!logContent) r.rawJson = null;
