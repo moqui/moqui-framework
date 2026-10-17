@@ -47,6 +47,13 @@ public final class DeterministicClock {
             throw new IllegalArgumentException("MOQUI_DETERMINISTIC must be true or false");
         return "true".equals(flag);
     }
+    /** Normal Elastic client/index startup defaults on; background Elastic logging stays disabled. */
+    public static boolean isElasticEnabled() {
+        String flag = System.getProperty("MOQUI_DETERMINISTIC_ELASTIC", System.getenv("MOQUI_DETERMINISTIC_ELASTIC"));
+        if (flag != null && !flag.equals("true") && !flag.equals("false"))
+            throw new IllegalArgumentException("MOQUI_DETERMINISTIC_ELASTIC must be true or false");
+        return flag == null || "true".equals(flag);
+    }
     public static DeterministicClock get() { return Process.CLOCK; }
     public static void lockLane() { LANE.lock(); }
     public static void unlockLane() { LANE.unlock(); }
