@@ -1,0 +1,4 @@
+[submodule "runtime"]
+	path = runtime
+	url = https://github.com/moqui/moqui-runtime.git
+	branch = master
