@@ -236,7 +236,7 @@ along with this software (see the LICENSE.md file). If not, see
                     if ("SmatHmacSha256".equals(authEnum)) {
                         restClient.addHeader(headerName, org.moqui.util.WebUtilities.hmacSha256Base64(secret, bodyText))
                     } else {
-                        long ts = System.currentTimeMillis() / 1000L
+                        long ts = org.moqui.util.DeterministicClock.nowMillis() / 1000L
                         restClient.addHeader(headerName, org.moqui.util.WebUtilities.hmacSha256TimestampHeader(secret, bodyText, ts))
                     }
                 } else if ("SmatNone".equals(authEnum)) {
@@ -398,7 +398,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="retryLimit" type="Integer" default="24"/><!-- by default try for 1 day -->
         </in-parameters>
         <actions>
-            <set field="retryTimestamp" from="new Timestamp((System.currentTimeMillis() - (retryMinutes * 60000)) as long)"/>
+            <set field="retryTimestamp" from="new Timestamp((org.moqui.util.DeterministicClock.nowMillis() - (retryMinutes * 60000)) as long)"/>
             <entity-find entity-name="moqui.service.message.SystemMessage" list="smList" limit="200">
                 <econdition field-name="statusId" value="SmsgProduced"/>
                 <econdition field-name="isOutgoing" value="Y"/>
@@ -427,7 +427,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="retryLimit" type="Integer" default="3"/>
         </in-parameters>
         <actions>
-            <set field="retryTimestamp" from="new Timestamp((System.currentTimeMillis() - (retryMinutes * 60000)) as long)"/>
+            <set field="retryTimestamp" from="new Timestamp((org.moqui.util.DeterministicClock.nowMillis() - (retryMinutes * 60000)) as long)"/>
             <entity-find entity-name="moqui.service.message.SystemMessage" list="smList" limit="200">
                 <econdition field-name="statusId" value="SmsgReceived"/>
                 <econdition field-name="isOutgoing" value="N"/>

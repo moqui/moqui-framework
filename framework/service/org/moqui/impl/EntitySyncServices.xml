@@ -28,18 +28,19 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="run" noun="EntitySync" authenticate="anonymous-all">
         <in-parameters><parameter name="entitySyncId" required="true"/></in-parameters>
         <actions>
-            <set field="startDate" from="new Timestamp(System.currentTimeMillis())"/>
+            <set field="startDate" from="new Timestamp(org.moqui.util.DeterministicClock.nowMillis())"/>
+            <set field="startNanos" from="System.nanoTime()"/>
 
             <!-- lock the EntitySync record, only one sync at a time -->
             <entity-find-one entity-name="moqui.entity.sync.EntitySync" value-field="entitySync" for-update="true"/>
             <!-- if already running quit, unless lastStartDate was more than 24 hours ago -->
             <if condition="entitySync.statusId == 'EsRunning' &amp;&amp;
-                    entitySync.lastStartDate.getTime() &gt; (System.currentTimeMillis() - (24*60*60*1000))">
+                    entitySync.lastStartDate.getTime() &gt; (org.moqui.util.DeterministicClock.nowMillis() - (24*60*60*1000))">
                 <return/></if>
 
             <!-- make sure delayBufferMillis have passed since lastSuccessfulSyncTime -->
             <if condition="entitySync.lastSuccessfulSyncTime &amp;&amp;
-                    entitySync.lastSuccessfulSyncTime.getTime() &gt; (System.currentTimeMillis() - (entitySync.delayBufferMillis ?: 300000))">
+                    entitySync.lastSuccessfulSyncTime.getTime() &gt; (org.moqui.util.DeterministicClock.nowMillis() - (entitySync.delayBufferMillis ?: 300000))">
                 <return/></if>
 
             <!-- validations done, save that we're running and get started! -->
@@ -61,8 +62,8 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
             <entity-update value-field="entitySync"/>
 
-            <set field="finishLong" from="System.currentTimeMillis()"/>
-            <set field="runningTimeMillis" from="finishLong - startDate.getTime()"/>
+            <set field="finishLong" from="org.moqui.util.DeterministicClock.nowMillis()"/>
+            <set field="runningTimeMillis" from="org.moqui.util.DeterministicClock.isEnabled() ? (System.nanoTime() - startNanos) / 1000000L : finishLong - startDate.getTime()"/>
             <service-call name="create#moqui.entity.sync.EntitySyncHistory"
                     in-map="[entitySyncId:entitySyncId, statusId:entitySync.statusId, startDate:startDate,
                         finishDate:new Timestamp(finishLong), exclusiveFromTime:exclusiveFromTime,
@@ -73,7 +74,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- if not yet up to delayBufferMillis trigger another async run -->
             <if condition="entitySync.lastSuccessfulSyncTime &amp;&amp;
-                    entitySync.lastSuccessfulSyncTime.getTime() &lt; (System.currentTimeMillis() - (entitySync.delayBufferMillis ?: 300000))">
+                    entitySync.lastSuccessfulSyncTime.getTime() &lt; (org.moqui.util.DeterministicClock.nowMillis() - (entitySync.delayBufferMillis ?: 300000))">
                 <service-call name="org.moqui.impl.EntitySyncServices.run#EntitySync"
                         in-map="[entitySyncId:entitySyncId]" async="true"/>
             </if>
@@ -205,7 +206,7 @@ along with this software (see the LICENSE.md file). If not, see
                 // TODO: current approach gets data for all time up to now - delayBufferMillis if no lastSuccessfulSyncTime
                 // TODO:    for bootstrapping, consider a better approach, maybe find oldest record and do splits from
                 // TODO:    there to avoid a huge chunk of data? issue: start too early do a LOT of empty splits
-                long maxSyncLong = System.currentTimeMillis() - delayBufferMillis
+                long maxSyncLong = org.moqui.util.DeterministicClock.nowMillis() - delayBufferMillis
                 long startingLong = lastSuccessfulSyncTime?.getTime() ?: 0
                 long lastSyncLong = startingLong
                 long splitFromLong = lastSyncLong

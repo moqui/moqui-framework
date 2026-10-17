@@ -39,7 +39,7 @@ class DateCondition implements EntityConditionImplBase, Externalizable {
     DateCondition(String fromFieldName, String thruFieldName, Timestamp compareStamp) {
         this.fromField = new ConditionField(fromFieldName ?: "fromDate")
         this.thruField = new ConditionField(thruFieldName ?: "thruDate")
-        if (compareStamp == (Timestamp) null) compareStamp = new Timestamp(System.currentTimeMillis())
+        if (compareStamp == (Timestamp) null) compareStamp = new Timestamp(org.moqui.util.DeterministicClock.nowMillis())
         this.compareStamp = compareStamp
         conditionInternal = makeConditionInternal()
         hashCodeInternal = createHashCode()

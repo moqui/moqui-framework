@@ -92,7 +92,7 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
         // notify by group, skipping users already notified
         if (userGroupId) {
             ef.find("moqui.security.UserGroupMember")
-                    .conditionDate("fromDate", "thruDate", new Timestamp(System.currentTimeMillis()))
+                    .conditionDate("fromDate", "thruDate", new Timestamp(org.moqui.util.DeterministicClock.nowMillis()))
                     .condition("userGroupId", userGroupId).disableAuthz().iterator().withCloseable ({eli ->
                 EntityValue nextValue
                 while ((nextValue = (EntityValue) eli.next()) != null) {
@@ -114,7 +114,7 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
         }
 
         // check each user to see if account terminated (UserAccount.terminateDate != null && < now)
-        long nowTime = System.currentTimeMillis()
+        long nowTime = org.moqui.util.DeterministicClock.nowMillis()
         EntityList notifyUserAccountList = ef.find("moqui.security.UserAccount")
                 .condition("userId", "in", notifyUserIds)
                 .selectField("userId").selectField("terminateDate").disableAuthz().list()
@@ -301,7 +301,7 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
         org.moqui.impl.context.SimFence.refuse("Sending a notification message")
         // persist if is persistOnSend
         if (isPersistOnSend()) {
-            sentDate = new Timestamp(System.currentTimeMillis())
+            sentDate = new Timestamp(org.moqui.util.DeterministicClock.nowMillis())
             TransactionFacadeImpl tfi = ecfi.transactionFacade
 
             // run in separate transaction so that it is saved immediately, NotificationMessage listeners running async are
@@ -398,7 +398,7 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
                             // use store to update if was created above or create if not
                             ecfi.service.sync().name("store", "moqui.security.user.NotificationMessageUser")
                                     .parameters([notificationMessageId:notificationMessageId, userId:userId,
-                                            emailMessageId:emailMessageId, sentDate:new Timestamp(System.currentTimeMillis())])
+                                            emailMessageId:emailMessageId, sentDate:new Timestamp(org.moqui.util.DeterministicClock.nowMillis())])
                                     .disableAuthz().call()
                         }
                     }
@@ -422,7 +422,7 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
         try {
             ecfi.entityFacade.makeValue("moqui.security.user.NotificationMessageUser")
                     .set("userId", userId).set("notificationMessageId", notificationMessageId)
-                    .set("sentDate", new Timestamp(System.currentTimeMillis())).update()
+                    .set("sentDate", new Timestamp(org.moqui.util.DeterministicClock.nowMillis())).update()
         } catch (Throwable t) {
             logger.error("Error marking notification message ${notificationMessageId} sent", t)
         } finally {
@@ -442,7 +442,7 @@ class NotificationMessageImpl implements NotificationMessage, Externalizable {
     static Timestamp markViewed(String notificationMessageId, String userId, ExecutionContext ec) {
         boolean alreadyDisabled = ec.getArtifactExecution().disableAuthz()
         try {
-            Timestamp recStamp = new Timestamp(System.currentTimeMillis())
+            Timestamp recStamp = new Timestamp(org.moqui.util.DeterministicClock.nowMillis())
             ec.factory.entity.makeValue("moqui.security.user.NotificationMessageUser")
                     .set("userId", userId).set("notificationMessageId", notificationMessageId)
                     .set("viewedDate", recStamp).update()

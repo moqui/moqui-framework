@@ -60,6 +60,7 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
             logger.info("Skipping async service ${serviceName} in LLM sim session")
             return
         }
+        if (distribute && org.moqui.util.DeterministicClock.isEnabled()) throw new IllegalStateException('Distributed async is unsupported in deterministic mode')
         validateCall(eci)
 
         AsyncServiceRunnable runnable = new AsyncServiceRunnable(eci, serviceName, parameters)
@@ -81,6 +82,7 @@ class ServiceCallAsyncImpl extends ServiceCallImpl implements ServiceCallAsync {
             skipped.put("serviceName", serviceName)
             return CompletableFuture.completedFuture(skipped)
         }
+        if (distribute && org.moqui.util.DeterministicClock.isEnabled()) throw new IllegalStateException('Distributed async is unsupported in deterministic mode')
         validateCall(eci)
 
         AsyncServiceCallable callable = new AsyncServiceCallable(eci, serviceName, parameters)

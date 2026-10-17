@@ -129,7 +129,7 @@ class ContentResourceReference extends BaseResourceReference {
         try {
             return getNode()?.getProperty("jcr:lastModified")?.getDate()?.getTimeInMillis()
         } catch (PathNotFoundException e) {
-            return System.currentTimeMillis()
+            return org.moqui.util.DeterministicClock.nowMillis()
         }
     }
 
@@ -172,7 +172,7 @@ class ContentResourceReference extends BaseResourceReference {
         }
         fileContent.setProperty("jcr:mimeType", contentType)
         // fileContent.setProperty("jcr:encoding", ?)
-        Calendar lastModified = Calendar.getInstance(); lastModified.setTimeInMillis(System.currentTimeMillis())
+        Calendar lastModified = Calendar.getInstance(); lastModified.setTimeInMillis(org.moqui.util.DeterministicClock.nowMillis())
         fileContent.setProperty("jcr:lastModified", lastModified)
         if (obj instanceof CharSequence) {
             fileContent.setProperty("jcr:data", session.valueFactory.createValue(obj.toString()))

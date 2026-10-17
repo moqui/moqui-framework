@@ -62,7 +62,7 @@ class ServiceEcaRule {
         if (secaNode.hasChild("actions")) {
             String actionsLocation = null
             String secaId = secaNode.attribute("id")
-            if (secaId != null && !secaId.isEmpty()) actionsLocation = "seca." + secaId + "." + StringUtilities.getRandomString(8) + ".actions"
+            if (secaId != null && !secaId.isEmpty()) actionsLocation = "seca." + secaId + "." + org.moqui.util.DeterministicRandom.string('seca-location', 8) + ".actions"
             actions = new XmlAction(ecfi, secaNode.first("actions"), actionsLocation)
         } else {
             actions = (XmlAction) null

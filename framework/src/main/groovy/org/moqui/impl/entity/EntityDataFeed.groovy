@@ -59,7 +59,7 @@ class EntityDataFeed {
         EntityValue dataFeed = efi.find("moqui.entity.feed.DataFeed").condition("dataFeedId", dataFeedId)
                 .useCache(false).forUpdate(true).one()
         Timestamp fromUpdateStamp = dataFeed.getTimestamp("lastFeedStamp")
-        Timestamp thruUpdateStamp = new Timestamp(System.currentTimeMillis())
+        Timestamp thruUpdateStamp = new Timestamp(org.moqui.util.DeterministicClock.nowMillis())
         // get the List first, if no errors update lastFeedStamp
         List<Map> documentList = getFeedDocuments(dataFeedId, fromUpdateStamp, thruUpdateStamp)
         dataFeed.lastFeedStamp = thruUpdateStamp
@@ -533,7 +533,7 @@ class EntityDataFeed {
 
         @Override
         void run() {
-            Timestamp feedStamp = new Timestamp(System.currentTimeMillis())
+            Timestamp feedStamp = new Timestamp(org.moqui.util.DeterministicClock.nowMillis())
             ExecutionContextImpl threadEci = ecfi.getEci()
             try {
                 if (logger.isTraceEnabled()) logger.trace("Doing DataFeed with allDataDocumentIds: ${allDataDocumentIds}, feedValues: ${feedValues}")

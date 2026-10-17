@@ -862,7 +862,7 @@ public final class LlmGateway {
     }
     public static Map<String, Object> pingData() {
         Map<String, Object> m = new LinkedHashMap<>();
-        m.put("t", System.currentTimeMillis() / 1000L);
+        m.put("t", org.moqui.util.DeterministicClock.nowMillis() / 1000L);
         return m;
     }
     public static Map<String, Object> toolCallToMap(LlmToolCall call) {

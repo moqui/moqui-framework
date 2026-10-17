@@ -1276,6 +1276,7 @@ class EntityFacadeImpl implements EntityFacade {
     }
     // used in services
     int runSqlUpdateConf(CharSequence sql, Map<String, String> confMap) {
+        if (org.moqui.util.DeterministicClock.isEnabled()) throw new IllegalStateException('External configuration SQL connections are unsupported in deterministic mode')
         // only do one DB meta data operation at a time; may lock above before checking for existence of something to make sure it doesn't get created twice
         int records = 0
         ecfi.transactionFacade.runRequireNew(30, "Error in DB meta data change", false, true, {
@@ -1313,6 +1314,7 @@ class EntityFacadeImpl implements EntityFacade {
     */
     // used in services
     long runSqlCountConf(CharSequence from, CharSequence where, Map<String, String> confMap) {
+        if (org.moqui.util.DeterministicClock.isEnabled()) throw new IllegalStateException('External configuration SQL connections are unsupported in deterministic mode')
         StringBuilder sqlSb = new StringBuilder("SELECT COUNT(*) FROM ").append(from).append(" WHERE ").append(where)
         XAConnection xacon = null
         Connection con = null
@@ -1373,7 +1375,9 @@ class EntityFacadeImpl implements EntityFacade {
             // logger.warn("Using DB clone ${cloneGroupNames.get(0)} instead of ${groupName}")
             return cloneGroupNames.get(0)
         } else {
-            return cloneGroupNames.get(ThreadLocalRandom.current().nextInt(cloneNamesSize))
+            return cloneGroupNames.get(org.moqui.util.DeterministicClock.isEnabled() ?
+                    org.moqui.util.DeterministicRandom.nextInt('datasource-clone', cloneNamesSize) :
+                    ThreadLocalRandom.current().nextInt(cloneNamesSize))
         }
     }
 
@@ -1465,6 +1469,9 @@ class EntityFacadeImpl implements EntityFacade {
      * For cached queries this is about 50% faster (6M/s vs 4M/s) for non-cached queries only about 10% faster (500K vs 450K) */
     @Override
     EntityValue fastFindOne(String entityName, Boolean useCache, boolean disableAuthz, Object... values) {
+        if (org.moqui.impl.context.DeterministicTransaction.needed(ecfi.transactionFacade))
+            return org.moqui.impl.context.DeterministicTransaction.entity(ecfi, entityName, 'one',
+                    { -> fastFindOne(entityName, useCache, disableAuthz, values) } as java.util.concurrent.Callable<EntityValue>)
         ExecutionContextImpl ec = ecfi.getEci()
         ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
         boolean enableAuthz = disableAuthz ? !aefi.disableAuthz() : false
@@ -1619,6 +1626,11 @@ class EntityFacadeImpl implements EntityFacade {
     @Override
     void createBulk(List<EntityValue> valueList) {
         if (valueList == null || valueList.isEmpty()) return
+        if (org.moqui.impl.context.DeterministicTransaction.needed(ecfi.transactionFacade)) {
+            org.moqui.impl.context.DeterministicTransaction.entity(ecfi, valueList.get(0).resolveEntityName(), 'create',
+                    { -> createBulk(valueList); return null } as java.util.concurrent.Callable<Object>)
+            return
+        }
 
         EntityValue firstEv = (EntityValue) valueList.get(0)
         String groupName = getEntityGroupName(firstEv.resolveEntityName())
@@ -1921,7 +1933,7 @@ class EntityFacadeImpl implements EntityFacade {
             // is the seqName an entityName?
             if (isEntityDefined(seqName)) {
                 EntityDefinition ed = getEntityDefinition(seqName)
-                if (ed.entityInfo.sequencePrimaryUseUuid) return UUID.randomUUID().toString()
+                if (ed.entityInfo.sequencePrimaryUseUuid) return org.moqui.util.DeterministicRandom.uuid('entity:' + ed.getFullEntityName()).toString()
             }
         } catch (EntityException e) {
             // do nothing, just means seqName is not an entity name
@@ -1939,7 +1951,7 @@ class EntityFacadeImpl implements EntityFacade {
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
         try {
             // is the seqName an entityName?
-            if (entityInfo.sequencePrimaryUseUuid) return UUID.randomUUID().toString()
+            if (entityInfo.sequencePrimaryUseUuid) return org.moqui.util.DeterministicRandom.uuid('entity:' + ed.getFullEntityName()).toString()
         } catch (EntityException e) {
             // do nothing, just means seqName is not an entity name
             if (isTraceEnabled) logger.trace("Ignoring exception for entity not found: ${e.toString()}")
@@ -2027,7 +2039,7 @@ class EntityFacadeImpl implements EntityFacade {
 
             long seqNum = bank[0]
             if (staggerMax > 1L) {
-                long stagger = Math.round(Math.random() * staggerMax)
+                long stagger = Math.round(org.moqui.util.DeterministicRandom.unit('sequence-stagger:' + seqName) * staggerMax)
                 bank[0] = seqNum + stagger
                 // NOTE: if bank[0] > bank[1] because of this just leave it and the next time we try to get a sequence
                 //     value we'll get one from a new bank
@@ -2101,6 +2113,8 @@ class EntityFacadeImpl implements EntityFacade {
      * this during a sim. sqlFind is the raw-SQL fence. */
     Connection getConnectionInternal(String groupName, boolean useClone) {
         TransactionFacadeImpl tfi = ecfi.transactionFacade
+        if (org.moqui.impl.context.DeterministicTransaction.needed(tfi))
+            throw new IllegalStateException('Deterministic JDBC access requires an explicit facade transaction; uninstrumented autocommit is forbidden')
         if (!tfi.isTransactionOperable()) throw new EntityException("Cannot get connection, transaction not in operable status (${tfi.getStatusString()})")
 
         String groupToUse = useClone ? getDatasourceCloneName(groupName) : groupName

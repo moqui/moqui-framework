@@ -244,7 +244,7 @@ final class A2ATaskStore {
             Map<String, Object> metadata) {
         EntityValue task = disabled(ec) {
             ec.entity.makeValue('moqui.a2a.A2ATask').setAll([
-                taskId: UUID.randomUUID().toString(), contextId: a2aContext.contextId,
+                taskId: org.moqui.util.DeterministicRandom.uuid('a2a-task').toString(), contextId: a2aContext.contextId,
                 userId: requireUser(ec), visitId: ec.user.visitId, workerProfileName: profile,
                 metadataJson: A2ATypes.toJson(metadata), cancelRequested: 'N', inFlight: 'N']).create()
         }

@@ -115,7 +115,7 @@ class MoquiShiroRealm implements Realm, Authorizer {
         }
 
         Timestamp terminateDate = (Timestamp) newUserAccount.getNoCheckSimple("terminateDate")
-        if (terminateDate != (Timestamp) null && System.currentTimeMillis() > terminateDate.getTime()) {
+        if (terminateDate != (Timestamp) null && org.moqui.util.DeterministicClock.nowMillis() > terminateDate.getTime()) {
             throw new DisabledAccountException(eci.resource.expand('User account ${newUserAccount.username} was terminated at ${ec.l10n.format(newUserAccount.terminateDate, null)} [TERM].',
                     '', [newUserAccount:newUserAccount]))
         }

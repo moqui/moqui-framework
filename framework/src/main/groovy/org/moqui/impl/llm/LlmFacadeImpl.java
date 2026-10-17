@@ -51,7 +51,7 @@ public class LlmFacadeImpl implements LlmFacade {
     private final ConcurrentHashMap<String, Long> activeTurns = new ConcurrentHashMap<>();
     private final java.util.concurrent.atomic.AtomicLong activeTurnSeq = new java.util.concurrent.atomic.AtomicLong();
     /** Identifies this node in LlmConversation.turnOwner. A fresh value per facade, so a restart is a different owner. */
-    private final String nodeId = java.util.UUID.randomUUID().toString();
+    private final String nodeId = org.moqui.util.DeterministicRandom.uuid("llm-node").toString();
     /** A turn's lease runs this long past the last renewal. Another node may take a Streaming conversation only after it. */
     public static final long LEASE_SECONDS = 90L;
     private static final long LEASE_RENEW_SECONDS = 20L;
@@ -193,6 +193,8 @@ public class LlmFacadeImpl implements LlmFacade {
 
     /** Start the renewal task the first time a turn is claimed. Daemon thread, stopped by destroy(). */
     private synchronized void ensureLeaseRenewer() {
+        if (org.moqui.util.DeterministicClock.isEnabled())
+            throw new IllegalStateException("LLM streaming turn lease renewal is unsupported in deterministic mode");
         if (leaseRenewer != null) return;
         java.util.concurrent.ScheduledExecutorService ses = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "llm-lease-renew");
@@ -216,7 +218,7 @@ public class LlmFacadeImpl implements LlmFacade {
             org.moqui.context.TransactionFacade tf = eci.getTransaction();
             boolean began = tf.begin(30);
             try {
-                java.sql.Timestamp thru = new java.sql.Timestamp(System.currentTimeMillis() + LEASE_SECONDS * 1000L);
+                java.sql.Timestamp thru = new java.sql.Timestamp(org.moqui.util.DeterministicClock.nowMillis() + LEASE_SECONDS * 1000L);
                 for (String id : new ArrayList<>(activeTurns.keySet())) {
                     // Only this node's own rows, so a row another node has since taken over is left alone
                     eci.getEntity().find("moqui.llm.LlmConversation").condition("conversationId", id)

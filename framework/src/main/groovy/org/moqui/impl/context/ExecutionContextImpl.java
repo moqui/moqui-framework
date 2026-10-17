@@ -82,6 +82,7 @@ public class ExecutionContextImpl implements ExecutionContext {
     private Cache<String, String> l10nMessageCache;
     private Cache<String, ArrayList> tarpitHitCache;
 
+    public org.moqui.util.DeterministicClock.Operation deterministicOperation;
     public String forThreadName;
     public long forThreadId;
     // public final Exception createLoc;
@@ -255,6 +256,8 @@ public class ExecutionContextImpl implements ExecutionContext {
 
     @Override
     public void destroy() {
+        boolean success = false;
+        try {
         // if webFacade exists this is the end of a request, so trigger after-request actions
         if (webFacadeImpl != null) webFacadeImpl.runAfterRequestActions();
 
@@ -267,6 +270,9 @@ public class ExecutionContextImpl implements ExecutionContext {
         ecfi.transactionFacade.destroyAllInThread();
         // clean up resources, like JCR session
         ecfi.resourceFacade.destroyAllInThread();
+        if (org.moqui.util.DeterministicClock.isEnabled()) {
+            ecfi.transactionFacade.drainDeterministicWork();
+        }
         // Drop user state on this object so a leaked ECI cannot carry a login. Do not Shiro-logout
         // (that would invalidate a still-valid HTTP session).
         userFacade.resetToAnonymous();
@@ -278,6 +284,14 @@ public class ExecutionContextImpl implements ExecutionContext {
         MDC.remove("moqui_visitorId");
 
         if (loggerDirect.isTraceEnabled()) loggerDirect.trace("ExecutionContextImpl destroyed");
+        success = true;
+        } finally {
+            if (deterministicOperation != null) {
+                org.moqui.util.DeterministicClock.Operation operation = deterministicOperation;
+                deterministicOperation = null;
+                operation.complete(success ? "committed" : "rolled_back");
+            }
+        }
     }
 
     @Override public String toString() { return "ExecutionContext"; }
@@ -315,6 +329,7 @@ public class ExecutionContextImpl implements ExecutionContext {
                 closure.call();
             } catch (Throwable t) {
                 loggerDirect.error("Error in EC worker Runnable", t);
+                if (org.moqui.util.DeterministicClock.isEnabled()) throw new IllegalStateException("Deterministic async work failed", t);
             } finally {
                 // now using separate ECI in thread so always destroy, ie don't do: if (threadEci == null)
                 ecfi.destroyActiveExecutionContext();

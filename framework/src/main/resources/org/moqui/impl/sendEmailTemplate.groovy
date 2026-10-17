@@ -119,7 +119,7 @@ try {
         return
     }
 
-    HtmlEmail email = new HtmlEmail()
+    HtmlEmail email = org.moqui.util.DeterministicClock.isEnabled() ? new org.moqui.util.DeterministicHtmlEmail() : new HtmlEmail()
     email.setCharset("utf-8")
     email.setHostName(smtpHost)
     email.setSmtpPort(smtpPort)

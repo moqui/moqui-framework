@@ -121,6 +121,8 @@ dependencies {
     api 'com.fasterxml.jackson.core:jackson-databind:2.22.2'
 
     // Jetty HTTP Client and Proxy Servlet
+    // Only the executable-war deterministic session adapter depends on server classes.
+    compileOnly 'org.eclipse.jetty:jetty-session:12.1.12' // Apache 2.0
     api 'org.eclipse.jetty:jetty-client:12.1.12' // Apache 2.0
     api 'org.eclipse.jetty.ee11:jetty-ee11-proxy:12.1.12' // Apache 2.0
     api 'org.eclipse.jetty:jetty-jndi:12.1.12' // Apache 2.0
@@ -245,6 +247,18 @@ test {
     classpath = classpath.filter { it.exists() }
 
     beforeTest { descriptor -> logger.lifecycle("Running test: ${descriptor}") }
+}
+
+tasks.register('deterministicTest', Test) {
+    description = 'Isolated deterministic protocol and real H2 transaction tests'
+    inputs.files(tasks.jar)
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath + files(projectDir.absolutePath)
+    useJUnitPlatform()
+    include '**/Deterministic*Tests.class'
+    maxParallelForks = 1
+    systemProperty 'moqui.runtime', rootProject.file('runtime').absolutePath
+    testLogging { events 'passed', 'failed'; showStandardStreams = true }
 }
 
 jar {

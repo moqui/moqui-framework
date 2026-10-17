@@ -85,8 +85,17 @@ class MoquiSessionListener implements HttpSessionListener, HttpSessionAttributeL
         ExecutionContextFactoryImpl ecfi = (ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()
         if (ecfi.confXmlRoot.first("server-stats").attribute("visit-enabled") == "false") return
 
+        if (org.moqui.impl.context.DeterministicTransaction.needed(ecfi.transactionFacade)) {
+            boolean ownContext = ecfi.getActiveExecutionContext() == null
+            ecfi.getEci() // explicit coordinator scope for a container session callback
+            try {
+                org.moqui.impl.context.DeterministicTransaction.run(ecfi.transactionFacade,
+                        { -> closeVisit(visitId, sessionId); return null } as java.util.concurrent.Callable<Object>)
+            } finally { if (ownContext) ecfi.destroyActiveExecutionContext() }
+            return
+        }
         // set thruDate on Visit
-        Timestamp thruDate = new Timestamp(System.currentTimeMillis())
+        Timestamp thruDate = new Timestamp(org.moqui.util.DeterministicClock.nowMillis())
         ecfi.serviceFacade.sync().name("update", "moqui.server.Visit").parameter("visitId", visitId).parameter("thruDate", thruDate)
                 .disableAuthz().call()
         if (logger.traceEnabled) logger.trace("Closed visit ${visitId} at ${thruDate} for session ${sessionId}")

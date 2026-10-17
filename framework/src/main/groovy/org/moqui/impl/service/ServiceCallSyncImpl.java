@@ -211,9 +211,16 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
 
         if (sd == null) {
             if (sfi.isEntityAutoPattern(path, verb, noun)) {
+                ArtifactExecutionInfoImpl deterministicArtifact = null;
+                if (org.moqui.util.DeterministicClock.isEnabled()) {
+                    deterministicArtifact = new ArtifactExecutionInfoImpl(serviceName, ArtifactExecutionInfo.AT_SERVICE,
+                            ArtifactExecutionInfo.AUTHZA_ALL, serviceType);
+                    eci.artifactExecutionFacade.pushInternal(deterministicArtifact, false, true);
+                }
                 try {
                     return runImplicitEntityAuto(currentParameters, secaRules, eci);
                 } finally {
+                    if (deterministicArtifact != null) eci.artifactExecutionFacade.pop(deterministicArtifact);
                     if (ignorePreviousError) eci.messageFacade.popErrors();
                 }
             } else {
@@ -525,7 +532,7 @@ public class ServiceCallSyncImpl extends ServiceCallImpl implements ServiceCallS
                             .condition("serviceName", semaphoreName).condition("parameterValue", parameterValue)
                             .useCache(false).forUpdate(true).one();
 
-                    final Timestamp lockTime = new Timestamp(System.currentTimeMillis());
+                    final Timestamp lockTime = new Timestamp(org.moqui.util.DeterministicClock.nowMillis());
                     if (serviceSemaphore != null) {
                         return serviceSemaphore.set("lockThread", lockThreadName).set("lockTime", lockTime).update();
                     } else {

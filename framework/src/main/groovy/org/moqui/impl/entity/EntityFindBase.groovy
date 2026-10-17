@@ -26,6 +26,7 @@ import org.moqui.impl.context.ContextJavaUtil
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.context.EntityTxCache
 import org.moqui.impl.context.TransactionCacheDb
+import org.moqui.impl.context.DeterministicTransaction
 import org.moqui.impl.context.TransactionFacadeImpl
 import org.moqui.impl.entity.condition.*
 import org.moqui.impl.entity.EntityJavaUtil.FieldOrderOptions
@@ -771,6 +772,8 @@ abstract class EntityFindBase implements EntityFind {
     }
 
     protected EntityValue oneInternal(ExecutionContextImpl ec, EntityDefinition ed) throws EntityException, SQLException {
+        if (DeterministicTransaction.needed(efi.ecfi.transactionFacade))
+            return DeterministicTransaction.run(efi.ecfi.transactionFacade, { -> oneInternal(ec, ed) } as java.util.concurrent.Callable<EntityValue>)
         if (this.dynamicView != null) throw new EntityException("Dynamic View not supported for 'one' find.")
 
         boolean isViewEntity = ed.isViewEntity
@@ -1050,6 +1053,8 @@ abstract class EntityFindBase implements EntityFind {
     }
 
     protected EntityList listInternal(ExecutionContextImpl ec, EntityDefinition ed) throws EntityException, SQLException {
+        if (DeterministicTransaction.needed(efi.ecfi.transactionFacade))
+            return DeterministicTransaction.run(efi.ecfi.transactionFacade, { -> listInternal(ec, ed) } as java.util.concurrent.Callable<EntityList>)
         if (requireSearchFormParameters && !hasSearchFormParameters) {
             ec.contextStack.getSharedMap().put("_entityListNoSearchParms", true)
             logger.info("No parameters for list find on ${ed.fullEntityName}, not doing search")
@@ -1204,6 +1209,8 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     EntityListIterator iterator() throws EntityException {
+        if (DeterministicTransaction.needed(efi.ecfi.transactionFacade))
+            throw new IllegalStateException('Deterministic streaming iterators require an explicit transaction spanning iteration and close')
         ExecutionContextImpl ec = efi.ecfi.getEci()
         ArtifactExecutionFacadeImpl aefi = ec.artifactExecutionFacade
         boolean enableAuthz = disableAuthz ? !ec.artifactExecutionFacade.disableAuthz() : false
@@ -1349,6 +1356,8 @@ abstract class EntityFindBase implements EntityFind {
         }
     }
     protected long countInternal(ExecutionContextImpl ec, EntityDefinition ed) throws EntityException, SQLException {
+        if (DeterministicTransaction.needed(efi.ecfi.transactionFacade))
+            return DeterministicTransaction.run(efi.ecfi.transactionFacade, { -> countInternal(ec, ed) } as java.util.concurrent.Callable<Long>)
         if (requireSearchFormParameters && !hasSearchFormParameters) return 0L
 
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
@@ -1447,6 +1456,9 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     long updateAll(Map<String, Object> fieldsToSet) {
+        if (DeterministicTransaction.needed(efi.ecfi.transactionFacade))
+            return DeterministicTransaction.entity(efi.ecfi, getEntityDef().getFullEntityName(), 'update',
+                    { -> updateAll(fieldsToSet) } as java.util.concurrent.Callable<Long>)
         boolean enableAuthz = disableAuthz ? !efi.ecfi.getEci().artifactExecutionFacade.disableAuthz() : false
         try {
             return updateAllInternal(fieldsToSet)
@@ -1479,6 +1491,9 @@ abstract class EntityFindBase implements EntityFind {
 
     @Override
     long deleteAll() {
+        if (DeterministicTransaction.needed(efi.ecfi.transactionFacade))
+            return DeterministicTransaction.entity(efi.ecfi, getEntityDef().getFullEntityName(), 'delete',
+                    { -> deleteAll() } as java.util.concurrent.Callable<Long>)
         boolean enableAuthz = disableAuthz ? !efi.ecfi.getEci().artifactExecutionFacade.disableAuthz() : false
         try {
             return deleteAllInternal()

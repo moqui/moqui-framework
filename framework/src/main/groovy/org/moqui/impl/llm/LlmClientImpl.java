@@ -752,7 +752,7 @@ public class LlmClientImpl implements LlmClient {
         // with up to 25% jitter so concurrent retries do not stampede the provider together.
         float factor = initial > 1.0f ? initial : 2.0f;
         float next = Math.min(60.0f, waitSeconds * factor);
-        return next * (1.0f + (float) (Math.random() * 0.25));
+        return next * (1.0f + (float) (org.moqui.util.DeterministicRandom.unit("llm-retry-jitter") * 0.25));
     }
 
     private static String nvl(String v, String def) { return v == null || v.isBlank() ? def : v; }

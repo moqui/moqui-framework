@@ -84,6 +84,8 @@ class ElasticFacadeImpl implements ElasticFacade {
 
             String clusterName = clusterNode.attribute("name")
             String clusterUrl = clusterNode.attribute("url")
+            if (clusterUrl && org.moqui.util.DeterministicClock.isEnabled() && !org.moqui.util.DeterministicClock.isElasticEnabled())
+                throw new IllegalStateException('Deterministic mode requires MOQUI_DETERMINISTIC_ELASTIC=true for Elastic client/index startup')
             logger.info("Initializing ElasticFacade Client for cluster ${clusterName} at ${clusterUrl}")
 
             if (clientByClusterName.containsKey(clusterName)) {
@@ -108,8 +110,10 @@ class ElasticFacadeImpl implements ElasticFacade {
             }
         }
 
-        // init ElasticSearchLogger
-        if (esLogger == null || !esLogger.isInitialized()) {
+        // Background log flushing remains unsupported even when client/index startup is opted in.
+        if (org.moqui.util.DeterministicClock.isEnabled()) {
+            logger.info('Deterministic mode: background ElasticSearchLogger disabled')
+        } else if (esLogger == null || !esLogger.isInitialized()) {
             ElasticClientImpl loggerEci = clientByClusterName.get("logger") ?: clientByClusterName.get("default")
             if (loggerEci != null) {
                 logger.info("Initializing ElasticSearchLogger with cluster ${loggerEci.getClusterName()}")
