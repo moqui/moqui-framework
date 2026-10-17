@@ -53,6 +53,29 @@ The process-wide fair reentrant lane lock covers these scopes. Async work uses a
 
 The process coordinator/logger and sequence survive synchronous factory destroy/recreate. JSONL is **append**, flushed per event; factory teardown never truncates/closes the process logger. This is not crash recovery or cross-JVM sequence recovery. Failed/unacknowledged operations are not fabricated as successful. No data copying, extra seed exceptions, or topology normalization is used. Java's per-file loader and Rust's loader need not have identical transaction topology; strict matching may fail legitimately.
 
+## Application entropy
+
+`DeterministicRandom` uses the same coordinator hook for `event="random"` requests:
+`version`, `run_id`, `engine`, `event`, `domain` and `length` (1..4096); response
+`{"bytes":"<lowercase hex>"}`. The coordinator owns the seed, phase and per-engine
+semantic-domain draw counters. Random requests do not open or pair transactions;
+HTTP/log/response failures poison execution without a normal-random fallback.
+Request metadata is logged, never generated credentials. Domain separation keeps
+metadata/ECA/node draws from shifting entity UUIDs. UUID v4 bits, URL-base64 strings,
+53-bit unit doubles and rejection-sampled bounded integers have cross-language vectors.
+
+Audited framework UUID/string/salt/code/TOTP/jitter sources use this adapter. The
+executable WAR additionally selects `DeterministicSessionIdManager` (session ids
+are persisted in Visit); EmailServices selects `DeterministicHtmlEmail` to control
+JavaMail's persisted Message-ID, including repeated `saveChanges`. Neither changes
+normal-mode generators. Routing a source does not enable otherwise forbidden work.
+
+**Never use deterministic mode in production: credentials/secrets are predictable.**
+Transport crypto, third-party MIME boundaries, browser/vendor JavaScript, arbitrary
+components and other servlet containers are not globally intercepted. External
+integrations require explicit fixtures/adapters; equality is not established by
+seeding alone. The cross-engine harness documents the seed algorithm and full audit.
+
 ## Verification
 
 With the private runtime available and Java 21 on PATH:

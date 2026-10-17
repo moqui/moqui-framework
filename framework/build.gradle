@@ -121,6 +121,8 @@ dependencies {
     api 'com.fasterxml.jackson.core:jackson-databind:2.22.2'
 
     // Jetty HTTP Client and Proxy Servlet
+    // Only the executable-war deterministic session adapter depends on server classes.
+    compileOnly 'org.eclipse.jetty:jetty-session:12.1.12' // Apache 2.0
     api 'org.eclipse.jetty:jetty-client:12.1.12' // Apache 2.0
     api 'org.eclipse.jetty.ee11:jetty-ee11-proxy:12.1.12' // Apache 2.0
     api 'org.eclipse.jetty:jetty-jndi:12.1.12' // Apache 2.0

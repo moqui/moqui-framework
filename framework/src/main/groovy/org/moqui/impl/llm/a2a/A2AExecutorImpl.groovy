@@ -219,7 +219,7 @@ final class A2AExecutorImpl implements A2AExecutor {
                 String statusText = failure instanceof A2AException ?
                         (failure.message ?: 'Internal error') : 'Internal error'
                 Map<String, Object> errorMessage = [
-                    messageId: UUID.randomUUID().toString(), role: 'ROLE_AGENT',
+                    messageId: org.moqui.util.DeterministicRandom.uuid('a2a-message').toString(), role: 'ROLE_AGENT',
                     parts: [[text: statusText]]
                 ]
                 emitStatus(sink, A2AGateway.updateStatus(ec, task, 'TASK_STATE_FAILED', errorMessage,
@@ -238,7 +238,7 @@ final class A2AExecutorImpl implements A2AExecutor {
             A2AStreamSink sink, Object historyLength) {
         try {
             Map<String, Object> errorMessage = [
-                messageId: UUID.randomUUID().toString(), role: 'ROLE_AGENT',
+                messageId: org.moqui.util.DeterministicRandom.uuid('a2a-message').toString(), role: 'ROLE_AGENT',
                 parts: [[text: 'Internal error']]
             ]
             emitStatus(sink, A2AGateway.updateStatus(ec, task, 'TASK_STATE_FAILED', errorMessage,
@@ -314,7 +314,7 @@ final class A2AExecutorImpl implements A2AExecutor {
         if (response.yielded == true && response.pendingToolCalls)
             parts.add([data: [inputRequired: true, pendingToolCalls: response.pendingToolCalls]])
         [
-            messageId: UUID.randomUUID().toString(),
+            messageId: org.moqui.util.DeterministicRandom.uuid('a2a-message').toString(),
             role: 'ROLE_AGENT',
             taskId: task.taskId,
             contextId: task.contextId,

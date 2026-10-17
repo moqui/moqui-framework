@@ -95,7 +95,7 @@ public class TransactionCacheDb implements EntityTxCache {
         if (!hold) throw new UnsupportedOperationException("TransactionCacheDb only supports hold mode, which never writes to production");
         this.efi = efi;
         this.hold = hold;
-        String id = UUID.randomUUID().toString().replace("-", "");
+        String id = org.moqui.util.DeterministicRandom.uuid("transaction-cache").toString().replace("-", "");
         this.jdbcUrl = "jdbc:h2:mem:tcdb" + id + ";DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;LOCK_TIMEOUT=30000";
     }
 

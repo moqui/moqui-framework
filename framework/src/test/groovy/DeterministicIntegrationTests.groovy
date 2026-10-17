@@ -22,7 +22,9 @@ class DeterministicIntegrationTests extends Specification {
         server.createContext('/transaction') { exchange ->
             Map event = (Map) new JsonSlurper().parse(exchange.requestBody)
             events.add(event)
-            Map response = event.event == 'begin' ?
+            Map response = event.event == 'random' ?
+                    [bytes:(0..<event.length).collect { String.format('%02x', (it + events.count { e -> e.event == 'random' && e.domain == event.domain } - 1) & 255) }.join('')] :
+                    event.event == 'begin' ?
                     [operation_id:"op-${event.sequence}", time_epoch_ms:1760000000000L + event.sequence * 1000L] : [ok:true]
             byte[] body = JsonOutput.toJson(response).getBytes('UTF-8')
             exchange.sendResponseHeaders(200, body.length)
@@ -48,6 +50,19 @@ class DeterministicIntegrationTests extends Specification {
         factory.checkEmptyDb()
         ec = factory.getEci()
         ec.artifactExecution.disableAuthz()
+        assert org.moqui.util.DeterministicRandom.uuid('vector-uuid').toString() == '00010203-0405-4607-8809-0a0b0c0d0e0f'
+        assert org.moqui.util.DeterministicRandom.string('vector-string', 12) == 'AAECAwQFBgcI'
+        assert org.moqui.util.DeterministicRandom.nextInt('vector-int', 999999) == 66051
+        assert org.moqui.util.DeterministicRandom.unit('vector-unit') == (0x0001020304050607L >>> 11) * Math.scalb(1.0d, -53)
+        def email = new org.moqui.util.DeterministicHtmlEmail()
+        email.setHostName('localhost'); email.setFrom('sender@example.com'); email.addTo('recipient@example.com')
+        email.setHtmlMsg('test-only; no transport')
+        email.buildMimeMessage()
+        email.mimeMessage.saveChanges()
+        assert email.mimeMessage.messageID == '<000102030405060708090a0b@example.com>'
+        email.mimeMessage.saveChanges()
+        assert email.mimeMessage.messageID == '<000102030405060708090a0b@example.com>'
+        assert events.count { it.event == 'random' && it.domain == 'mail-message-id' } == 1
         def tf = factory.transactionFacade
         // Direct entity calls must open REAL transactions, not reuse the enclosing synthetic EC clock.
         assert !tf.isTransactionInPlace()

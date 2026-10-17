@@ -799,7 +799,7 @@ class UserFacadeImpl implements UserFacade {
         if (!userId) throw new AuthenticationRequiredException("No active user, cannot get login key")
 
         // generate login key
-        String loginKey = StringUtilities.getRandomString(40)
+        String loginKey = org.moqui.util.DeterministicRandom.string('login-key', 40)
 
         // save hashed in UserLoginKey, calc expire and set from/thru dates
         String hashedKey = eci.ecfi.getSimpleHash(loginKey, "", eci.ecfi.getLoginKeyHashType(), false)

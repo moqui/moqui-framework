@@ -663,7 +663,7 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- This generates the actual codes using java's SecureRandom library (currently 8 integer digits) -->
             <script>
                 for (int i = 0; i &lt; numberOfCodes; i++)
-                    singleUseCodes.add(new java.security.SecureRandom().nextInt(99999999).toString().padLeft(8,'0'))
+                    singleUseCodes.add(org.moqui.util.DeterministicRandom.nextInt('factor-code:8', 99999999).toString().padLeft(8,'0'))
             </script>
             <iterate list="singleUseCodes" entry="code">
                 <set field="factorOption" from="ec.ecfi.getSimpleHash(code, 'SaltySalt')"/>
@@ -696,7 +696,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <set field="factorTypeEnumId" value="UafSingleUse"/>
             <set field="fromDate" from="ec.user.nowTimestamp"/>
-            <set field="code" from="new java.security.SecureRandom().nextInt(999999).toString().padLeft(6,'0')"/>
+            <set field="code" from="org.moqui.util.DeterministicRandom.nextInt('factor-code:6', 999999).toString().padLeft(6,'0')"/>
             <set field="factorOption" from="ec.ecfi.getSimpleHash(code, 'SaltySalt')"/>
             <service-call name="create#moqui.security.UserAuthcFactor" in-map="context" out-map="context"/>
         </actions>
@@ -938,7 +938,7 @@ along with this software (see the LICENSE.md file). If not, see
             </script>
             <set field="factorTypeEnumId" value="UafTotp"/>
             <set field="fromDate" from="ec.user.nowTimestamp"/>
-            <set field="factorOption" from="gen.generate()"/>
+            <set field="factorOption" from="org.moqui.util.DeterministicClock.isEnabled() ? new org.apache.commons.codec.binary.Base32().encodeToString(org.moqui.util.DeterministicRandom.bytes('totp-secret', 20)) : gen.generate()"/>
             <service-call name="create#moqui.security.UserAuthcFactor" in-map="context" out-map="context"/>
         </actions>
     </service>

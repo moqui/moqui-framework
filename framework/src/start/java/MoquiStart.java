@@ -284,7 +284,10 @@ public class MoquiStart {
             fileSessionDataStoreClass.getMethod("setDeleteUnrestorableFiles", boolean.class).invoke(sessionDataStore, true);
             sessionCacheClass.getMethod("setSessionDataStore", sessionDataStoreClass).invoke(sessionCache, sessionDataStore);
             sessionHandlerClass.getMethod("setSessionCache", sessionCacheClass).invoke(sessionHandler, sessionCache);
-            Object sidMgr = defaultSessionIdManagerClass.getConstructor(serverClass).newInstance(server);
+            String deterministicFlag = System.getProperty("MOQUI_DETERMINISTIC", System.getenv("MOQUI_DETERMINISTIC"));
+            Class<?> activeSessionIdManagerClass = "true".equals(deterministicFlag) ?
+                    moquiStartLoader.loadClass("org.moqui.util.DeterministicSessionIdManager") : defaultSessionIdManagerClass;
+            Object sidMgr = activeSessionIdManagerClass.getConstructor(serverClass).newInstance(server);
             defaultSessionIdManagerClass.getMethod("setServer", serverClass).invoke(sidMgr, server);
             sessionHandlerClass.getMethod("setSessionIdManager", sessionIdManagerClass).invoke(sessionHandler, sidMgr);
             serverClass.getMethod("addBean", Object.class).invoke(server, sidMgr);

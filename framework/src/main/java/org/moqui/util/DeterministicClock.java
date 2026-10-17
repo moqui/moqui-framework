@@ -146,6 +146,24 @@ public final class DeterministicClock {
             throw e;
         }
     }
+    byte[] randomBytes(String domain, int length) {
+        synchronized (this) {
+            checkHealthy();
+            try {
+                Map<String, Object> request = event(0, "random");
+                request.remove("sequence");
+                request.put("domain", domain);
+                request.put("length", length);
+                append(request);
+                JsonNode response = post(request);
+                JsonNode bytes = response.get("bytes");
+                if (response.size() != 1 || bytes == null || !bytes.isTextual() ||
+                        !bytes.asText().matches("[0-9a-f]{" + (length * 2) + "}"))
+                    throw new IllegalStateException("Invalid deterministic random response");
+                return HexFormat.of().parseHex(bytes.asText());
+            } catch (RuntimeException e) { failed = true; throw e; }
+        }
+    }
     private Map<String, Object> event(long sequence, String type) {
         Map<String, Object> event = new LinkedHashMap<>();
         event.put("version", 1); event.put("run_id", run); event.put("engine", engine);

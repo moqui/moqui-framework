@@ -22,6 +22,9 @@ class DeterministicDisabledTests extends Specification {
         ec.artifactExecution.disableAuthz()
         long threadId = Thread.currentThread().threadId()
         assert ec.deterministicOperation == null
+        assert org.moqui.util.DeterministicRandom.uuid('normal').version() == 4
+        assert org.moqui.util.DeterministicRandom.uuid('normal') != org.moqui.util.DeterministicRandom.uuid('normal')
+        assert org.moqui.util.DeterministicRandom.bytes('normal', 16).length == 16
         assert Math.abs(DeterministicClock.nowMillis() - System.currentTimeMillis()) < 1000
         ec.user.setEffectiveTime(new Timestamp(1000L))
         assert ec.user.nowTimestamp.time == 1000L

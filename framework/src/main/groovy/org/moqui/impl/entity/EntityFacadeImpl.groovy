@@ -1375,7 +1375,9 @@ class EntityFacadeImpl implements EntityFacade {
             // logger.warn("Using DB clone ${cloneGroupNames.get(0)} instead of ${groupName}")
             return cloneGroupNames.get(0)
         } else {
-            return cloneGroupNames.get(ThreadLocalRandom.current().nextInt(cloneNamesSize))
+            return cloneGroupNames.get(org.moqui.util.DeterministicClock.isEnabled() ?
+                    org.moqui.util.DeterministicRandom.nextInt('datasource-clone', cloneNamesSize) :
+                    ThreadLocalRandom.current().nextInt(cloneNamesSize))
         }
     }
 
@@ -1931,7 +1933,7 @@ class EntityFacadeImpl implements EntityFacade {
             // is the seqName an entityName?
             if (isEntityDefined(seqName)) {
                 EntityDefinition ed = getEntityDefinition(seqName)
-                if (ed.entityInfo.sequencePrimaryUseUuid) return UUID.randomUUID().toString()
+                if (ed.entityInfo.sequencePrimaryUseUuid) return org.moqui.util.DeterministicRandom.uuid('entity:' + ed.getFullEntityName()).toString()
             }
         } catch (EntityException e) {
             // do nothing, just means seqName is not an entity name
@@ -1949,7 +1951,7 @@ class EntityFacadeImpl implements EntityFacade {
         EntityJavaUtil.EntityInfo entityInfo = ed.entityInfo
         try {
             // is the seqName an entityName?
-            if (entityInfo.sequencePrimaryUseUuid) return UUID.randomUUID().toString()
+            if (entityInfo.sequencePrimaryUseUuid) return org.moqui.util.DeterministicRandom.uuid('entity:' + ed.getFullEntityName()).toString()
         } catch (EntityException e) {
             // do nothing, just means seqName is not an entity name
             if (isTraceEnabled) logger.trace("Ignoring exception for entity not found: ${e.toString()}")
@@ -2037,7 +2039,7 @@ class EntityFacadeImpl implements EntityFacade {
 
             long seqNum = bank[0]
             if (staggerMax > 1L) {
-                long stagger = Math.round(Math.random() * staggerMax)
+                long stagger = Math.round(org.moqui.util.DeterministicRandom.unit('sequence-stagger:' + seqName) * staggerMax)
                 bank[0] = seqNum + stagger
                 // NOTE: if bank[0] > bank[1] because of this just leave it and the next time we try to get a sequence
                 //     value we'll get one from a new bank
