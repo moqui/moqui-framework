@@ -34,6 +34,42 @@ class DeterministicClockTests extends Specification {
         [MOQUI_DETERMINISTIC_HOOK: "http://127.0.0.1:${server.address.port}/transaction".toString(),
          MOQUI_DETERMINISTIC_ENGINE:'java', MOQUI_DETERMINISTIC_RUN:'test', MOQUI_DETERMINISTIC_LOG:log.absolutePath]
     }
+    def 'Elastic startup defaults to enabled'() {
+        given:
+        String old = System.getProperty('MOQUI_DETERMINISTIC_ELASTIC')
+        System.clearProperty('MOQUI_DETERMINISTIC_ELASTIC')
+        expect:
+        DeterministicClock.isElasticEnabled() == (System.getenv('MOQUI_DETERMINISTIC_ELASTIC') != 'false')
+        cleanup:
+        if (old != null) System.setProperty('MOQUI_DETERMINISTIC_ELASTIC', old)
+    }
+    @Unroll
+    def 'Elastic startup flag accepts #flag'() {
+        given:
+        String old = System.getProperty('MOQUI_DETERMINISTIC_ELASTIC')
+        System.setProperty('MOQUI_DETERMINISTIC_ELASTIC', flag)
+        expect:
+        DeterministicClock.isElasticEnabled() == enabled
+        cleanup:
+        if (old == null) System.clearProperty('MOQUI_DETERMINISTIC_ELASTIC')
+        else System.setProperty('MOQUI_DETERMINISTIC_ELASTIC', old)
+        where:
+        flag    | enabled
+        'true'  | true
+        'false' | false
+    }
+    def 'Elastic startup rejects a malformed opt-in'() {
+        given:
+        String old = System.getProperty('MOQUI_DETERMINISTIC_ELASTIC')
+        System.setProperty('MOQUI_DETERMINISTIC_ELASTIC', 'yes')
+        when:
+        DeterministicClock.isElasticEnabled()
+        then:
+        thrown(IllegalArgumentException)
+        cleanup:
+        if (old == null) System.clearProperty('MOQUI_DETERMINISTIC_ELASTIC')
+        else System.setProperty('MOQUI_DETERMINISTIC_ELASTIC', old)
+    }
     def 'metadata is whitelisted and nested operations restore their scope'() {
         given:
         def clock = new DeterministicClock(settings())

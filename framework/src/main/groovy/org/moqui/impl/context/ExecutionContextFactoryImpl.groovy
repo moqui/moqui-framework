@@ -555,9 +555,11 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
     private void preFacadeInit() {
         if (DeterministicClock.isEnabled()) {
             // Mode-level exclusions are announced before any facade or application work starts.
-            logger.warn('DETERMINISTIC MODE: autonomous scheduled job polling and Elastic clients/logging/index startup are DISABLED. Artifact statistics are collected normally and persisted synchronously at factory shutdown. Explicit job/distributed/periodic requests fail; async services run inline. See DETERMINISTIC.md.')
+            logger.warn('DETERMINISTIC MODE: autonomous scheduled job polling and background Elastic logging are DISABLED. Elastic client/index startup enabled: {}. Artifact statistics are collected normally and persisted synchronously at factory shutdown. Explicit job/distributed/periodic requests fail; async services run inline. See DETERMINISTIC.md.', DeterministicClock.isElasticEnabled())
             confXmlRoot.first('service-facade').attributes.put('scheduled-job-check-time', '0')
-            for (MNode cluster in confXmlRoot.first('elastic-facade').children('cluster')) cluster.attributes.put('url', '')
+            if (!DeterministicClock.isElasticEnabled()) {
+                for (MNode cluster in confXmlRoot.first('elastic-facade').children('cluster')) cluster.attributes.put('url', '')
+            }
             for (MNode webapp in confXmlRoot.first('webapp-list').children('webapp')) {
                 for (MNode filter in webapp.children('filter')) {
                     if (filter.attribute('class') == 'org.moqui.impl.webapp.ElasticRequestLogFilter') filter.attributes.put('enabled', 'false')
