@@ -12,6 +12,7 @@ class DeterministicClockTests extends Specification {
     List<Map> requests = Collections.synchronizedList([])
     String beginBody = '{"operation_id":"op-1","time_epoch_ms":1760000000000}'
     String completeBody = '{"ok":true}'
+    String randomBody = '{"bytes":"000102030405060708090a0b0c0d0e0f"}'
     int status = 200
     boolean stallBody = false
     def releaseBody = new java.util.concurrent.CountDownLatch(1)
@@ -22,7 +23,7 @@ class DeterministicClockTests extends Specification {
         server.createContext('/transaction') { exchange ->
             Map request = (Map) new JsonSlurper().parse(exchange.requestBody)
             requests.add(request)
-            byte[] body = (request.event == 'begin' ? beginBody : completeBody).getBytes('UTF-8')
+            byte[] body = (request.event == 'random' ? randomBody : request.event == 'begin' ? beginBody : completeBody).getBytes('UTF-8')
             exchange.sendResponseHeaders(status, body.length)
             if (stallBody) releaseBody.await(25, java.util.concurrent.TimeUnit.SECONDS)
             exchange.responseBody.withCloseable { it.write(body) }
@@ -121,6 +122,28 @@ class DeterministicClockTests extends Specification {
         !clock.hasTime()
         log.text.empty
     }
+    def 'random bytes use the coordinator without manufacturing a transaction or local fallback'() {
+        given:
+        def clock = new DeterministicClock(settings())
+        when:
+        byte[] bytes = clock.randomBytes('entity:moqui.server.Visitor', 16)
+        then:
+        HexFormat.of().formatHex(bytes) == '000102030405060708090a0b0c0d0e0f'
+        requests == [[version:1, run_id:'test', engine:'java', event:'random',
+                      domain:'entity:moqui.server.Visitor', length:16]]
+        !clock.hasTime()
+        when:
+        randomBody = '{"bytes":"bad"}'
+        clock.randomBytes('uuid', 16)
+        then:
+        thrown(IllegalStateException)
+        when:
+        clock.randomBytes('uuid', 16)
+        then:
+        thrown(IllegalStateException)
+        requests.size() == 2
+    }
+
     def 'required configuration is validated before requesting work'() {
         when:
         new DeterministicClock(settings() + [MOQUI_DETERMINISTIC_ENGINE:'rust'])

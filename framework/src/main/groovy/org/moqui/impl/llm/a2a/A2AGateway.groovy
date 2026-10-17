@@ -107,7 +107,7 @@ final class A2AGateway {
 
     /** New context: the executor owns the LLM conversation, the store owns the A2AContext row. */
     private static EntityValue createContext(ExecutionContext ec, String profile, Map<String, Object> metadata) {
-        String contextId = UUID.randomUUID().toString()
+        String contextId = org.moqui.util.DeterministicRandom.uuid('a2a-context').toString()
         A2AExecutorImpl.createConversation(ec, profile, contextId, metadata)
         A2ATaskStore.createContextRow(ec, contextId, metadata)
     }

@@ -980,6 +980,6 @@ public class LlmConversationImpl implements LlmConversation {
         return new Timestamp(org.moqui.util.DeterministicClock.nowMillis());
     }
     private static String newInMemoryId() {
-        return UUID.randomUUID().toString().replace("-", "");
+        return org.moqui.util.DeterministicRandom.uuid("llm-conversation").toString().replace("-", "");
     }
 }

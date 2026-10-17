@@ -210,7 +210,7 @@ class WebFacadeImpl implements WebFacade {
         // create the session token if needed (protection against CSRF/XSRF attacks; see ScreenRenderImpl)
         String sessionToken = session.getAttribute("moqui.session.token")
         if (sessionToken == null || sessionToken.length() == 0) {
-            sessionToken = StringUtilities.getRandomString(20)
+            sessionToken = org.moqui.util.DeterministicRandom.string('session-token', 20)
             session.setAttribute("moqui.session.token", sessionToken)
             request.setAttribute("moqui.session.token.created", "true")
             response.setHeader("moquiSessionToken", sessionToken)
@@ -509,7 +509,7 @@ class WebFacadeImpl implements WebFacade {
             // logger.warn("Copying attr ${attrEntry.getKey()}:${attrEntry.getValue()}")
         }
         // force a new moqui.session.token
-        String sessionToken = StringUtilities.getRandomString(20)
+        String sessionToken = org.moqui.util.DeterministicRandom.string('session-token', 20)
         newSession.setAttribute("moqui.session.token", sessionToken)
         request.setAttribute("moqui.session.token.created", "true")
         if (response != null) {

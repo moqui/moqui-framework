@@ -699,7 +699,9 @@ class ServiceFacadeImpl implements ServiceFacade {
 
             // before starting, and tracking the startTime, do a small random delay for variation in run times
             if (serviceInfo.runDelayVaryMs != 0)
-                Thread.sleep(ThreadLocalRandom.current().nextInt(serviceInfo.runDelayVaryMs))
+                Thread.sleep(org.moqui.util.DeterministicClock.isEnabled() ?
+                        org.moqui.util.DeterministicRandom.nextInt('service-delay:' + serviceName, serviceInfo.runDelayVaryMs) :
+                        ThreadLocalRandom.current().nextInt(serviceInfo.runDelayVaryMs))
 
             long startTime = System.currentTimeMillis()
             ExecutionContextImpl threadEci = ecfi.getEci()

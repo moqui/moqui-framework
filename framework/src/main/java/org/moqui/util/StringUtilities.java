@@ -28,7 +28,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
-import java.security.SecureRandom;
 import java.text.ParseException;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -435,12 +434,13 @@ public class StringUtilities {
         return getRandomString(length, null);
     }
     public static String getRandomString(int length, BaseNCodec baseNCodec) {
+        return getRandomString(length, baseNCodec, "string:" + length);
+    }
+    public static String getRandomString(int length, BaseNCodec baseNCodec, String domain) {
         if (baseNCodec == null) baseNCodec = org.apache.commons.codec.binary.Base64.builder()
                 .setUrlSafe(true)
                 .get();
-        SecureRandom sr = new SecureRandom();
-        byte[] randomBytes = new byte[length];
-        sr.nextBytes(randomBytes);
+        byte[] randomBytes = DeterministicRandom.bytes(domain, length);
         String randomStr = baseNCodec.encodeToString(randomBytes);
         if (randomStr.length() > length) randomStr = randomStr.substring(0, length);
         return randomStr;

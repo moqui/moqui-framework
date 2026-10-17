@@ -1052,7 +1052,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
         return hcm
     }
     // NOTE: may not be used
-    static String getRandomSalt() { return StringUtilities.getRandomString(8) }
+    static String getRandomSalt() { return org.moqui.util.DeterministicRandom.string('password-salt', 8) }
     String getPasswordHashType() {
         MNode passwordNode = confXmlRoot.first("user-facade").first("password")
         return passwordNode.attribute("encrypt-hash-type") ?: "SHA-256"

@@ -49,7 +49,7 @@ class EntityEcaRule {
         if (eecaNode.hasChild("actions")) {
             String actionsLocation = null
             String eecaId = eecaNode.attribute("id")
-            if (eecaId != null && !eecaId.isEmpty()) actionsLocation = eecaId + "_" + StringUtilities.getRandomString(8)
+            if (eecaId != null && !eecaId.isEmpty()) actionsLocation = eecaId + "_" + org.moqui.util.DeterministicRandom.string('eeca-location', 8)
             actions = new XmlAction(ecfi, eecaNode.first("actions"), actionsLocation) // was location + ".actions" but not unique!
         }
     }

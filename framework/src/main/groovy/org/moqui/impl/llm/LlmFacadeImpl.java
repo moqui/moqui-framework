@@ -51,7 +51,7 @@ public class LlmFacadeImpl implements LlmFacade {
     private final ConcurrentHashMap<String, Long> activeTurns = new ConcurrentHashMap<>();
     private final java.util.concurrent.atomic.AtomicLong activeTurnSeq = new java.util.concurrent.atomic.AtomicLong();
     /** Identifies this node in LlmConversation.turnOwner. A fresh value per facade, so a restart is a different owner. */
-    private final String nodeId = java.util.UUID.randomUUID().toString();
+    private final String nodeId = org.moqui.util.DeterministicRandom.uuid("llm-node").toString();
     /** A turn's lease runs this long past the last renewal. Another node may take a Streaming conversation only after it. */
     public static final long LEASE_SECONDS = 90L;
     private static final long LEASE_RENEW_SECONDS = 20L;
