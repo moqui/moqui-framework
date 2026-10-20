@@ -77,7 +77,7 @@ public class XmlAction {
     public boolean checkCondition(ExecutionContextImpl eci) {
         Object result = run(eci);
         if (result == null) return false;
-        return DefaultGroovyMethods.asType(run(eci), Boolean.class);
+        return DefaultGroovyMethods.asType(result, Boolean.class);
     }
 
     // used in tools screens, must be public

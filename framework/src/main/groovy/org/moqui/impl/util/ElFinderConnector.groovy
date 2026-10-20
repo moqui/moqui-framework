@@ -23,6 +23,11 @@ import org.slf4j.LoggerFactory
 class ElFinderConnector {
     protected final static Logger logger = LoggerFactory.getLogger(ElFinderConnector.class)
 
+    /** Thrown for a target that does not decode or that would leave the resource root, reported as errFileNotFound */
+    static class TargetException extends RuntimeException {
+        TargetException(String message) { super(message) }
+    }
+
     ExecutionContext ec
     String volumeId
     String resourceRoot
@@ -69,12 +74,16 @@ class ElFinderConnector {
 
     static String unhash(String hashed) {
         if (!hashed) return ""
-        // NOTE: assumes a volume ID prefix with 3 characters
-        hashed = hashed.substring(3)
-        hashed = hashed.replace(".", "=")
-        hashed = hashed.replace("-", "+")
-        hashed = hashed.replace("_", "/")
-        return new String(hashed.decodeBase64())
+        try {
+            // NOTE: assumes a volume ID prefix with 3 characters
+            hashed = hashed.substring(3)
+            hashed = hashed.replace(".", "=")
+            hashed = hashed.replace("-", "+")
+            hashed = hashed.replace("_", "/")
+            return new String(hashed.decodeBase64())
+        } catch (Exception e) {
+            throw new TargetException("Target hash could not be decoded")
+        }
     }
 
     String getLocation(String hashed) {
@@ -93,13 +102,13 @@ class ElFinderConnector {
             if (!part || part == ".") continue
             if (part == ".." || part.contains(":")) {
                 logger.warn("ElFinder path rejected under ${resourceRoot}: ${unhashedPath}")
-                return resourceRoot
+                throw new TargetException("Target path is not under the resource root")
             }
             safe.add(part)
         }
         if (!safe) return resourceRoot
         String loc = resourceRoot + (resourceRoot.endsWith("/") ? "" : "/") + safe.join("/")
-        if (!loc.startsWith(resourceRoot)) return resourceRoot
+        if (!loc.startsWith(resourceRoot)) throw new TargetException("Target path is not under the resource root")
         return loc
     }
 
@@ -232,6 +241,24 @@ class ElFinderConnector {
     }
 
     void runCommand() {
+        try {
+            runCommandInternal()
+        } catch (TargetException e) {
+            logger.warn("ElFinder command ${ec.context.cmd} target rejected: ${e.message}")
+            Map responseMap = [:]
+            responseMap.error = "errFileNotFound"
+            ec.context.responseMap = responseMap
+        }
+    }
+
+    protected boolean refuseRoot(String location, Map responseMap) {
+        if (!isRoot(location)) return false
+        responseMap.clear()
+        responseMap.error = "Operation not allowed on the root"
+        return true
+    }
+
+    protected void runCommandInternal() {
         String cmd = ec.context.cmd
         String target = ec.context.target
         Map otherParameters = (Map) ec.context.otherParameters
@@ -307,6 +334,7 @@ class ElFinderConnector {
             List<String> removed = []
             for (String curTarget in targets) {
                 String rmLocation = getLocation(curTarget)
+                if (refuseRoot(rmLocation, responseMap)) return
                 logger.info("ElFinder rm ${rmLocation}")
                 removed.addAll(delete(rmLocation))
             }
@@ -318,6 +346,7 @@ class ElFinderConnector {
             if (!name) { responseMap.clear(); responseMap.error = "No name specified for new directory"; return }
 
             String location = getLocation(target)
+            if (refuseRoot(location, responseMap)) return
             String newLocation = location.substring(0, location.lastIndexOf("/") + 1) + name
 
             ResourceReference curRef = ec.resource.getLocationReference(location)
@@ -348,6 +377,7 @@ class ElFinderConnector {
             if (refuseWrites(responseMap)) return
             String content = otherParameters.content
             String location = getLocation(target)
+            if (refuseRoot(location, responseMap)) return
             ResourceReference curRef = ec.resource.getLocationReference(location)
             curRef.putText(content)
             responseMap.changed = [getResourceInfo(curRef)]

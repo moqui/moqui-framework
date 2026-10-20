@@ -253,6 +253,17 @@ public class ContextJavaUtil {
                 referrerUrl = wfi.getRequest().getHeader("Referer");
             }
         }
+        private static final String[] sensitiveNameParts = {"password", "passwd", "secret", "token", "credential",
+                "apikey", "api_key", "authorization", "passcode", "authcode", "securitycode", "verificationcode",
+                "verifycode", "totp", "cvv", "cardnumber", "sql"};
+        private static final Set<String> sensitiveExactNames = new HashSet<>(Arrays.asList("code", "pin", "otp"));
+        /** Parameter names that may hold credentials or codes, matched ignoring case; these are left out of the hit's parameterString */
+        static boolean isSensitiveParameterName(String name) {
+            String lower = name.toLowerCase();
+            if (sensitiveExactNames.contains(lower)) return true;
+            for (String part : sensitiveNameParts) if (lower.contains(part)) return true;
+            return false;
+        }
         EntityValue makeAhiValue(ExecutionContextFactoryImpl ecfi) {
             EntityValueBase ahp = (EntityValueBase) ecfi.entityFacade.makeValue("moqui.server.ArtifactHit");
             ahp.put("visitId", visitId);
@@ -270,7 +281,7 @@ public class ContextJavaUtil {
                     Object value = pme.getValue();
                     if (value == null || value instanceof Map || value instanceof Collection || ObjectUtilities.isEmpty(value)) continue;
                     String key = pme.getKey();
-                    if (key != null && key.contains("password")) continue;
+                    if (key != null && isSensitiveParameterName(key)) continue;
                     if (ps.length() > 0) ps.append(", ");
                     String valString = value.toString();
                     if (valString.length() > 80) valString = valString.substring(0, 80);
