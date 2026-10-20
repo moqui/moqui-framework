@@ -208,6 +208,7 @@ public class SimpleEtl {
 
         void copyFrom(TransformConfiguration conf) {
             if (conf == null) return;
+            if (conf.hasTransformers) hasTransformers = true;
             anyTransformers.addAll(conf.anyTransformers);
             anyTransformerSize = anyTransformers.size();
             for (Map.Entry<String, ArrayList<Transformer>> entry : conf.typeTransformers.entrySet()) {
