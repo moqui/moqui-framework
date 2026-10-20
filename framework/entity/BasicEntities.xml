@@ -329,9 +329,18 @@ along with this software (see the LICENSE.md file). If not, see
     </entity>
     <entity entity-name="StatusFlow" package="moqui.basic" use="configuration">
         <field name="statusFlowId" type="id" is-pk="true"/>
-        <field name="statusTypeId" type="id"><description>Optional. If specified uses status items with this type.</description></field>
+        <field name="statusTypeId" type="id">
+            <description>Optional. If specified uses status items with this type.</description></field>
+        <field name="parentStatusFlowId" type="id">
+            <description>The parent status flow from which this status flow derives.</description></field>
         <field name="description" type="text-medium"/>
         <relationship type="one" related="moqui.basic.StatusType" short-alias="type"/>
+        <relationship type="one" title="Parent" related="moqui.basic.StatusFlow" short-alias="parent">
+            <key-map field-name="parentStatusFlowId" related="statusFlowId"/></relationship>
+        <relationship type="many" related="moqui.basic.StatusFlowItem" short-alias="items">
+            <key-map field-name="statusFlowId"/></relationship>
+        <relationship type="many" related="moqui.basic.StatusFlowTransition" short-alias="transitions">
+            <key-map field-name="statusFlowId"/></relationship>
         <seed-data>
             <moqui.basic.StatusFlow statusFlowId="Default" description="Default status flow across entire system."/>
         </seed-data>
@@ -346,14 +355,17 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="StatusFlowTransition" package="moqui.basic" use="configuration" cache="true">
         <field name="statusFlowId" type="id" is-pk="true"/>
         <field name="statusId" type="id" is-pk="true"/>
+        <field name="toStatusFlowId" type="id" is-pk="true" default="statusFlowId"/>
         <field name="toStatusId" type="id" is-pk="true"/>
         <field name="transitionSequence" type="number-integer"/>
         <field name="transitionName" type="text-medium" enable-localization="true"/>
         <field name="conditionExpression" type="text-medium"><description>Not currently supported, may be removed, issue with what is the context for the expression</description></field>
         <field name="userPermissionId" type="id-long"/>
-        <relationship type="one" related="moqui.basic.StatusFlow" short-alias="flow"/>
-        <relationship type="one" related="moqui.basic.StatusItem" short-alias="status"/>
-        <relationship type="one" title="To" related="moqui.basic.StatusItem" short-alias="toStatus">
+        <relationship type="one" title="Flow" related="moqui.basic.StatusFlow" short-alias="flow"/>
+        <relationship type="one" title="Status" related="moqui.basic.StatusItem" short-alias="status"/>
+        <relationship type="one" title="ToFlow" related="moqui.basic.StatusFlow" short-alias="toFlow">
+            <key-map field-name="toStatusFlowId" related="statusFlowId"/></relationship>
+        <relationship type="one" title="ToStatus" related="moqui.basic.StatusItem" short-alias="toStatus">
             <key-map field-name="toStatusId" related="statusId"/></relationship>
         <relationship type="one-nofk" related="moqui.security.UserPermission" short-alias="permission">
             <description>No FK in order to allow arbitrary permissions (ie not pre-configured).</description></relationship>
@@ -383,6 +395,48 @@ along with this software (see the LICENSE.md file). If not, see
         <alias-all entity-alias="SIFR" prefix="from"><exclude field="statusId"/></alias-all>
         <alias-all entity-alias="SITO" prefix="to"><exclude field="statusId"/></alias-all>
     </view-entity>
+    <entity entity-name="StatusFlowStack" package="moqui.basic" use="transactional" authorize-skip="create"
+            cache="never" create-only="true" sequence-bank-size="1000">
+        <description>Append-only status event log and push-down stack memory for one StatusFlow execution.
+            Each push, state change, pop, or reset creates a new row; existing rows are never closed or updated.</description>
+        <field name="statusFlowStackId" type="id" is-pk="true"/>
+        <field name="entityName" type="text-medium"/>
+        <field name="pkPrimaryValue" type="text-medium"/>
+        <field name="pkSecondaryValue" type="text-medium"/>
+        <field name="executionId" type="id-long" not-null="true">
+            <description>Correlation ID shared by all stack events in one logical StatusFlow execution.</description></field>
+        <field name="sequenceNum" type="number-integer" not-null="true">
+            <description>Monotonically increasing event sequence within executionId.</description></field>
+        <field name="observedDate" type="date-time" default="ec.user.nowTimestamp" not-null="true"/>
+        <field name="operationEnumId" type="id" not-null="true">
+            <description>Stack/event operation: push, state change, pop, or reset.</description></field>
+        <field name="frameId" type="id-long" not-null="true">
+            <description>Stable ID of the stack frame affected by this event.</description></field>
+        <field name="parentFrameId" type="id-long"/>
+        <field name="stackDepth" type="number-integer" not-null="true"/>
+        <field name="statusFlowId" type="id" not-null="true"/>
+        <field name="statusId" type="id" not-null="true"/>
+        <field name="sourceMessageId" type="id-long">
+            <description>Optional external request, MQTT message, or application correlation ID.</description></field>
+
+        <relationship type="one" related="moqui.basic.StatusFlow" short-alias="flow"/>
+        <relationship type="one" related="moqui.basic.StatusItem" short-alias="status"/>
+        <relationship type="one" title="Operation" related="moqui.basic.Enumeration" short-alias="operation">
+            <key-map field-name="operationEnumId"/></relationship>
+        <index name="SFSTACK_EXECSEQ" unique="true"><index-field name="executionId"/>
+            <index-field name="sequenceNum"/></index>
+        <index name="SFSTACK_ENTPKDT"><index-field name="entityName"/><index-field name="pkPrimaryValue"/>
+            <index-field name="observedDate"/></index>
+        <index name="SFSTACK_FRAME"><index-field name="executionId"/><index-field name="frameId"/>
+            <index-field name="sequenceNum"/></index>
+        <seed-data>
+            <moqui.basic.EnumerationType enumTypeId="StatusFlowStackOperation" description="Status Flow Stack Operation"/>
+            <moqui.basic.Enumeration enumId="SfsoPush" enumTypeId="StatusFlowStackOperation" description="Push" sequenceNum="1"/>
+            <moqui.basic.Enumeration enumId="SfsoStateChange" enumTypeId="StatusFlowStackOperation" description="State Change" sequenceNum="2"/>
+            <moqui.basic.Enumeration enumId="SfsoPop" enumTypeId="StatusFlowStackOperation" description="Pop" sequenceNum="3"/>
+            <moqui.basic.Enumeration enumId="SfsoReset" enumTypeId="StatusFlowStackOperation" description="Reset" sequenceNum="4"/>
+        </seed-data>
+    </entity>
 
     <!-- ========== Uom ========== -->
     <entity entity-name="Uom" package="moqui.basic" use="configuration" short-alias="uoms" cache="true">
