@@ -190,23 +190,20 @@ class ScreenTestImpl implements ScreenTest {
             ScreenTestRenderImpl stri = this
             Throwable threadThrown = null
 
-            Thread newThread = new Thread("ScreenTestRender") {
-                @Override void run() {
-                    try {
-                        ExecutionContextImpl threadEci = ecfi.getEci()
-                        if (loginSubject != null) threadEci.userFacade.internalLoginSubject(loginSubject)
-                        else if (username != null && !username.isEmpty()) threadEci.userFacade.internalLoginUser(username)
-                        if (authzDisabled) threadEci.artifactExecutionFacade.disableAuthz()
-                        // as this is used for server-side transition calls don't do tarpit checks
-                        threadEci.artifactExecutionFacade.disableTarpit()
-                        renderInternal(threadEci, stri)
-                        threadEci.destroy()
-                    } catch (Throwable t) {
-                        threadThrown = t
-                    }
+            Thread newThread = Thread.ofVirtual().name("ScreenTestRender").start({
+                try {
+                    ExecutionContextImpl threadEci = ecfi.getEci()
+                    if (loginSubject != null) threadEci.userFacade.internalLoginSubject(loginSubject)
+                    else if (username != null && !username.isEmpty()) threadEci.userFacade.internalLoginUser(username)
+                    if (authzDisabled) threadEci.artifactExecutionFacade.disableAuthz()
+                    // as this is used for server-side transition calls don't do tarpit checks
+                    threadEci.artifactExecutionFacade.disableTarpit()
+                    renderInternal(threadEci, stri)
+                    threadEci.destroy()
+                } catch (Throwable t) {
+                    threadThrown = t
                 }
-            }
-            newThread.start()
+            })
             newThread.join()
             if (threadThrown != null) throw threadThrown
             return this
