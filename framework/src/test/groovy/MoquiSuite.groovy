@@ -29,7 +29,7 @@ import org.moqui.context.ExecutionContext
         SecurityAccessControlTests.class, SecurityAuthnTests.class, SecurityInjectionTests.class,
         SecurityMisconfigTests.class, SecurityCryptoTests.class, SecurityIntegrityTests.class,
         SecurityLoggingTests.class, SecurityErrorTests.class, SecurityHandshakeTests.class,
-        SecurityTarpitTests.class])
+        SecurityTarpitTests.class, EmailServicesTests.class])
 class MoquiSuite {
     @AfterAll
     static void destroyMoqui() {

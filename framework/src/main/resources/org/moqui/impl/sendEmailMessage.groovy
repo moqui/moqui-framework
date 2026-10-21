@@ -13,14 +13,16 @@
  */
 
 /*
-    JavaMail API Documentation at: https://java.net/projects/javamail/pages/Home
-    For JavaMail JavaDocs see: https://javamail.java.net/nonav/docs/api/index.html
+    Jakarta Mail API Documentation at: https://jakarta.ee/specifications/mail/
+    Implementation (Eclipse Angus Mail) at: https://eclipse-ee4j.github.io/angus-mail/
  */
 
-import org.apache.commons.mail2.jakarta.DefaultAuthenticator
-import org.apache.commons.mail2.jakarta.HtmlEmail
 import org.moqui.entity.EntityValue
 import org.moqui.impl.context.ExecutionContextImpl
+import org.moqui.impl.util.MailUtil
+
+import jakarta.mail.Session
+import jakarta.mail.internet.MimeMessage
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -66,34 +68,13 @@ try {
         return
     }
 
-    HtmlEmail email = new HtmlEmail()
-    email.setCharset("utf-8")
-    email.setHostName(host)
-    email.setSmtpPort(port)
-    if (emailServer.mailUsername) {
-        email.setAuthenticator(new DefaultAuthenticator((String) emailServer.mailUsername, (String) emailServer.mailPassword))
-        // logger.info("Set user=${emailServer.mailUsername}, password=${emailServer.mailPassword}")
-    }
-    if (emailServer.smtpStartTls == "Y") {
-        email.setStartTLSEnabled(true)
-        // email.setStartTLSRequired(true)
-    }
-    if (emailServer.smtpSsl == "Y") {
-        email.setSSLOnConnect(true)
-        email.setSslSmtpPort(port as String)
-        // email.setSSLCheckServerIdentity(true)
-    }
-
-    // set the subject
-    if (emailMessage.subject) email.setSubject((String) emailMessage.subject)
-
-    // set from, reply to, bounce addresses
-    email.setFrom(fromAddress, (String) emailMessage.fromName)
+    // reply to, bounce addresses
+    List<String> replyToList = []
     if (emailTemplate?.replyToAddresses) {
         def rtList = ((String) emailTemplate.replyToAddresses).split(",")
-        for (address in rtList) email.addReplyTo(address.trim())
+        for (address in rtList) replyToList.add(address.trim())
     }
-    if (emailTemplate?.bounceAddress) email.setBounceAddress((String) emailTemplate.bounceAddress)
+    String bounceAddress = (String) emailTemplate?.bounceAddress
 
     // prep list of allowed to domains, if configured
     String allowedToDomains = emailServer.allowedToDomains
@@ -105,46 +86,46 @@ try {
     }
 
     // set to, cc, bcc addresses
+    List<String> toAddressList = [], ccAddressList = [], bccAddressList = []
     def toList = ((String) toAddresses).split(",")
     for (toAddress in toList) {
-        if (isDomainAllowed(toAddress, toDomainList)) email.addTo(toAddress.trim())
+        if (MailUtil.isDomainAllowed(toAddress, toDomainList)) toAddressList.add(toAddress.trim())
         else skippedToAddresses.add(toAddress)
     }
     if (ccAddresses) {
         def ccList = ((String) ccAddresses).split(",")
         for (ccAddress in ccList) {
-            if (isDomainAllowed(ccAddress, toDomainList)) email.addCc(ccAddress.trim())
+            if (MailUtil.isDomainAllowed(ccAddress, toDomainList)) ccAddressList.add(ccAddress.trim())
             else skippedToAddresses.add(ccAddress)
         }
     }
     if (bccAddresses) {
         def bccList = ((String) bccAddresses).split(",")
         for (def bccAddress in bccList) {
-            if (isDomainAllowed(bccAddress, toDomainList)) email.addBcc(bccAddress.trim())
+            if (MailUtil.isDomainAllowed(bccAddress, toDomainList)) bccAddressList.add(bccAddress.trim())
             else skippedToAddresses.add(bccAddress)
         }
     }
 
-    if (!email.getToAddresses()) {
+    if (!toAddressList) {
         logger.warn("Not sending EmailMessage ${emailMessageId} with no To Addresses; To, CC, BCC addresses skipped because domain not allowed: ${skippedToAddresses} allowed domains: ${toDomainList}")
         ec.message.addMessage("Not sending email message with no To Address; address(es) skipped because domain not allowed: ${skippedToAddresses}", "warning")
         return
     } else if (skippedToAddresses) {
-        logger.warn("Sending EmailMessage ${emailMessageId} to remaining To Address(es) ${email.getToAddresses()}; some To, CC, BCC addresses skipped because domain not allowed: ${skippedToAddresses} allowed domains: ${toDomainList}")
+        logger.warn("Sending EmailMessage ${emailMessageId} to remaining To Address(es) ${toAddressList}; some To, CC, BCC addresses skipped because domain not allowed: ${skippedToAddresses} allowed domains: ${toDomainList}")
     }
 
-    // set the html message
-    if (bodyHtml) email.setHtmlMsg(bodyHtml)
-    // set the alternative plain text message
-    if (bodyText) email.setTextMsg(bodyText)
+    Session session = MailUtil.makeSmtpSession(emailServer, bounceAddress)
+    // session.setDebug(true)
+    MimeMessage message = MailUtil.buildMessage(session, (String) emailMessage.subject, fromAddress, (String) emailMessage.fromName,
+            toAddressList, ccAddressList, bccAddressList, replyToList, bodyHtml, bodyText, null)
 
-    if (logger.infoEnabled) logger.info("Sending email [${email.getSubject()}] from ${email.getFromAddress()} to ${email.getToAddresses()} cc ${email.getCcAddresses()} bcc ${email.getBccAddresses()} via ${emailServer.mailUsername}@${email.getHostName()}:${email.getSmtpPort()} SSL? ${email.isSSLOnConnect()}:${email.isSSLCheckServerIdentity()} StartTLS? ${email.isStartTLSEnabled()}:${email.isStartTLSRequired()}")
-    if (logger.traceEnabled) logger.trace("Sending email [${email.getSubject()}] to ${email.getToAddresses()} with bodyHtml:\n${bodyHtml}\nbodyText:\n${bodyText}")
-    // email.setDebug(true)
+    if (logger.infoEnabled) logger.info("Sending email [${emailMessage.subject}] from ${fromAddress} to ${toAddressList} cc ${ccAddressList} bcc ${bccAddressList} via ${emailServer.mailUsername}@${host}:${port} SSL? ${emailServer.smtpSsl == 'Y'} StartTLS? ${emailServer.smtpStartTls == 'Y'} OAuth2? ${MailUtil.isOAuth(emailServer)}")
+    if (logger.traceEnabled) logger.trace("Sending email [${emailMessage.subject}] to ${toAddressList} with bodyHtml:\n${bodyHtml}\nbodyText:\n${bodyText}")
 
     // send the email
     try {
-        messageId = email.send()
+        messageId = MailUtil.send(message, emailServer)
         if (statusId in ['ES_READY', 'ES_BOUNCED']) {
             ec.service.sync().name("update", "moqui.basic.email.EmailMessage").requireNewTransaction(true)
                     .parameters([emailMessageId:emailMessageId, sentDate:ec.user.nowTimestamp, statusId:"ES_SENT", messageId:messageId])
@@ -160,23 +141,4 @@ try {
     logger.error("Error in sendEmailTemplate", t)
     ec.message.addMessage("Error sending email: ${t.toString()}")
     // don't rethrow: throw new BaseArtifactException("Error in sendEmailTemplate", t)
-}
-
-static boolean isDomainAllowed(String emailAddress, ArrayList<String> toDomainList) {
-    if (emailAddress == null || emailAddress.isEmpty()) return false
-    boolean domainAllowed = true
-    if (toDomainList != null && !toDomainList.isEmpty()) {
-        domainAllowed = false
-        int atIndex = emailAddress.indexOf("@")
-        if (atIndex == -1) return false
-        String emailDomain = emailAddress.substring(atIndex + 1, emailAddress.length())
-
-        for (toDomain in toDomainList) {
-            if (emailDomain.endsWith(toDomain)) {
-                domainAllowed = true
-                break
-            }
-        }
-    }
-    return domainAllowed
 }

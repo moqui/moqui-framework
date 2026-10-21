@@ -635,6 +635,18 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="mailPassword" type="text-medium" encrypt="true" enable-audit-log="update"/>
         <field name="allowedToDomains" type="text-long" enable-audit-log="update">
             <description>Comma separated list of domain names to allow (like: moqui.org, dejc.com), matched by ends with; if no value specified all domains allowed</description></field>
+        <field name="oauthTokenUrl" type="text-medium" enable-audit-log="update">
+            <description>OAuth2 token endpoint used to get an access token from oauthRefreshToken; defaults to
+                Google (https://oauth2.googleapis.com/token), for Microsoft 365 use
+                https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token</description></field>
+        <field name="oauthClientId" type="text-medium" enable-audit-log="update"/>
+        <field name="oauthClientSecret" type="text-medium" encrypt="true" enable-audit-log="update"/>
+        <field name="oauthRefreshToken" type="text-long" encrypt="true" enable-audit-log="update">
+            <description>When set, SMTP and store (IMAP/POP3) authenticate with OAuth2 (SASL XOAUTH2) using an access
+                token obtained with this refresh token instead of mailPassword; mailUsername is still required</description></field>
+        <field name="oauthScope" type="text-medium">
+            <description>Optional scope for the token request; not needed for Google, for Microsoft 365 use
+                https://outlook.office.com/SMTP.Send https://outlook.office.com/IMAP.AccessAsUser.All offline_access</description></field>
         <seed-data>
             <!-- The MOQUI_LOCAL EmailServer is used by SubEthaSmtpToolFactory for the local SMTP server to setup the server, and
                 for use by send#EmailTemplate if this emailServerId is used to send email -->
@@ -652,6 +664,8 @@ along with this software (see the LICENSE.md file). If not, see
                 storeHost="imap.gmail.com" storePort="993" storeProtocol="imaps" storeFolder=""
                 storeDelete="N" storeMarkSeen="Y" storeSkipSeen="Y"
                 mailUsername="CHANGEME@gmail.com" mailPassword="CHANGEME"
+            For Gmail with OAuth2 instead of mailPassword (refresh token with scope https://mail.google.com/):
+                oauthClientId="CHANGEME.apps.googleusercontent.com" oauthClientSecret="CHANGEME" oauthRefreshToken="CHANGEME"
             -->
             <!-- Other common values:
                 smtpPort="25" (std) smtpPort="465" (ssmtp) smtpPort="587" (ssmtp?)

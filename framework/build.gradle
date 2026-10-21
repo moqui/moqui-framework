@@ -67,10 +67,6 @@ dependencies {
 
     // Apache Commons
     api 'org.apache.commons:commons-csv:1.14.1' // Apache 2.0
-    api('org.apache.commons:commons-email2-jakarta:2.0.0-M1') {
-        exclude group: 'com.sun.mail', module: 'jakarta.mail'
-        exclude group: 'com.sun.activation', module: 'jakarta.activation'
-    }
     api 'org.apache.commons:commons-collections4:4.6.0' // Apache 2.0
     api 'org.apache.commons:commons-fileupload2-jakarta-servlet6:2.0.0-M5' // Apache 2.0
     api 'commons-codec:commons-codec:1.22.1' // Apache 2.0
@@ -154,6 +150,7 @@ dependencies {
 
     // SubEtha SMTP, depends on jakarta.mail-api which is provided
     api("com.github.davidmoten:subethasmtp:7.2.2") { transitive = false }
+    api 'com.github.davidmoten:guava-mini:0.1.7' // Apache 2.0, used by subethasmtp (not transitive above)
 
     // Snake YAML
     api 'org.yaml:snakeyaml:2.7' // Apache 2.0
