@@ -28,15 +28,17 @@ public final class DeterministicClock {
     private final URI hook;
     private final String run, engine;
     private final BufferedWriter log;
+    private long traceSequence;
     private final HttpClient client;
     private final int timeoutSeconds;
+    private final boolean operationChecks;
     private final ThreadLocal<Deque<Operation>> operations = ThreadLocal.withInitial(ArrayDeque::new);
     private volatile boolean failed;
 
     private static Map<String, String> settings() {
         Map<String, String> settings = new HashMap<>(System.getenv());
         for (String key : List.of("MOQUI_DETERMINISTIC", "MOQUI_DETERMINISTIC_HOOK", "MOQUI_DETERMINISTIC_RUN",
-                "MOQUI_DETERMINISTIC_ENGINE", "MOQUI_DETERMINISTIC_LOG", "MOQUI_DETERMINISTIC_TIMEOUT_SECONDS")) {
+                "MOQUI_DETERMINISTIC_ENGINE", "MOQUI_DETERMINISTIC_LOG", "MOQUI_DETERMINISTIC_TIMEOUT_SECONDS", "MOQUI_DETERMINISTIC_OPERATIONS")) {
             if (System.getProperty(key) != null) settings.put(key, System.getProperty(key));
         }
         return settings;
@@ -89,6 +91,7 @@ public final class DeterministicClock {
             timeoutSeconds = Integer.parseInt(settings.getOrDefault("MOQUI_DETERMINISTIC_TIMEOUT_SECONDS", "120"));
             if (timeoutSeconds < 1 || timeoutSeconds > 3600)
                 throw new IllegalArgumentException("MOQUI_DETERMINISTIC_TIMEOUT_SECONDS must be between 1 and 3600");
+            operationChecks = "true".equals(settings.get("MOQUI_DETERMINISTIC_OPERATIONS"));
             run = required(settings, "MOQUI_DETERMINISTIC_RUN");
             engine = required(settings, "MOQUI_DETERMINISTIC_ENGINE");
             if (!"java".equals(engine)) throw new IllegalArgumentException("MOQUI_DETERMINISTIC_ENGINE must be java");
@@ -129,6 +132,7 @@ public final class DeterministicClock {
             event.put("parent_sequence", parent == null ? null : parent.sequence);
             event.put("artifact", stack.get(0)); // innermost first, as in Moqui's artifact stack
             event.put("artifact_stack", stack);
+            observe("coordinator", "begin", stack.get(0).get("name"), "requested");
             JsonNode response = post(event);
             JsonNode id = response.get("operation_id"), time = response.get("time_epoch_ms");
             if (response.size() != 2 || id == null || !id.isTextual() || !id.asText().matches("[A-Za-z0-9._:-]{1,128}") ||
@@ -196,7 +200,39 @@ public final class DeterministicClock {
             throw new IllegalStateException("Deterministic hook transport/JSON failure");
         }
     }
-    private void append(Map<String, Object> event) {
+    /** Diagnostic observations, not coordinator acknowledgements. Never include bound values. */
+    public static void trace(String kind, String action, String name, String outcome) {
+        if (!isEnabled()) return;
+        get().observe(kind, action, name, outcome);
+    }
+    void observe(String kind, String action, String name, String outcome) {
+        DeterministicClock clock = this;
+        synchronized (clock) {
+            Map<String, Object> event = clock.event(0, "trace");
+            event.remove("sequence");
+            event.put("trace_sequence", ++clock.traceSequence);
+            event.put("kind", kind); event.put("action", action);
+            event.put("name", name); event.put("outcome", outcome);
+            Operation parent = clock.operations.get().peek();
+            event.put("parent_sequence", parent == null ? null : parent.sequence);
+            event.put("time_epoch_ms", clock.operations.get().stream()
+                    .filter(op -> !op.suspended).findFirst().map(op -> op.time).orElse(null));
+            try {
+                clock.append(event);
+                if (clock.operationChecks && ((kind.startsWith("AT_") && outcome.equals("exit")) ||
+                        (kind.equals("jdbc") && (outcome.equals("succeeded") || outcome.equals("failed"))) ||
+                        (kind.equals("data") && !outcome.equals("requested")))) {
+                    Map<String, Object> request = clock.event(clock.traceSequence, "operation");
+                    request.put("kind", kind); request.put("action", action); request.put("name", name);
+                    request.put("outcome", outcome);
+                    request.put("transaction_sequence", parent == null ? null : parent.sequence);
+                    if (!clock.post(request).path("ok").asBoolean(false))
+                        throw new IllegalStateException("Operation database comparison rejected");
+                }
+            } catch (RuntimeException e) { clock.failed = true; throw e; }
+        }
+    }
+    private synchronized void append(Map<String, Object> event) {
         try { log.write(JSON.writeValueAsString(event)); log.newLine(); log.flush(); }
         catch (IOException e) { throw new IllegalStateException("Deterministic log write failed"); }
     }

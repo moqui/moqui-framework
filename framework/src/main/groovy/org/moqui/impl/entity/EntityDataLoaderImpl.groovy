@@ -346,6 +346,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
     }
 
     void loadSingleFile(String location, EntityXmlHandler exh, EntityCsvHandler ech, EntityJsonHandler ejh) {
+        org.moqui.util.DeterministicClock.trace('data', 'load', location, 'requested')
         TransactionFacade tf = efi.ecfi.transactionFacade
         boolean beganTransaction = tf.begin(transactionTimeout)
         try {
@@ -437,7 +438,9 @@ class EntityDataLoaderImpl implements EntityDataLoader {
             } finally {
                 if (inputStream != null) inputStream.close()
             }
+            org.moqui.util.DeterministicClock.trace('data', 'load', location, 'succeeded')
         } catch (Throwable t) {
+            org.moqui.util.DeterministicClock.trace('data', 'load', location, 'failed')
             tf.rollback(beganTransaction, "Error loading entity data", t)
             throw new BaseException("Error loading entity data from ${location}", t)
         } finally {
@@ -540,6 +543,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
         }
 
         void handleValue(EntityValue value, String location) {
+            org.moqui.util.DeterministicClock.trace('data', 'record', value.resolveEntityName(), 'requested')
             if (edli.restrictSensitiveEntities && WebUtilities.isRestrictedGenericEntity(value.resolveEntityName())) {
                 throw new EntityException("Entity ${value.resolveEntityName()} is not allowed in this data load")
             }
@@ -578,8 +582,10 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                 if (edli.dummyFks) value.checkFks(true)
                 value.createOrUpdate()
             }
+            org.moqui.util.DeterministicClock.trace('data', 'record', value.resolveEntityName(), 'succeeded')
         }
         void handlePlainMap(String entityName, Map value, String location) {
+            org.moqui.util.DeterministicClock.trace('data', 'record', entityName, 'requested')
             if (edli.restrictSensitiveEntities && WebUtilities.isRestrictedGenericEntity(entityName)) {
                 throw new EntityException("Entity ${entityName} is not allowed in this data load")
             }
@@ -611,6 +617,7 @@ class EntityDataLoaderImpl implements EntityDataLoader {
                     throw new BaseException("Error handling data load plain Map: ${errStr}")
                 }
             }
+            org.moqui.util.DeterministicClock.trace('data', 'record', entityName, 'succeeded')
         }
         void handleService(ServiceCallSync scs, String location) {
             if (edli.onlyCreate) {

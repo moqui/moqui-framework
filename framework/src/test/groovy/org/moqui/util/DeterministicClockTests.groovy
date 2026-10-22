@@ -89,7 +89,7 @@ class DeterministicClockTests extends Specification {
         requests[0].artifact == [type:'AT_SERVICE', sub_type:'sync', name:'example']
         requests[1].artifact == DeterministicClock.bootstrapArtifact()
         !log.text.contains('SECRET')
-        log.readLines().size() == 4
+        log.readLines().collect { new JsonSlurper().parseText(it) }.count { it.event != 'trace' } == 4
         !clock.hasTime()
         !clock.hasTransaction()
     }
@@ -101,7 +101,7 @@ class DeterministicClockTests extends Specification {
         b.complete('begin_failed')
         then:
         b.sequence > a.sequence
-        log.readLines().size() == 4
+        log.readLines().collect { new JsonSlurper().parseText(it) }.count { it.event != 'trace' } == 4
         requests.last().outcome == 'begin_failed'
     }
     @Unroll
@@ -114,7 +114,7 @@ class DeterministicClockTests extends Specification {
         then:
         thrown(IllegalStateException)
         !clock.hasTime()
-        log.text == ''
+        new JsonSlurper().parseText(log.readLines().last()).outcome == 'requested'
         when:
         clock.begin([], true)
         then:
@@ -137,7 +137,7 @@ class DeterministicClockTests extends Specification {
         then:
         thrown(IllegalStateException)
         !clock.hasTime()
-        log.readLines().size() == 2 // actual DB outcome is retained
+        log.readLines().collect { new JsonSlurper().parseText(it) }.count { it.event != 'trace' } == 2 // actual DB outcome is retained
         when:
         status = 503
         new DeterministicClock(settings()).begin([], true)
@@ -156,8 +156,23 @@ class DeterministicClockTests extends Specification {
         (System.nanoTime() - start) / 1000000L >= 1800
         (System.nanoTime() - start) / 1000000L < 8000
         !clock.hasTime()
-        log.text.empty
+        new JsonSlurper().parseText(log.readLines().last()).outcome == 'requested'
     }
+    def 'operation completion synchronously calls the Python comparison hook'() {
+        given:
+        def clock = new DeterministicClock(settings() + [MOQUI_DETERMINISTIC_OPERATIONS:'true'])
+        def operation = clock.begin([], true)
+        when:
+        clock.observe('AT_ENTITY', 'list', 'moqui.example.Thing', 'exit')
+        operation.complete('committed')
+        then:
+        requests*.event == ['begin', 'operation', 'complete']
+        requests[1].kind == 'AT_ENTITY'
+        requests[1].name == 'moqui.example.Thing'
+        requests[1].transaction_sequence == operation.sequence
+        requests[1].outcome == 'exit'
+    }
+
     def 'random bytes use the coordinator without manufacturing a transaction or local fallback'() {
         given:
         def clock = new DeterministicClock(settings())

@@ -203,6 +203,24 @@ class DeterministicIntegrationTests extends Specification {
         factory.destroy(); factory = null
         then:
         log.readLines().size() > linesBeforeRestart
+        // Stream large trace evidence instead of retaining every parsed SQL/metadata event in the test heap.
+        long traceSequence = 0
+        Set<String> observed = []
+        def traceScan = log.eachLine { line ->
+            def trace = new JsonSlurper().parseText(line)
+            if (trace.event == 'trace') {
+                assert trace.trace_sequence == ++traceSequence
+                if (trace.kind == 'AT_ENTITY') observed.add('entity:' + trace.outcome)
+                if (trace.kind == 'jdbc') {
+                    if (trace.outcome == 'failed') observed.add('jdbc:failed')
+                    if (trace.outcome == 'succeeded' && trace.name.toUpperCase().contains('CREATE TABLE')) observed.add('jdbc:create')
+                    if (trace.outcome == 'succeeded' && trace.name.toUpperCase().contains('INSERT INTO')) observed.add('jdbc:insert')
+                }
+                if (trace.kind == 'data' && trace.action == 'load' && trace.outcome == 'succeeded') observed.add('data:load')
+                if (trace.kind == 'data' && trace.action == 'record') observed.add('data:record')
+            }
+        }
+        observed.containsAll(['entity:enter', 'entity:exit', 'jdbc:create', 'jdbc:insert', 'jdbc:failed', 'data:load', 'data:record'])
         events.findAll { it.event == 'begin' && it.sequence > lastSequence }.size() > 0
         events.findAll { it.event == 'begin' }.any { it.artifact == [type:'AT_SERVICE', sub_type:'sync', name:'deterministic-test'] }
         events.findAll { it.event == 'begin' }.any { it.artifact.name == 'update#moqui.basic.EnumerationType' && it.artifact.type == 'AT_SERVICE' }

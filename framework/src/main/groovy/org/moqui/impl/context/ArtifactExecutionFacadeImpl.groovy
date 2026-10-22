@@ -81,6 +81,7 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
         pushInternal(aeii, requiresAuthz, true)
     }
     void pushInternal(ArtifactExecutionInfoImpl aeii, boolean requiresAuthz, boolean countTarpit) {
+        org.moqui.util.DeterministicClock.trace(aeii.internalTypeEnum.name(), aeii.actionDetail ?: aeii.internalActionEnum.name(), aeii.nameInternal, 'enter')
         ArtifactExecutionInfoImpl lastAeii = (ArtifactExecutionInfoImpl) artifactExecutionInfoStack.peekFirst()
 
         // always do this regardless of the authz checks, etc; keep a history of artifacts run
@@ -127,6 +128,7 @@ class ArtifactExecutionFacadeImpl implements ArtifactExecutionFacade {
             }
             // set end time
             lastAeii.setEndTime()
+            org.moqui.util.DeterministicClock.trace(lastAeii.internalTypeEnum.name(), lastAeii.actionDetail ?: lastAeii.internalActionEnum.name(), lastAeii.nameInternal, 'exit')
             // count artifact hit (now done here instead of by each caller)
             // NOTE DEJ 20191229 removed condition where only artifacts requiring authz are counted: && lastAeii.internalAuthzWasRequired
             if (lastAeii.trackArtifactHit && lastAeii.isAccess)

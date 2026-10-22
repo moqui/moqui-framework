@@ -5,6 +5,8 @@ Run from the framework checkout, with Java 21 on PATH. --postgres uses a fresh d
 import argparse
 import collections
 import http.server
+import hashlib
+import hmac
 import json
 import os
 from pathlib import Path
@@ -34,6 +36,7 @@ def main():
     evidence.mkdir(parents=True, exist_ok=True)
     events = []
     active = set()
+    random_counts = collections.Counter()
     errors = []
     lock = threading.Lock()
 
@@ -47,7 +50,17 @@ def main():
                 event = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
                 assert event['version'] == 1 and event['engine'] == 'java'
                 with lock:
-                    if event['event'] == 'begin':
+                    if event['event'] == 'random':
+                        domain, length = event['domain'], event['length']
+                        assert 1 <= length <= 4096
+                        index = random_counts[domain]
+                        data = b''.join(hmac.digest(bytes(32), json.dumps(
+                            ['moqui-random-v1', 'activity', domain, index, block],
+                            separators=(',', ':')).encode('ascii'), hashlib.sha256)
+                            for block in range((length + 31) // 32))
+                        response = {'bytes': data[:length].hex()}
+                        random_counts[domain] += 1
+                    elif event['event'] == 'begin':
                         assert event['sequence'] not in active
                         assert event['artifact_stack'] and event['artifact'] == event['artifact_stack'][0]
                         assert all(set(a) == {'type', 'sub_type', 'name'} for a in event['artifact_stack'])
@@ -129,6 +142,11 @@ def main():
         assert not errors, errors
         assert not active, f'uncompleted operations: {sorted(active)}'
         records = [json.loads(line) for line in (evidence / 'deterministic.log').read_text().splitlines()]
+        traces = [record for record in records if record['event'] == 'trace']
+        assert [record['trace_sequence'] for record in traces] == list(range(1, len(traces) + 1))
+        assert any(record['kind'] == 'jdbc' and 'CREATE TABLE' in record['name'].upper() for record in traces)
+        assert any(record['kind'] == 'data' and record['action'] == 'record' for record in traces)
+        records = [record for record in records if record['event'] != 'trace']
         assert len(records) == len(events), (len(records), len(events))
         begins = [e for e in events if e['event'] == 'begin']
         assert len({e['sequence'] for e in begins}) == len(begins)
@@ -148,7 +166,7 @@ def main():
         summary = {'database': 'postgres18' if args.postgres else 'h2-memory', 'http': statuses,
                    'operations': len(begins), 'outcomes': dict(collections.Counter(
                        e['outcome'] for e in events if e['event'] == 'complete')), 'uncompleted': len(active),
-                   'persisted_statistics': statistics}
+                   'persisted_statistics': statistics, 'random_draw_counts': dict(random_counts)}
         (evidence / 'summary.json').write_text(json.dumps(summary, indent=2) + '\n')
         print(json.dumps(summary))
     finally:
