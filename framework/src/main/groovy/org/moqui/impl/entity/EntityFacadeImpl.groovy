@@ -627,6 +627,7 @@ class EntityFacadeImpl implements EntityFacade {
 
 
     protected EntityDefinition loadEntityDefinition(String entityName) {
+        org.moqui.util.DeterministicClock.trace('metadata', 'load-definition', entityName, 'requested')
         if (entityName.contains("#")) {
             // this is a relationship name, definitely not an entity name so just return null; this happens because we
             //    check if a name is an entity name or not in various places including where relationships are checked
@@ -2131,6 +2132,7 @@ class EntityFacadeImpl implements EntityFacade {
         } else {
             newCon = ds.getConnection()
         }
+        newCon = org.moqui.util.DeterministicJdbc.wrap(newCon)
         if (newCon != null) newCon = tfi.stashTxConnection(groupToUse, newCon)
         return newCon
     }

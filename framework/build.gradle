@@ -256,6 +256,7 @@ tasks.register('deterministicTest', Test) {
     classpath = sourceSets.test.runtimeClasspath + files(projectDir.absolutePath)
     useJUnitPlatform()
     include '**/Deterministic*Tests.class'
+    maxHeapSize = '1g'
     maxParallelForks = 1
     systemProperty 'moqui.runtime', rootProject.file('runtime').absolutePath
     testLogging { events 'passed', 'failed'; showStandardStreams = true }

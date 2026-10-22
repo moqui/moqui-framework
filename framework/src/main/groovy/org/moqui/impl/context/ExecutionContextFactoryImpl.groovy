@@ -166,6 +166,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
      * or by init methods in a servlet or context filter or OSGi component or Spring component or whatever.
      */
     ExecutionContextFactoryImpl() {
+        DeterministicClock.trace('phase', 'initialize', 'factory', 'requested')
         DeterministicClock.Operation bootstrap = DeterministicClock.bootstrap()
         boolean initialized = false
         try {
@@ -269,6 +270,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
     /** This constructor takes the runtime directory path and conf file path directly. */
     ExecutionContextFactoryImpl(String runtimePathParm, String confPathParm) {
+        DeterministicClock.trace('phase', 'initialize', 'factory', 'requested')
         DeterministicClock.Operation bootstrap = DeterministicClock.bootstrap()
         boolean initialized = false
         try {

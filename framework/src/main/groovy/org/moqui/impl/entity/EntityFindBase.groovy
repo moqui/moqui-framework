@@ -850,6 +850,7 @@ abstract class EntityFindBase implements EntityFind {
                 ed.getCacheOne(efi.getEntityCache()) : (Cache<EntityCondition, EntityValueBase>) null
         EntityValueBase cacheHit = (EntityValueBase) null
         if (doCache && txcValue == null && !forUpdate) cacheHit = (EntityValueBase) entityOneCache.get(whereCondition)
+        org.moqui.util.DeterministicClock.trace('cache', txcValue != null || cacheHit != null ? 'hit' : (doCache ? 'miss' : 'bypass'), entityInfo.fullEntityName, 'succeeded')
 
         // we always want fieldInfoArray populated so that we know the order of the results coming back
         int ftsSize = fieldsToSelect != null ? fieldsToSelect.size() : 0
@@ -1109,6 +1110,7 @@ abstract class EntityFindBase implements EntityFind {
         EntityListImpl cacheList = (EntityListImpl) null
         if (doEntityCache && txcEli == null && !forUpdate)
             cacheList = efi.getEntityCache().getFromListCache(ed, whereCondition, orderByExpanded, entityListCache)
+        org.moqui.util.DeterministicClock.trace('cache', txcEli != null || cacheList != null ? 'hit' : (doEntityCache ? 'miss' : 'bypass'), entityInfo.fullEntityName, 'succeeded')
 
         EntityListImpl el
         if (txcEli != null) {
@@ -1383,6 +1385,7 @@ abstract class EntityFindBase implements EntityFind {
         Cache<EntityCondition, Long> entityCountCache = doCache ? ed.getCacheCount(efi.getEntityCache()) : (Cache) null
         Long cacheCount = (Long) null
         if (doCache) cacheCount = (Long) entityCountCache.get(whereCondition)
+        org.moqui.util.DeterministicClock.trace('cache', cacheCount != null ? 'hit' : (doCache ? 'miss' : 'bypass'), entityInfo.fullEntityName, 'succeeded')
 
         long count
         if (cacheCount != null) {
