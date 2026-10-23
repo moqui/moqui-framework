@@ -71,6 +71,7 @@ class ElasticFacadeImpl implements ElasticFacade {
     public final ExecutionContextFactoryImpl ecfi
     private final Map<String, ElasticClientImpl> clientByClusterName = new LinkedHashMap<>()
     private ElasticSearchLogger esLogger = null
+    private final List<String> startupIndexFeedIds = new ArrayList<>()
 
     ElasticFacadeImpl(ExecutionContextFactoryImpl ecfi) {
         this.ecfi = ecfi
@@ -141,7 +142,10 @@ class ElasticFacadeImpl implements ElasticFacade {
                     }
                     boolean foundNotExists = false
                     for (String indexName in indexNames) if (!defaultEci.indexExists(indexName)) foundNotExists = true
-                    if (foundNotExists) {
+                    if (foundNotExists && org.moqui.util.DeterministicClock.isEnabled()) {
+                        // Service jobs are unsupported in deterministic mode; index inline once this facade is installed
+                        startupIndexFeedIds.add(dataFeed.getString("dataFeedId"))
+                    } else if (foundNotExists) {
                         // NOTE: called with localOnly(true) to avoid issues during startup if a distributed executor service is configured
                         String jobRunId = ecfi.service.job("IndexDataFeedDocuments").parameter("dataFeedId", dataFeed.dataFeedId).localOnly(true).run()
                         logger.info("Found index does not exist for DataFeed ${dataFeed.dataFeedId}, started job ${jobRunId} to index")
@@ -150,6 +154,21 @@ class ElasticFacadeImpl implements ElasticFacade {
             }
         } catch (Throwable t) {
             logger.error("Error checking or indexing for all DataFeed with indexOnStartEmpty=Y", t)
+        }
+        if (ecfi.elasticFacade != null) indexStartupFeeds()
+    }
+
+    /** Index, inline, the deterministic-mode DataFeeds init() found without an index; needs ecfi.elasticFacade set. */
+    void indexStartupFeeds() {
+        while (startupIndexFeedIds) {
+            String dataFeedId = startupIndexFeedIds.remove(0)
+            try {
+                Map result = ecfi.service.sync().name("org.moqui.search.SearchServices.index#DataFeedDocuments")
+                        .parameter("dataFeedId", dataFeedId).disableAuthz().call()
+                logger.info("Found index does not exist for DataFeed ${dataFeedId}, indexed ${result?.documentsIndexed} documents inline")
+            } catch (Throwable t) {
+                logger.error("Error indexing DataFeed ${dataFeedId} with indexOnStartEmpty=Y", t)
+            }
         }
     }
 
