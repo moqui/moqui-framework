@@ -23,6 +23,9 @@ import java.util.concurrent.locks.ReentrantLock;
 public final class DeterministicClock {
     private static final AtomicLong SEQUENCE = new AtomicLong();
     private static final ReentrantLock LANE = new ReentrantLock(true);
+    // A thread started by the lane holder, which waits for it to end, so the lane stays single while it runs.
+    private static volatile Thread laneGuest;
+    private static int guestHolds;
     private static final ObjectMapper JSON = new ObjectMapper().enable(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION);
     private static class Process { static final DeterministicClock CLOCK = new DeterministicClock(settings()); }
     private final URI hook;
@@ -57,8 +60,39 @@ public final class DeterministicClock {
         return flag == null || "true".equals(flag);
     }
     public static DeterministicClock get() { return Process.CLOCK; }
-    public static void lockLane() { LANE.lock(); }
-    public static void unlockLane() { LANE.unlock(); }
+    public static void lockLane() {
+        if (Thread.currentThread() == laneGuest) guestHolds++;
+        else LANE.lock();
+    }
+    public static void unlockLane() {
+        if (Thread.currentThread() != laneGuest) { LANE.unlock(); return; }
+        if (guestHolds == 0) throw new IllegalMonitorStateException("Deterministic lane guest released more than it holds");
+        guestHolds--;
+    }
+    static boolean laneHeldByCurrentThread() { return Thread.currentThread() == laneGuest || LANE.isHeldByCurrentThread(); }
+    /**
+     * Start {@code thread} and wait for it to end. If this thread holds the lane, {@code thread} uses it in this
+     * thread's place: waiting for the lane there would wait for this thread, which is waiting for it.
+     */
+    public static void runAndJoin(Thread thread) throws InterruptedException {
+        if (!laneHeldByCurrentThread()) { thread.start(); thread.join(); return; }
+        Thread previousGuest = laneGuest;
+        int previousHolds = guestHolds;
+        laneGuest = thread;
+        guestHolds = 0;
+        try {
+            thread.start();
+            thread.join();
+        } finally {
+            boolean leaked = guestHolds != 0 || thread.isAlive();
+            laneGuest = previousGuest;
+            guestHolds = previousHolds;
+            if (leaked) {
+                get().failed = true;
+                throw new IllegalStateException("Deterministic lane guest did not end with its operations complete");
+            }
+        }
+    }
     public static long nowMillis() {
         if (!isEnabled()) return System.currentTimeMillis();
         DeterministicClock clock = get();
@@ -111,7 +145,7 @@ public final class DeterministicClock {
         if (failed) throw new IllegalStateException("Deterministic coordinator/log failed; execution must stop");
     }
     public Operation begin(List<Map<String, String>> artifacts, boolean transaction) {
-        LANE.lock();
+        lockLane();
         try {
             checkHealthy();
             List<Map<String, String>> stack = new ArrayList<>();
@@ -146,7 +180,7 @@ public final class DeterministicClock {
             return operation;
         } catch (RuntimeException e) {
             failed = true;
-            LANE.unlock();
+            unlockLane();
             throw e;
         }
     }
@@ -249,7 +283,7 @@ public final class DeterministicClock {
         }
         public void complete(String outcome) {
             if (completed) return;
-            if (!LANE.isHeldByCurrentThread() || clock.operations.get().peek() != this)
+            if (!laneHeldByCurrentThread() || clock.operations.get().peek() != this)
                 throw new IllegalStateException("Deterministic operation completed outside its lane/stack");
             try {
                 clock.checkHealthy();
@@ -262,7 +296,7 @@ public final class DeterministicClock {
                 if (response.size() != 1 || !response.path("ok").isBoolean() || !response.path("ok").booleanValue())
                     throw new IllegalStateException("Invalid deterministic completion response");
             } catch (RuntimeException e) { clock.failed = true; throw e; }
-            finally { completed = true; clock.operations.get().pop(); LANE.unlock(); }
+            finally { completed = true; clock.operations.get().pop(); unlockLane(); }
         }
     }
 }

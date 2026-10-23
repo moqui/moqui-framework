@@ -206,8 +206,7 @@ class ScreenTestImpl implements ScreenTest {
                     }
                 }
             }
-            newThread.start()
-            newThread.join()
+            org.moqui.util.DeterministicClock.runAndJoin(newThread)
             if (threadThrown != null) throw threadThrown
             return this
         }
