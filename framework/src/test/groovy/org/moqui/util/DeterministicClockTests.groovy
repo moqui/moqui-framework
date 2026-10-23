@@ -93,6 +93,23 @@ class DeterministicClockTests extends Specification {
         !clock.hasTime()
         !clock.hasTransaction()
     }
+    def 'a thread the lane holder waits on runs its operations in the holder lane'() {
+        given:
+        def clock = new DeterministicClock(settings())
+        Throwable thrown = null
+        def child = new Thread({
+            try { clock.begin([], false).complete('committed') } catch (Throwable t) { thrown = t }
+        } as Runnable)
+        when:
+        def parent = clock.begin([], false)
+        DeterministicClock.runAndJoin(child)
+        parent.complete('committed')
+        then:
+        thrown == null
+        requests*.event == ['begin', 'begin', 'complete', 'complete']
+        requests[1].parent_sequence == null
+        !DeterministicClock.laneHeldByCurrentThread()
+    }
     def 'append and sequence survive another clock owner'() {
         when:
         def a = new DeterministicClock(settings()).begin([], false)
