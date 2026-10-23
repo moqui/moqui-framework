@@ -22,6 +22,7 @@ import jakarta.servlet.http.HttpSessionEvent
 import jakarta.servlet.http.HttpSessionListener
 
 import java.sql.Timestamp
+import java.util.concurrent.ConcurrentHashMap
 
 import org.moqui.Moqui
 import org.moqui.impl.context.ExecutionContextFactoryImpl
@@ -33,6 +34,9 @@ import org.slf4j.LoggerFactory
 class MoquiSessionListener implements HttpSessionListener, HttpSessionAttributeListener {
     protected final static Logger logger = LoggerFactory.getLogger(MoquiSessionListener.class)
     private HashMap<String, String> visitIdBySession = new HashMap<>()
+    // One invalidate calls sessionDestroyed and then attributeRemoved, and the session made at login keeps the
+    // visitId, so a visit can be closed again at a time set by the container. Deterministic runs write only the first close.
+    private static final Set<String> deterministicClosedVisits = ConcurrentHashMap.newKeySet()
 
     @Override void sessionCreated(HttpSessionEvent event) {
         HttpSession session = event.session
@@ -85,16 +89,19 @@ class MoquiSessionListener implements HttpSessionListener, HttpSessionAttributeL
         ExecutionContextFactoryImpl ecfi = (ExecutionContextFactoryImpl) Moqui.getExecutionContextFactory()
         if (ecfi.confXmlRoot.first("server-stats").attribute("visit-enabled") == "false") return
 
+        if (org.moqui.util.DeterministicClock.isEnabled() && !deterministicClosedVisits.add(visitId)) return
         if (org.moqui.impl.context.DeterministicTransaction.needed(ecfi.transactionFacade)) {
             boolean ownContext = ecfi.getActiveExecutionContext() == null
             ecfi.getEci() // explicit coordinator scope for a container session callback
             try {
                 org.moqui.impl.context.DeterministicTransaction.run(ecfi.transactionFacade,
-                        { -> closeVisit(visitId, sessionId); return null } as java.util.concurrent.Callable<Object>)
+                        { -> setVisitThruDate(ecfi, visitId, sessionId); return null } as java.util.concurrent.Callable<Object>)
             } finally { if (ownContext) ecfi.destroyActiveExecutionContext() }
             return
         }
-        // set thruDate on Visit
+        setVisitThruDate(ecfi, visitId, sessionId)
+    }
+    private static void setVisitThruDate(ExecutionContextFactoryImpl ecfi, String visitId, String sessionId) {
         Timestamp thruDate = new Timestamp(org.moqui.util.DeterministicClock.nowMillis())
         ecfi.serviceFacade.sync().name("update", "moqui.server.Visit").parameter("visitId", visitId).parameter("thruDate", thruDate)
                 .disableAuthz().call()
