@@ -251,6 +251,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         // NOTE: ElasticFacade init after postFacadeInit() so finds embedded from moqui-elasticsearch if present, can move up once moqui-elasticsearch deprecated
         elasticFacade = new ElasticFacadeImpl(this)
+        elasticFacade.indexStartupFeeds()
         logger.info("Elastic Facade initialized")
         llmFacade = new LlmFacadeImpl(this)
         a2aFacade = new A2AFacadeImpl(this)
@@ -327,6 +328,7 @@ class ExecutionContextFactoryImpl implements ExecutionContextFactory {
 
         // NOTE: ElasticFacade init after postFacadeInit() so finds embedded from moqui-elasticsearch if present, can move up once moqui-elasticsearch deprecated
         elasticFacade = new ElasticFacadeImpl(this)
+        elasticFacade.indexStartupFeeds()
         logger.info("Elastic Facade initialized")
         llmFacade = new LlmFacadeImpl(this)
         a2aFacade = new A2AFacadeImpl(this)
