@@ -35,9 +35,19 @@ along with this software (see the LICENSE.md file). If not, see
             Calendar basisCal = ec.user.getCalendarSafe()
             basisCal.add(Calendar.DAY_OF_YEAR, (int) -daysToKeep)
             basisTimestamp = new Timestamp(basisCal.getTimeInMillis())
+            // Steward owns retention for harness conversations, including their messages and skill-use history.
+            List stewardIds = ec.entity.find("moqui.llm.LlmConversation").condition("purpose", "steward")
+                    .selectField("conversationId").disableAuthz().list().collect { it.conversationId }
+            Closure preserveSteward = { find ->
+                for (List chunk in stewardIds.collate(500)) find.condition(ec.entity.conditionFactory.makeCondition([
+                        ec.entity.conditionFactory.makeCondition("conversationId", EntityCondition.NOT_IN, chunk),
+                        ec.entity.conditionFactory.makeCondition("conversationId", EntityCondition.EQUALS, null)
+                ], EntityCondition.OR))
+                return find
+            }
             // Delete children of old conversations first so the LlmMessage FK cannot fail the job.
             // A conversation that never got a message has no lastMessageDate, so it ages by createdDate.
-            def oldConvs = ec.entity.find("moqui.llm.LlmConversation")
+            def oldConvs = preserveSteward(ec.entity.find("moqui.llm.LlmConversation"))
                     .condition(ec.entity.conditionFactory.makeCondition([
                         ec.entity.conditionFactory.makeCondition("lastMessageDate", EntityCondition.LESS_THAN, basisTimestamp),
                         ec.entity.conditionFactory.makeCondition([
@@ -63,13 +73,13 @@ along with this software (see the LICENSE.md file). If not, see
                         .condition("conversationId", EntityCondition.IN, chunk)
                         .disableAuthz().deleteAll()
             }
-            messagesRemoved += ec.entity.find("moqui.llm.LlmMessage")
+            messagesRemoved += preserveSteward(ec.entity.find("moqui.llm.LlmMessage"))
                     .condition("sentDate", EntityCondition.LESS_THAN, basisTimestamp)
                     .disableAuthz().deleteAll()
-            callLogsRemoved += ec.entity.find("moqui.llm.LlmCallLog")
+            callLogsRemoved += preserveSteward(ec.entity.find("moqui.llm.LlmCallLog"))
                     .condition("startDate", EntityCondition.LESS_THAN, basisTimestamp)
                     .disableAuthz().deleteAll()
-            ec.entity.find("moqui.llm.LlmSkillUse")
+            preserveSteward(ec.entity.find("moqui.llm.LlmSkillUse"))
                     .condition("usedDate", EntityCondition.LESS_THAN, basisTimestamp)
                     .disableAuthz().deleteAll()
             if (contentDaysToKeep && contentDaysToKeep > 0 && contentDaysToKeep < daysToKeep) {
@@ -77,7 +87,7 @@ along with this software (see the LICENSE.md file). If not, see
                 contentCal.add(Calendar.DAY_OF_YEAR, (int) -contentDaysToKeep)
                 Timestamp contentBasis = new Timestamp(contentCal.getTimeInMillis())
                 // Only rows that still carry text, so a rerun does not touch rows it already stripped
-                def stripFind = ec.entity.find("moqui.llm.LlmCallLog")
+                def stripFind = preserveSteward(ec.entity.find("moqui.llm.LlmCallLog"))
                         .condition("startDate", EntityCondition.LESS_THAN, contentBasis)
                         .condition(ec.entity.conditionFactory.makeCondition([
                             ec.entity.conditionFactory.makeCondition("requestJson", EntityCondition.NOT_EQUAL, null),

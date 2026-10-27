@@ -22,6 +22,8 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="messageText" required="true"/>
             <parameter name="systemMessageRemoteId"/>
             <parameter name="remoteMessageId"/>
+            <parameter name="docType"/>
+            <parameter name="docVersion"/>
         </in-parameters>
         <out-parameters>
             <parameter name="systemMessageIdList" type="List"><parameter name="systemMessageId"/></parameter>
@@ -399,7 +401,13 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <actions>
             <set field="retryTimestamp" from="new Timestamp((System.currentTimeMillis() - (retryMinutes * 60000)) as long)"/>
+            <entity-find entity-name="moqui.service.message.SystemMessageType" list="managedTypes">
+                <econdition field-name="sendScheduled" value="N"/>
+                <select-field field-name="systemMessageTypeId"/>
+            </entity-find>
+            <set field="managedTypeIds" from="managedTypes.collect { it.systemMessageTypeId }"/>
             <entity-find entity-name="moqui.service.message.SystemMessage" list="smList" limit="200">
+                <econdition field-name="systemMessageTypeId" operator="not-in" from="managedTypeIds" ignore-if-empty="true"/>
                 <econdition field-name="statusId" value="SmsgProduced"/>
                 <econdition field-name="isOutgoing" value="Y"/>
                 <econdition field-name="lastAttemptDate" operator="less" from="retryTimestamp" or-null="true"/>

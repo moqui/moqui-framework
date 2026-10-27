@@ -272,6 +272,9 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="SystemMessageType" package="moqui.service.message" use="configuration" cache="true">
         <field name="systemMessageTypeId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
+        <field name="sendScheduled" type="text-indicator"><description>Set N when a component's own job manages sending
+            and retries (for example an ordered queue). The standard send#AllProducedSystemMessages job skips this type.
+            Empty or Y keeps standard scheduled sending.</description></field>
         <field name="produceServiceName" type="text-medium"><description>Not used in automated processing, but useful
             for documentation and tools in some cases.</description></field>
         <field name="consumeServiceName" type="text-medium"><description>The service to call after a message is

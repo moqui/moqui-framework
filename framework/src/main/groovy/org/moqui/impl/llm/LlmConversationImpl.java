@@ -847,6 +847,9 @@ public class LlmConversationImpl implements LlmConversation {
         title = header.getString("title");
         createdDate = header.getTimestamp("createdDate");
         purpose = header.getString("purpose");
+        if ("steward".equals(purpose))
+            throw new LlmException("Steward conversations are managed by their harness",
+                    null, LlmFinishReason.ERROR, 409, null, conversationId);
         summary = header.getString("summary");
         searchText = header.getString("searchText");
         hasCanvas = header.getString("hasCanvas");

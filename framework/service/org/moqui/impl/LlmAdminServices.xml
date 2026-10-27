@@ -158,6 +158,9 @@ along with this software (see the LICENSE.md file). If not, see
         <actions><script><![CDATA[
             def conv = ec.entity.find("moqui.llm.LlmConversation").condition("conversationId", conversationId).forUpdate(true).useCache(false).one()
             if (conv == null) { ec.message.addError("Conversation ${conversationId} not found"); return }
+            if (conv.purpose == "steward") {
+                ec.message.addError("Steward conversations are managed by their harness"); return
+            }
             if (conv.statusId == "LlmcsStreaming") {
                 ec.message.addError("Conversation is Streaming. Cancel it first."); return
             }

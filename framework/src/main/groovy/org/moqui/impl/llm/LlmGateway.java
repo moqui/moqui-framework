@@ -741,6 +741,11 @@ public final class LlmGateway {
     private static org.moqui.entity.EntityFind conversationFind(ExecutionContext ec, String userId, boolean admin,
             String profile, String purpose, String search) {
         org.moqui.entity.EntityFind find = ec.getEntity().find("moqui.llm.LlmConversation");
+        org.moqui.entity.EntityConditionFactory purposeCf = ec.getEntity().getConditionFactory();
+        find.condition(purposeCf.makeCondition(java.util.Arrays.asList(
+                purposeCf.makeCondition("purpose", org.moqui.entity.EntityCondition.NOT_EQUAL, "steward"),
+                purposeCf.makeCondition("purpose", org.moqui.entity.EntityCondition.EQUALS, null)),
+                org.moqui.entity.EntityCondition.OR));
         if (!admin && userId != null) find.condition("userId", userId);
         if (profile != null && !profile.isBlank()) find.condition("profileName", profile.trim());
         if (purpose != null && !purpose.isBlank()) find.condition("purpose", purpose.trim());
