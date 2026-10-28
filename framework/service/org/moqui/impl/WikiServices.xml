@@ -503,7 +503,8 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="origParentPath" from="pagePath.contains('/') ? pagePath.substring(0, pagePath.lastIndexOf('/')) : ''"/>
             <set field="origPageName" from="pagePath.contains('/') ? pagePath.substring(pagePath.lastIndexOf('/')+1) : pagePath"/>
             <!-- TODO: support change of wikiType too -->
-            <if condition="pageName &amp;&amp; (origParentPath != parentPath || origPageName != pageName)">
+            <!-- top-level page: origParentPath is '' and parentPath null, not a move -->
+            <if condition="pageName &amp;&amp; (origParentPath != (parentPath ?: '') || origPageName != pageName)">
                 <log message="update#WikiPage path ${pagePath} pageName=${pageName} origPageName=${origPageName} parentPath=${parentPath} origParentPath=${origParentPath}"/>
                 <!-- move the page file -->
                 <set field="rootPageDirRef" from="rootPageRef.findMatchingDirectory()"/>
