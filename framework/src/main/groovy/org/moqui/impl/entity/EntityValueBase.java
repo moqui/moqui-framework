@@ -1526,7 +1526,7 @@ public abstract class EntityValueBase implements EntityValue {
 
         // set lastUpdatedStamp
         final Long time = ecfi.transactionFacade.getCurrentTransactionStartTime();
-        Long lastUpdatedLong = time != null && time > 0 ? time : System.currentTimeMillis();
+        Long lastUpdatedLong = time != null && time > 0 ? time : org.moqui.util.TestDataClock.nowMillis();
         FieldInfo lastUpdatedStampInfo = ed.entityInfo.lastUpdatedStampInfo;
         if (lastUpdatedStampInfo != null && valueMapInternal.getByIString(lastUpdatedStampInfo.name, lastUpdatedStampInfo.index) == null)
             valueMapInternal.putByIString(lastUpdatedStampInfo.name, new Timestamp(lastUpdatedLong), lastUpdatedStampInfo.index);
@@ -1688,7 +1688,7 @@ public abstract class EntityValueBase implements EntityValue {
             // set lastUpdatedStamp
             if (!modifiedLastUpdatedStamp && lastUpdatedStampInfo != null) {
                 final Long time = ecfi.transactionFacade.getCurrentTransactionStartTime();
-                long lastUpdatedLong = time != null && time > 0 ? time : System.currentTimeMillis();
+                long lastUpdatedLong = time != null && time > 0 ? time : org.moqui.util.TestDataClock.nowMillis();
                 valueMapInternal.putByIString(lastUpdatedStampInfo.name, new Timestamp(lastUpdatedLong), lastUpdatedStampInfo.index);
                 nonPkFieldArray[nonPkFieldArrayIndex] = lastUpdatedStampInfo;
                 // never gets used after this point, but if ever does will need to: nonPkFieldArrayIndex++

@@ -328,6 +328,8 @@ public class ContextJavaUtil {
         public final long moquiTxId = moquiTxIdLast.incrementAndGet();
         public Exception transactionBegin = null;
         public Long transactionBeginStartTime = null;
+        // Change 1: elapsed timeout accounting must never subtract supplied epoch time.
+        public Long transactionBeginNanos = null;
         public int transactionTimeout = 60;
         public RollbackInfo rollbackOnlyInfo = null;
 
@@ -346,10 +348,19 @@ public class ContextJavaUtil {
 
         public TxStackInfo(TransactionFacadeImpl tfi) { transactionFacade = tfi; }
 
+        // Change 1: timeout duration is independent of the frame's supplied data timestamp.
+        public long timeoutRemainingMillis() {
+            long timeoutMs = transactionTimeout * 1000L;
+            long elapsedMs = transactionBeginNanos == null ? 0L :
+                    java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - transactionBeginNanos);
+            return elapsedMs > 0 ? timeoutMs - elapsedMs : timeoutMs;
+        }
+
         public void clearCurrent() {
             rollbackOnlyInfo = null;
             transactionBegin = null;
             transactionBeginStartTime = null;
+            transactionBeginNanos = null;
             transactionTimeout = 60;
             activeXaResourceMap.clear();
             activeSynchronizationMap.clear();

@@ -332,12 +332,7 @@ class TransactionFacadeImpl implements TransactionFacade {
     }
 
     int getTransactionTimeout() { return getTxStackInfo().transactionTimeout }
-    long getTxTimeoutRemainingMillis() {
-        TxStackInfo txStackInfo = getTxStackInfo()
-        long txTimeoutMs = txStackInfo.transactionTimeout * 1000L
-        long txSinceBeginMs = txStackInfo.transactionBeginStartTime != null ? System.currentTimeMillis() - txStackInfo.transactionBeginStartTime : 0L
-        return txSinceBeginMs > 0 ? txTimeoutMs - txSinceBeginMs : txTimeoutMs
-    }
+    long getTxTimeoutRemainingMillis() { return getTxStackInfo().timeoutRemainingMillis() }
 
     @Override
     boolean begin(Integer timeout) {
@@ -363,6 +358,8 @@ class TransactionFacadeImpl implements TransactionFacade {
             }
         }
 
+        // Change 1: reject an invalid assignment before opening a transaction.
+        long dataTime = org.moqui.util.TestDataClock.nowMillis()
         try {
             // NOTE: Since JTA 1.1 setTransactionTimeout() is local to the thread, so this doesn't need to be synchronized.
             if (timeout != null) ut.setTransactionTimeout(timeout)
@@ -370,7 +367,8 @@ class TransactionFacadeImpl implements TransactionFacade {
 
             TxStackInfo txStackInfo = getTxStackInfo()
             txStackInfo.transactionBegin = new Exception("Tx Begin Placeholder")
-            txStackInfo.transactionBeginStartTime = System.currentTimeMillis()
+            txStackInfo.transactionBeginStartTime = dataTime
+            txStackInfo.transactionBeginNanos = System.nanoTime()
             if (timeout != null) txStackInfo.transactionTimeout = timeout
             // logger.warn("================ begin TX, getActiveSynchronizationStack()=${getActiveSynchronizationStack()}")
 
