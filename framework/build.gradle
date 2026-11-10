@@ -208,6 +208,9 @@ test {
 
     dependsOn cleanTest
     include '**/*MoquiSuite.class'
+    // Change 1: supplied data-clock parsing and disabled-mode regression.
+    include '**/TestDataClockTests.class'
+    include '**/TestDataClockTransactionTests.class'
     include '**/RestClientStreamTests.class'
     include '**/LlmClientTests.class'
     include '**/LlmToolTransactionTests.class'

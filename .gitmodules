@@ -1,0 +1,4 @@
+# Change 2: retain the pinned isolated runtime required by recursive harness setup.
+[submodule "runtime"]
+	path = runtime
+	url = https://github.com/moqui/moqui-runtime.git
